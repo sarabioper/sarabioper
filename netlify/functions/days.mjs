@@ -1,4 +1,6 @@
-import { store, json, authorized } from "../lib/common.mjs";
+import { store, json, authorized, istanbulNow } from "../lib/common.mjs";
+import { watchFromDay } from "../lib/watch.mjs";
+import { poll } from "../lib/poll.mjs";
 
 // Shared day storage, so every dispatcher and guide sees the same list.
 // GET  /api/days                          -> days of the last 7 days, with vehicle assignments and "met" marks
@@ -34,7 +36,14 @@ export default async (req) => {
     body.key = d;
     body.savedAt = new Date().toISOString();
     await s.setJSON("day/" + d, body);
-    return json({ ok: true });
+    // The flights in this KAPAK become the list the server follows for that date.
+    const watch = watchFromDay(body);
+    let started = null;
+    if (/^\d{4}-\d\d-\d\d$/.test(body.iso || "")) {
+      await s.setJSON("watch/" + body.iso, watch);
+      if (body.iso === istanbulNow().date) started = await poll({ force: true }).catch((e) => ({ error: String(e.message || e) }));
+    }
+    return json({ ok: true, watched: Object.keys(watch).length, poll: started });
   }
 
   if (req.method === "PUT" && path === "/api/state") {

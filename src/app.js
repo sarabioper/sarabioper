@@ -79,8 +79,9 @@ async function serverBoot(){
 function todayKey(){const d=new Date();return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')}
 async function refreshLive(){
   try{LIVE=await api('GET','/api/flights')}catch(e){LIVE=null}
-  const n=LIVE&&LIVE.flights?Object.keys(LIVE.flights).length:0;
-  $('#modePill').textContent=LIVE&&LIVE.updated?`Рейсы AYT: обновлено ${new Date(LIVE.updated).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'})} · ${LIVE.provider} · ${n} рейсов`:(LIVE&&LIVE.message)||'Живые статусы ещё не подключены';
+  const c=LIVE&&LIVE.coverage;const cov=c&&c.watched?` · найдено ${c.found} из ${c.watched} наших рейсов`:'';
+  $('#modePill').textContent=LIVE&&LIVE.updated?`Рейсы: обновлено ${new Date(LIVE.updated).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'})} · ${LIVE.provider}${cov}`:((LIVE&&LIVE.message)||'Живые статусы ещё не подключены')+cov;
+  $('#modePill').title=c&&c.missing&&c.missing.length?'Пока без данных: '+c.missing.join(', '):'';
   if(DAY){buildFlights();renderAll()}
 }
 function liveFor(f){
@@ -384,9 +385,9 @@ async function importFile(file){
     if(!d.arr.length&&!d.dep.length)throw new Error('В файле не найдено ни одного рейса.');
     d.iso=dm?`${dm[3]}-${dm[2]}-${dm[1]}`:'';
     DAYS[key]=d;
-    if(SERVER){await api('PUT','/api/day?d='+encodeURIComponent(key),d)}else{const imp=store.get('imported',{});imp[key]=d;store.set('imported',imp)}
+    let srv=null;if(SERVER){srv=await api('PUT','/api/day?d='+encodeURIComponent(key),d);refreshLive()}else{const imp=store.get('imported',{});imp[key]=d;store.set('imported',imp)}
     loadDay(key);
-    msg.innerHTML=`<b>День ${esc(key)} загружен.</b><span>${d.arr.length} групп на прилёт, ${d.dep.length} на вылет, ${d.self} гостей едут сами, ${d.h2h} межотельных.</span><span>Сверка с итогами файла: ${ok} из ${K.recon.length} рейсов сходятся.${pack.recon.bad.length?' Не сходятся: '+pack.recon.bad.map(b=>esc(b.fl)).join(', ')+'.':''}</span>`;
+    msg.innerHTML=`<b>День ${esc(key)} загружен.</b><span>${d.arr.length} групп на прилёт, ${d.dep.length} на вылет, ${d.self} гостей едут сами, ${d.h2h} межотельных.</span>${srv?`<span>Программа следит за ${srv.watched} рейсами из этого Капака${srv.poll&&srv.poll.ok?`, первые данные уже получены (${srv.poll.found})`:''}.</span>`:''}<span>Сверка с итогами файла: ${ok} из ${K.recon.length} рейсов сходятся.${pack.recon.bad.length?' Не сходятся: '+pack.recon.bad.map(b=>esc(b.fl)).join(', ')+'.':''}</span>`;
   }catch(err){msg.innerHTML='<span>Не удалось прочитать файл: '+esc(err.message)+'</span>'}
 }
 $('#xls').addEventListener('change',e=>{if(e.target.files[0])importFile(e.target.files[0])});

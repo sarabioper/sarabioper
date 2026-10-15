@@ -13,11 +13,14 @@ export default async (req) => {
   const today = istanbulNow().date;
   const snap = await s.get("live/" + today, { type: "json" });
   const meta = (await s.get("live/meta", { type: "json" })) || {};
+  const watch = (await s.get("watch/" + today, { type: "json" })) || {};
+  const watched = Object.keys(watch);
+  const coverage = { watched: watched.length, found: watched.filter((k) => snap && snap.flights[k]).length, missing: watched.filter((k) => !(snap && snap.flights[k])) };
   if (!snap) {
     const noKey = !process.env.AIRLABS_KEY && !process.env.AVIATIONSTACK_KEY;
-    return json({ date: today, flights: {}, message: noKey ? "Ключ API рейсов не задан на сервере" : "Статусы рейсов на сегодня ещё не загружены", used: meta.used || {}, lastError: meta.lastError || null, poll: pollResult });
+    return json({ date: today, flights: {}, message: noKey ? "Ключ API рейсов не задан на сервере" : watched.length ? "Ждём, когда наши рейсы вылетят" : "Загрузите Капак на сегодня, чтобы следить за рейсами", coverage, used: meta.used || {}, lastError: meta.lastError || null, poll: pollResult });
   }
-  return json({ ...snap, used: meta.used || {}, lastError: meta.lastError || null, poll: pollResult });
+  return json({ ...snap, coverage, used: meta.used || {}, lastError: meta.lastError || null, poll: pollResult });
 };
 
 export const config = { path: "/api/flights" };
