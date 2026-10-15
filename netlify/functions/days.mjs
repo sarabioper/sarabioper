@@ -48,13 +48,13 @@ export default async (req) => {
 
   if (req.method === "GET" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
-    if (!["assign", "met"].includes(kind)) return json({ error: "Неверный тип" }, 400);
+    if (!["assign", "met", "guides"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     return json({ data: (await s.get("state/" + d + "/" + kind, { type: "json" })) || {} });
   }
 
   if (req.method === "PUT" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
-    if (!["assign", "met"].includes(kind)) return json({ error: "Неверный тип" }, 400);
+    if (!["assign", "met", "guides"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     const body = await req.json();
     if (kind === "met") {
       // merge marks so two guides ticking at once do not overwrite each other
@@ -62,7 +62,7 @@ export default async (req) => {
       for (const [id, marks] of Object.entries(body || {})) prev[id] = { ...(prev[id] || {}), ...marks };
       await s.setJSON("state/" + d + "/met", prev);
     } else {
-      await s.setJSON("state/" + d + "/assign", body || {});
+      await s.setJSON("state/" + d + "/" + kind, body || {});
     }
     return json({ ok: true });
   }

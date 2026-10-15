@@ -303,6 +303,21 @@ tr.soon td.t{color:var(--signal-ink)}
 .noshow b{color:var(--crit)}
 @media (max-width:900px){.ops-grid{grid-template-columns:minmax(0,1fr)}.ops-side{position:static}}
 
+.gcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;padding:10px}
+.gcard{display:grid;gap:4px;border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--surface);font-size:13px;min-width:0}
+.gcard.on{border-color:var(--signal);box-shadow:0 0 0 1px var(--signal)}
+.gc-name{border:0;background:none;padding:0;text-align:left;font-family:var(--f-display);font-size:17px;font-weight:700;color:var(--ink);letter-spacing:.02em}
+.gc-name:hover{text-decoration:underline}
+.gc-ph{border:1px solid var(--line);border-radius:5px;padding:4px 7px;background:var(--sunk);font-family:var(--f-mono);font-size:12.5px;width:100%;min-width:0}
+.gc-veh{color:var(--muted);font-family:var(--f-mono);font-size:12px}
+.gc-prog{display:flex;gap:6px;align-items:center}
+.gc-prog .nos{color:var(--crit)}
+.gc-next{font-size:12.5px}
+.gstrip{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;padding:8px 14px;background:var(--sunk);border-top:1px solid var(--line);font-size:13px}
+.gs-name{font-family:var(--f-display);font-size:18px;font-weight:700}
+.gs-ph{font-family:var(--f-mono);user-select:all}
+.gs-veh{font-family:var(--f-mono);font-size:12.5px}
+
 .chip.gzp{background:var(--warn-soft);color:var(--warn);border-color:transparent}
 .drops{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
 .drop .step{width:26px;height:26px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-weight:600;font-size:13px;justify-self:center}
@@ -363,9 +378,10 @@ tr.soon td.t{color:var(--signal-ink)}
     <div class="filters">
       <select id="opsGuide" aria-label="Гид"><option value="">Все гиды</option></select>
       <select id="opsKind" aria-label="Тип"><option value="">Встречи и заборы</option><option value="arr">Только встречи</option><option value="dep">Только заборы</option></select>
-      <input id="opsQ" placeholder="Фамилия, рейс или отель" aria-label="Поиск">
+      <input id="opsQ" placeholder="Гид, фамилия, рейс или отель" aria-label="Поиск">
     </div>
-    <div class="ops-grid">
+    <details class="ops-box" id="opsGuidesBox" open><summary>Гиды дня <span class="hint">· нажмите на имя, чтобы увидеть только его задания</span></summary><div class="gcards" id="opsGuides"></div></details>
+    <div class="ops-grid" style="margin-top:14px">
       <div class="ops-main">
         <h2>Ждём сейчас <span class="hint">· от полутора часов назад до двух часов вперёд</span></h2>
         <div class="tasks" id="opsWait"></div>
@@ -792,6 +808,7 @@ async function serverBoot(){
   try{
     const res=await api('GET','/api/days');
     res.days.forEach(d=>{DAYS[d.key]=d});
+    try{const gp=await api('GET','/api/state?d=00.00&kind=guides');GP=Object.assign({},GP,gp.data||{});store.set('guidePhones',GP)}catch(e){}
     const keys=Object.keys(DAYS).sort();
     if(!DAYS[dayKey])dayKey=keys.includes(todayKey())?todayKey():keys.pop()||null;
     loadDay(dayKey);
@@ -816,6 +833,9 @@ let DAY=null,flights=[];
 let dayKey=store.get('day','15.10');if(!DAYS[dayKey])dayKey=Object.keys(DAYS).sort().pop()||null;
 let NOW=store.get('now_'+dayKey,540);
 let assign={},met={},contacts=null;
+let GP=store.get('guidePhones',{});
+function saveGP(){store.set('guidePhones',GP);if(SERVER)api('PUT','/api/state?d=00.00&kind=guides',GP).catch(()=>{})}
+const gPhone=n=>GP[n]||'';
 
 function loadDay(k){
   if(!k||!DAYS[k]){DAY=null;$('#dateLbl').textContent='Операционный центр · день ещё не загружен';$('#daySel').innerHTML='';$('#board').innerHTML='<p class="hint">Пока нет ни одного дня. Откройте вкладку «Загрузить день» и перетащите Excel KAPAK.</p>';const tb=document.querySelector('.tab[data-t=data]');if(tb)tb.click();renderDayStatus();return}
@@ -1113,8 +1133,8 @@ const guideTasks=g=>buildTasks(t=>t.g===g);
 function taskHead(t,showGuide){
   const g0=t.groups[0];
   if(t.kind==='arr'){const f=t.f,st=f?fStatus(f,NOW):null;const late=f&&f.delay>=15&&(f.live||NOW>=f.delayKnownAt);
-    return `<div class="tt ${late?'late':''} num">${late?`<s>${g0.t}</s>`:''}${fmt(t.time)}<small>${st&&st.k==='land'?'сел':'посадка'}</small></div><div><div class="kind arr">Встреча${showGuide?` · <span class="gtag">${esc(t.guide||'гид не указан')}</span>`:''}</div><div class="ttl">${esc(f?[...f.codes].join(' / '):g0.fl)}</div><div class="sub">${esc(CITY[g0.org]||g0.org||'')} · ${g0.to==='GZP'?'<b>Газипаша</b>':termLbl(g0.term)} · ${esc(g0.v||'без машины')}</div></div>${st?`<span class="status ${st.k} st"><span class="dot"></span>${st.lbl}</span>`:''}`}
-  return `<div class="tt num">${esc(g0.pu||g0.t)}<small>выезд</small></div><div><div class="kind dep">Забор из отеля${showGuide?` · <span class="gtag">${esc(t.guide||'гид не указан')}</span>`:''}</div><div class="ttl">${esc(g0.h)}</div><div class="sub">→ ${/^[!?]/.test(g0.fl)?'рейс не указан':esc(normFl(g0.fl))} в ${esc(g0.t)} · ${termLbl(g0.term)} · ${esc(g0.v||'')}${g0.note?' · '+esc(g0.note):''}</div></div><span class="chip st">${t.groups.reduce((s,x)=>s+(+x.pax||0),0)} чел</span>`;
+    return `<div class="tt ${late?'late':''} num">${late?`<s>${g0.t}</s>`:''}${fmt(t.time)}<small>${st&&st.k==='land'?'сел':'посадка'}</small></div><div><div class="kind arr">Встреча</div><div class="ttl">${esc(f?[...f.codes].join(' / '):g0.fl)}</div><div class="sub">${esc(CITY[g0.org]||g0.org||'')} · ${g0.to==='GZP'?'<b>Газипаша</b>':termLbl(g0.term)} · ${esc(g0.v||'без машины')}</div></div>${st?`<span class="status ${st.k} st"><span class="dot"></span>${st.lbl}</span>`:''}`}
+  return `<div class="tt num">${esc(g0.pu||g0.t)}<small>выезд</small></div><div><div class="kind dep">Забор из отеля</div><div class="ttl">${esc(g0.h)}</div><div class="sub">→ ${/^[!?]/.test(g0.fl)?'рейс не указан':esc(normFl(g0.fl))} в ${esc(g0.t)} · ${termLbl(g0.term)} · ${esc(g0.v||'')}${g0.note?' · '+esc(g0.note):''}</div></div><span class="chip st">${t.groups.reduce((s,x)=>s+(+x.pax||0),0)} чел</span>`;
 }
 // passengers still expected first; the ones already marked go into a "Вышли" box with the time
 function paxRows(g,kind){
@@ -1129,11 +1149,16 @@ function paxRows(g,kind){
   return `<div class="counter"><button type="button" data-cnt="${g.id}|-1" aria-label="Минус">−</button><output>${n} / ${g.pax}</output><button type="button" data-cnt="${g.id}|1" aria-label="Плюс">+</button>${kind==='arr'?'<span class="hint">без имён</span>':''}</div>`;
 }
 function grpHtml(t){return t.groups.map(x=>{const d=marked(x),n=groupTotal(x);return `<div class="tgrp"><div class="gh"><span><b>${esc(t.kind==='arr'?x.h:normFl(x.fl)+' '+x.t)}</b> <span class="hint">${esc(x.op||'')} · ${x.pax} чел</span></span><span style="display:flex;gap:8px;align-items:center"><span class="bar"><i style="width:${n?Math.round(d/n*100):0}%"></i></span><span class="num">${d}/${n}</span></span></div>${paxRows(x,t.kind)}</div>`}).join('')}
+function guideStrip(t){
+  const vs=[...new Set(t.groups.map(g=>g.v).filter(Boolean))];
+  return `<div class="gstrip"><span class="gs-name">${esc(t.guide||'гид не указан')}</span><span class="gs-ph">${gPhone(t.guide)?esc(gPhone(t.guide)):'<span class="hint">телефон гида не указан</span>'}</span>${vs.map(v=>{const a=assign[v]||{};return `<span class="gs-veh"><b>${esc(v)}</b>${a.plate?' · '+esc(a.plate):''}${a.phone?' · водитель '+esc(a.phone):''}${a.driver?' ('+esc(a.driver)+')':''}</span>`}).join('')}</div>`;
+}
 function taskCard(t,key,o={}){
   const cls=['task',t.complete?'done':'',o.next?'next':''].join(' ');
   const ids=t.groups.map(x=>x.id).join(',');
-  if(t.complete)return `<article class="${cls}"><div class="th">${taskHead(t,o.showGuide)}</div><div class="tf"><span class="met">✓ ${t.kind==='arr'?'Вышли':'Сели'} ${t.done} из ${t.total}${t.no?`, не пришли: ${t.no}`:''}${t.last>=0?` · ${fmt(t.last)}`:''}</span><button class="btn" type="button" data-open="${key}">Показать список</button></div><div hidden id="tg_${key}">${grpHtml(t)}</div></article>`;
-  return `<article class="${cls}"><div class="th">${taskHead(t,o.showGuide)}</div>${grpHtml(t)}<div class="tf"><button class="btn primary" type="button" data-allk="${ids}">${t.kind==='arr'?'Все вышли':'Все сели'}</button><button class="btn" type="button" data-clear="${ids}">Сбросить</button></div></article>`;
+  const strip=o.showGuide?guideStrip(t):'';
+  if(t.complete)return `<article class="${cls}"><div class="th">${taskHead(t,o.showGuide)}</div>${strip}<div class="tf"><span class="met">✓ ${t.kind==='arr'?'Вышли':'Сели'} ${t.done} из ${t.total}${t.no?`, не пришли: ${t.no}`:''}${t.last>=0?` · ${fmt(t.last)}`:''}</span><button class="btn" type="button" data-open="${key}">Показать список</button></div><div hidden id="tg_${key}">${grpHtml(t)}</div></article>`;
+  return `<article class="${cls}"><div class="th">${taskHead(t,o.showGuide)}</div>${strip}${grpHtml(t)}<div class="tf"><button class="btn primary" type="button" data-allk="${ids}">${t.kind==='arr'?'Все вышли':'Все сели'}</button><button class="btn" type="button" data-clear="${ids}">Сбросить</button></div></article>`;
 }
 function bindMarks(T){
   T.querySelectorAll('[data-mk]').forEach(b=>b.onclick=()=>{const [gid,i,val]=b.dataset.mk.split('|');setMark(gid,i,markOf(gid,i)===val?null:val);rerenderMarks()});
@@ -1163,7 +1188,7 @@ function renderOps(){
   const fg=$('#opsGuide').value,fk=$('#opsKind').value,q=$('#opsQ').value.trim().toUpperCase();
   // guide filter list
   const gl=guides();const sel=$('#opsGuide');const cur=sel.value;sel.length=1;gl.forEach(g=>sel.add(new Option(g,g)));sel.value=gl.includes(cur)?cur:'';
-  const tasks=buildTasks(t=>(!fg||t.g===fg)).filter(t=>!fk||t.kind===fk).filter(t=>!q||t.groups.some(g=>(g.p||[]).some(p=>p[1].includes(q))||String(g.fl).replace(/\s/g,'').includes(q.replace(/\s/g,''))||(g.h||'').toUpperCase().includes(q)));
+  const tasks=buildTasks(t=>(!fg||t.g===fg)).filter(t=>!fk||t.kind===fk).filter(t=>!q||(t.guide||'').toUpperCase().includes(q)||t.groups.some(g=>(g.p||[]).some(p=>p[1].includes(q))||String(g.fl).replace(/\s/g,'').includes(q.replace(/\s/g,''))||(g.h||'').toUpperCase().includes(q)));
   const open=tasks.filter(t=>!t.complete),done=tasks.filter(t=>t.complete);
   const now=open.filter(t=>t.time>=NOW-90&&t.time<=NOW+120),later=open.filter(t=>t.time>NOW+120),stale=open.filter(t=>t.time<NOW-90);
   // no-shows
@@ -1177,8 +1202,24 @@ function renderOps(){
   $('#opsStale').innerHTML=stale.map((t,i)=>taskCard(t,'os'+i,{showGuide:true})).join('');$('#opsDoneN').textContent=done.length;
   $('#opsLater').innerHTML=later.map(t=>`<tr><td class="tm num">${fmt(t.time)}</td><td><span class="act ${t.kind}">${t.kind==='arr'?'Встреча':'Забор'}</span> ${esc(t.kind==='arr'?(t.f?[...t.f.codes].join(' / '):t.groups[0].fl):t.groups[0].h)}<br><span class="hint">${esc(t.groups.map(g=>t.kind==='arr'?g.h:normFl(g.fl)+' '+g.t).join(', '))}</span></td><td>${esc(t.guide||'—')}<br><span class="hint">${esc([...new Set(t.groups.map(g=>g.v))].join(', '))}</span></td><td class="n num">${t.total}</td></tr>`).join('');
   $('#opsDone').innerHTML=done.slice().reverse().map((t,i)=>taskCard(t,'od'+i,{showGuide:true})).join('');
+  renderOpsGuides(fg);
   $('#opsLaterBox').open=opsOpen.later;$('#opsStaleBox').open=opsOpen.stale;$('#opsDoneBox').open=opsOpen.done;
   bindMarks($('#v-ops'));
+}
+function renderOpsGuides(sel){
+  const all=buildTasks(()=>true);
+  const rows=guides().map(g=>{const ts=all.filter(t=>t.guide===g);const open=ts.filter(t=>!t.complete);const next=open.find(t=>t.time>=NOW-90)||open[0];
+    const out=ts.reduce((s,t)=>s+t.done,0),tot=ts.reduce((s,t)=>s+t.total,0),no=ts.reduce((s,t)=>s+t.no,0),stale=open.filter(t=>t.time<NOW-90).length;
+    const vs=[...new Set(ts.flatMap(t=>t.groups.map(x=>x.v)).filter(Boolean))];
+    const nx=next?`${fmt(next.time)} ${next.kind==='arr'?'встреча '+(next.f?[...next.f.codes][0]:normFl(next.groups[0].fl)):'забор '+next.groups[0].h}`:'всё закрыто';
+    return `<div class="gcard${sel===g?' on':''}"><button type="button" class="gc-name" data-pick="${esc(g)}">${esc(g)}</button>
+      <input class="gc-ph" id="gp_${esc(g).replace(/\W/g,'_')}" data-gp="${esc(g)}" value="${esc(gPhone(g))}" placeholder="телефон гида" inputmode="tel" aria-label="Телефон ${esc(g)}">
+      <span class="gc-veh">${esc(vs.join(', ')||'без машины')}</span>
+      <span class="gc-prog"><span class="bar"><i style="width:${tot?Math.round(out/tot*100):0}%"></i></span><span class="num">${out}/${tot}</span>${no?` <span class="nos">✗${no}</span>`:''}${stale?` <span class="chip gzp" title="задания прошли, отметок нет">⚠ ${stale}</span>`:''}</span>
+      <span class="gc-next ${next?'':'hint'}">Дальше: ${esc(nx)}</span></div>`}).join('');
+  $('#opsGuides').innerHTML=rows;
+  $('#opsGuides').querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{const g=b.dataset.pick;$('#opsGuide').value=$('#opsGuide').value===g?'':g;renderOps();$('#opsWait').scrollIntoView?.({behavior:'smooth',block:'start'})});
+  $('#opsGuides').querySelectorAll('[data-gp]').forEach(i=>i.addEventListener('change',e=>{GP[e.target.dataset.gp]=e.target.value.trim();saveGP();renderOps()}));
 }
 ['#opsGuide','#opsKind'].forEach(s=>$(s).addEventListener('change',renderOps));$('#opsQ').addEventListener('input',renderOps);
 $('#opsLaterBox').addEventListener('toggle',e=>opsOpen.later=e.target.open);$('#opsStaleBox').addEventListener('toggle',e=>opsOpen.stale=e.target.open);$('#opsDoneBox').addEventListener('toggle',e=>opsOpen.done=e.target.open);
@@ -1198,13 +1239,13 @@ setInterval(pullMarks,20000);document.addEventListener('visibilitychange',()=>{i
 
 /* ---------- contacts & log ---------- */
 function renderContacts(){
-  if(!contacts)contacts=[...guides().map(g=>({name:g,role:'Гид',phone:'',on:true})),{name:'Операционный отдел',role:'Операционщик',phone:'',on:true},{name:'Владелец',role:'Только срочное',phone:'',on:true}];
+  if(!contacts)contacts=[...guides().map(g=>({name:g,role:'Гид',phone:gPhone(g),on:true})),{name:'Операционный отдел',role:'Операционщик',phone:'',on:true},{name:'Владелец',role:'Только срочное',phone:'',on:true}];
   $('#ctable').innerHTML=`<thead><tr><th>Кто</th><th>Роль</th><th>Телефон</th><th>Уведомлять</th></tr></thead><tbody>${contacts.map((c,i)=>`<tr><td>${esc(c.name)}</td><td class="hint">${esc(c.role)}</td><td><input id="cp_${i}" data-i="${i}" value="${esc(c.phone)}" placeholder="+90 5xx xxx xx xx"></td><td><input type="checkbox" id="cn_${i}" data-i="${i}" ${c.on?'checked':''} style="width:auto;min-width:0" aria-label="Уведомлять"></td></tr>`).join('')}</tbody>`;
-  $('#ctable').querySelectorAll('input').forEach(inp=>inp.addEventListener('input',e=>{const c=contacts[e.target.dataset.i];if(e.target.type==='checkbox')c.on=e.target.checked;else c.phone=e.target.value;store.set('contacts_'+dayKey,contacts);renderLog()}));
+  $('#ctable').querySelectorAll('input').forEach(inp=>inp.addEventListener('input',e=>{const c=contacts[e.target.dataset.i];if(e.target.type==='checkbox')c.on=e.target.checked;else{c.phone=e.target.value;if(c.role==='Гид'){GP[c.name]=c.phone.trim();saveGP()}}store.set('contacts_'+dayKey,contacts);renderLog()}));
   renderLog();
 }
 function renderLog(){
-  const ev=[];const ph=n=>{const c=(contacts||[]).find(x=>x.name===n);return c&&c.phone?c.phone:'номер не указан'};
+  const ev=[];const ph=n=>{const c=(contacts||[]).find(x=>x.name===n);return c&&c.phone?c.phone:(gPhone(n)||'номер не указан')};
   flights.forEach(f=>{
     const gs=[...new Set(f.groups.map(g=>g.g).filter(Boolean))],vs=[...new Set(f.groups.map(g=>g.v).filter(Boolean))];
     if(f.delay&&f.delayKnownAt<=NOW&&f.delayKnownAt<f.eta){
@@ -1305,7 +1346,7 @@ function renderDayStatus(){
 }
 
 /* ---------- wiring ---------- */
-function renderAll(){if(!DAY)return;$('#nowLbl').textContent=fmt(NOW);$('#slider').value=NOW;renderBoard();renderDep();renderGuidePick();renderGuide();renderOps();renderLog();if(!$('#v-veh').hidden&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#vgrid')))renderVeh()}
+function renderAll(){if(!DAY)return;$('#nowLbl').textContent=fmt(NOW);$('#slider').value=NOW;renderBoard();renderDep();renderGuidePick();renderGuide();if(!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#opsGuides')))renderOps();renderLog();if(!$('#v-veh').hidden&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#vgrid')))renderVeh()}
 $('#slider').addEventListener('input',e=>{followNow=false;NOW=+e.target.value;store.set('now_'+dayKey,NOW);renderAll()});
 let play=null;
 $('#playBtn').onclick=()=>{if(play){clearInterval(play);play=null;$('#playBtn').textContent='▶ Проиграть день';return}

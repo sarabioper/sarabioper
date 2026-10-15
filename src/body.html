@@ -108,6 +108,21 @@
 .noshow b{color:var(--crit)}
 @media (max-width:900px){.ops-grid{grid-template-columns:minmax(0,1fr)}.ops-side{position:static}}
 
+.gcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;padding:10px}
+.gcard{display:grid;gap:4px;border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--surface);font-size:13px;min-width:0}
+.gcard.on{border-color:var(--signal);box-shadow:0 0 0 1px var(--signal)}
+.gc-name{border:0;background:none;padding:0;text-align:left;font-family:var(--f-display);font-size:17px;font-weight:700;color:var(--ink);letter-spacing:.02em}
+.gc-name:hover{text-decoration:underline}
+.gc-ph{border:1px solid var(--line);border-radius:5px;padding:4px 7px;background:var(--sunk);font-family:var(--f-mono);font-size:12.5px;width:100%;min-width:0}
+.gc-veh{color:var(--muted);font-family:var(--f-mono);font-size:12px}
+.gc-prog{display:flex;gap:6px;align-items:center}
+.gc-prog .nos{color:var(--crit)}
+.gc-next{font-size:12.5px}
+.gstrip{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;padding:8px 14px;background:var(--sunk);border-top:1px solid var(--line);font-size:13px}
+.gs-name{font-family:var(--f-display);font-size:18px;font-weight:700}
+.gs-ph{font-family:var(--f-mono);user-select:all}
+.gs-veh{font-family:var(--f-mono);font-size:12.5px}
+
 .chip.gzp{background:var(--warn-soft);color:var(--warn);border-color:transparent}
 .drops{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
 .drop .step{width:26px;height:26px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-weight:600;font-size:13px;justify-self:center}
@@ -168,9 +183,10 @@
     <div class="filters">
       <select id="opsGuide" aria-label="Гид"><option value="">Все гиды</option></select>
       <select id="opsKind" aria-label="Тип"><option value="">Встречи и заборы</option><option value="arr">Только встречи</option><option value="dep">Только заборы</option></select>
-      <input id="opsQ" placeholder="Фамилия, рейс или отель" aria-label="Поиск">
+      <input id="opsQ" placeholder="Гид, фамилия, рейс или отель" aria-label="Поиск">
     </div>
-    <div class="ops-grid">
+    <details class="ops-box" id="opsGuidesBox" open><summary>Гиды дня <span class="hint">· нажмите на имя, чтобы увидеть только его задания</span></summary><div class="gcards" id="opsGuides"></div></details>
+    <div class="ops-grid" style="margin-top:14px">
       <div class="ops-main">
         <h2>Ждём сейчас <span class="hint">· от полутора часов назад до двух часов вперёд</span></h2>
         <div class="tasks" id="opsWait"></div>
