@@ -96,7 +96,7 @@ let NOW=store.get('now_'+dayKey,540);
 let assign={},met={},contacts=null;
 
 function loadDay(k){
-  if(!k||!DAYS[k]){DAY=null;$('#dateLbl').textContent='Операционный центр · день ещё не загружен';$('#daySel').innerHTML='';$('#board').innerHTML='<p class="hint">Пока нет ни одного дня. Откройте вкладку «Загрузить день» и перетащите Excel KAPAK.</p>';const tb=document.querySelector('.tab[data-t=data]');if(tb)tb.click();return}
+  if(!k||!DAYS[k]){DAY=null;$('#dateLbl').textContent='Операционный центр · день ещё не загружен';$('#daySel').innerHTML='';$('#board').innerHTML='<p class="hint">Пока нет ни одного дня. Откройте вкладку «Загрузить день» и перетащите Excel KAPAK.</p>';const tb=document.querySelector('.tab[data-t=data]');if(tb)tb.click();renderDayStatus();return}
   dayKey=k;DAY=DAYS[k];store.set('day',k);
   assign=store.get('assign_'+k,k==='15.10'?{"BUS 10":{plate:"35 CVL 346",phone:"0553 573 61 69",driver:""},"BUS 12":{plate:"07 CJD 855",phone:"0554 407 82 82",driver:""},"BUS 13":{plate:"07 GLE 03",phone:"0552 169 14 75",driver:""},"BUS 6":{plate:"07 BJH 898",phone:"0533 680 38 05",driver:""},"MİNİ 4":{plate:"34 BK 1708",phone:"0532 515 44 65",driver:""},"MİNİ 10":{plate:"19 TT 077",phone:"0532 177 87 57",driver:""}}:{});
   met=store.get('met_'+k,{});contacts=store.get('contacts_'+k,null);
@@ -104,7 +104,7 @@ function loadDay(k){
   NOW=SERVER?nowMinutes():store.get('now_'+k,k==='15.10'?nowMinutes():540);followNow=SERVER;
   buildFlights();fillFilters();
   $('#dateLbl').textContent='Операционный центр · '+DAY.title+' · '+DAY.source;
-  renderDaySel();renderVeh();runChecks();renderContacts();renderAll();
+  renderDaySel();renderVeh();runChecks();renderContacts();renderAll();renderDayStatus();
 }
 function nowMinutes(){const d=new Date();return d.getHours()*60+d.getMinutes()}
 function renderDaySel(){
@@ -501,11 +501,17 @@ async function importFiles(files){
 }
 // kept for older callers and tests
 const importFile=f=>importFiles([f]);
-$('#xls').addEventListener('change',e=>{if(e.target.files.length)importFiles([...e.target.files]);e.target.value=''});
-const drop=$('#drop');
-['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
-['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
-drop.addEventListener('drop',e=>{const f=[...e.dataTransfer.files];if(f.length)importFiles(f)});
+['#xlsK','#xlsT'].forEach(id=>$(id).addEventListener('change',e=>{if(e.target.files.length)importFiles([...e.target.files]);e.target.value=''}));
+['#dropK','#dropT'].forEach(id=>{const drop=$(id);
+  ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
+  ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
+  drop.addEventListener('drop',e=>{const f=[...e.dataTransfer.files];if(f.length)importFiles(f)})});
+function renderDayStatus(){
+  const el=$('#dayStatus');if(!el)return;
+  if(!DAY){el.innerHTML='<span class="chip">День ещё не загружен</span>';return}
+  const named=DAY.arr.filter(g=>g.p&&g.p.length),ppl=[...DAY.arr,...DAY.dep].reduce((s,g)=>s+(g.p?g.p.length:0),0);
+  el.innerHTML=`<span class="chip ok">${esc(DAY.key||dayKey)} · Капак загружен: ${DAY.arr.length} групп на прилёт, ${DAY.dep.length} на вылет</span>`+(ppl?`<span class="chip ok">Имена: ${ppl} туристов в ${named.length} группах</span>`:'<span class="chip bad">Имена туристов ещё не загружены</span>');
+}
 
 /* ---------- wiring ---------- */
 function renderAll(){if(!DAY)return;$('#nowLbl').textContent=fmt(NOW);$('#slider').value=NOW;renderBoard();renderDep();renderGuidePick();renderGuide();renderLog();if(!$('#v-veh').hidden&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#vgrid')))renderVeh()}
