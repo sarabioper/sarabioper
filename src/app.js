@@ -444,7 +444,14 @@ function renderLog(){
 
 /* ---------- excel import ---------- */
 const MONTHS=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const loadScript=src=>new Promise((ok,fail)=>{if(document.querySelector(`script[src="${src}"]`))return ok();const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>fail(new Error('нет интернета для чтения файла'));document.head.appendChild(s)});
+const PDFJS='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
 async function readRows(file){
+  const ext=(file.name.match(/\.(\w+)$/)||[])[1]?.toLowerCase();
+  if(ext==='pdf'){if(!window.pdfjsLib)await loadScript(PDFJS+'pdf.min.js');if(!window.pdfjsWorker)await loadScript(PDFJS+'pdf.worker.min.js');window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS+'pdf.worker.min.js';return pdfToRows(await file.arrayBuffer())}
+  if(ext==='docx'){if(!window.JSZip)await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');return docxToRows(await file.arrayBuffer())}
+  if(ext==='doc')throw new Error('это старый формат Word (.doc). Откройте файл в Word и сохраните как .docx или PDF');
+  if(typeof XLSX==='undefined')throw new Error('библиотека Excel не загрузилась, обновите страницу');
   const wb=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array'});
   let rows=[];wb.SheetNames.forEach(n=>rows=rows.concat(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:false})));
   return rows;
@@ -457,6 +464,7 @@ async function importKapak(rows,file){
   const title=dm?`${+dm[1]} ${MONTHS[+dm[2]-1]} ${dm[3]}`:key;
   const K=parseKapak(rows);
   const ok=K.recon.filter(c=>c.expected===c.got).length;
+  if(/\.pdf$/i.test(file.name)&&ok<K.recon.length*0.9)throw new Error('Капак в PDF читается неточно (сошлось '+ok+' из '+K.recon.length+' рейсов). Загрузите Капак в Excel');
   const pack={recs:K.recs,recon:{ok,total:K.recon.length,bad:K.recon.filter(c=>c.expected!==c.got)}};
   const d=dayFromKapak(pack,key,title);
   if(!d.arr.length&&!d.dep.length)throw new Error('в файле не найдено ни одного рейса');
@@ -479,7 +487,6 @@ async function importTourists(T,file){
 }
 async function importFiles(files){
   const msg=$('#xlsMsg');msg.innerHTML='Читаю файлы…';
-  if(typeof XLSX==='undefined'){msg.innerHTML='<span>Библиотека Excel не загрузилась, обновите страницу.</span>';return}
   const items=[];
   for(const file of files){try{const rows=await readRows(file);const T=parseTourists(rows);const people=T.groups.reduce((s,g)=>s+g.people.length,0);items.push({file,rows,T,isTourists:people>0})}catch(e){items.push({file,err:e.message})}}
   items.sort((a,b)=>(a.isTourists?1:0)-(b.isTourists?1:0));

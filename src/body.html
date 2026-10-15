@@ -188,9 +188,9 @@
     <div style="display:grid;gap:14px;max-width:820px">
       <div class="panel">
         <h2 style="margin:0">Загрузить день</h2>
-        <p class="hint">Перетащите сюда Excel-файлы дня, можно оба сразу:</p><ul class="hint" style="margin:0;padding-left:18px"><li><b>Капак</b> (Transfer Takip Formu): рейсы, выезды, гиды и машины. Программа сверит каждый рейс с итогами «Toplam Pax».</li><li><b>Список туристов</b> (Genel Geliş или Araç Transfer Listesi): фамилии. Они появятся у гида с кнопками «Вышел».</li></ul><p class="hint">Сначала загружается Капак, потом список туристов того же дня.</p>
-        <label class="drop" id="drop" for="xls"><b>Выберите или перетащите файлы .xlsx</b><span class="hint">Например, 15.10.2026_KAPAK.xlsx и 15.10.2026_GENEL_GELİŞ.xlsx</span></label>
-        <input type="file" id="xls" accept=".xlsx,.xls" multiple hidden>
+        <p class="hint">Перетащите сюда Excel-файлы дня, можно оба сразу:</p><ul class="hint" style="margin:0;padding-left:18px"><li><b>Капак</b> (Transfer Takip Formu) в Excel: рейсы, выезды, гиды и машины. Программа сверит каждый рейс с итогами «Toplam Pax».</li><li><b>Список туристов</b> (Genel Geliş или Araç Transfer Listesi) в Word, PDF или Excel: фамилии. Они появятся у гида с кнопками «Вышел».</li></ul><p class="hint">Сначала загружается Капак, потом список туристов того же дня.</p>
+        <label class="drop" id="drop" for="xls"><b>Выберите или перетащите файлы</b><span class="hint">Капак: .xlsx · туристы: .docx, .pdf или .xlsx</span></label>
+        <input type="file" id="xls" accept=".xlsx,.xls,.docx,.doc,.pdf" multiple hidden>
         <div id="xlsMsg" class="res"></div>
       </div>
       <div class="panel">

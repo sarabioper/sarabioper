@@ -18,6 +18,7 @@ ${r("src/body.html")}
 <script>
 ${r("src/parser.js")}
 ${r("src/tourists.js")}
+${r("src/docs.js")}
 ${r("src/app.js")}
 </script>
 </body>
