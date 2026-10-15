@@ -1,0 +1,143 @@
+
+<style>
+.daysel{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.daysel button{border:0;background:var(--surface);padding:5px 12px;font-size:13px;font-variant-numeric:tabular-nums}
+.daysel button+button{border-left:1px solid var(--line)}
+.daysel button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+.recon{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.recon b{color:var(--ok)}
+.recon.bad b{color:var(--warn)}
+.chip.gzp{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.drop{border:1.5px dashed var(--line);border-radius:var(--r);padding:22px;text-align:center;display:grid;gap:8px;background:var(--sunk)}
+.drop.over{border-color:var(--signal);background:var(--signal-soft)}
+.res{display:grid;gap:4px;font-size:13px}
+.login{position:fixed;inset:0;z-index:60;background:var(--bg);display:grid;place-items:center;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.login-card{width:100%;max-width:360px}
+.login-card input{border:1px solid var(--line);border-radius:6px;padding:10px 12px;background:var(--sunk);font-size:16px}
+</style>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <h1>SARABI <b>OPS</b></h1>
+      <span class="daysel" id="daySel" role="group" aria-label="День"></span>
+      <span class="date" id="dateLbl"></span>
+      <span class="demo-pill" id="modePill">Статусы рейсов в демо-режиме</span>
+    </div>
+    <div class="clock">
+      <div class="now num" id="nowLbl">09:00</div>
+      <input type="range" id="slider" min="0" max="1440" step="5" value="540" aria-label="Время дня">
+      <div class="ctl">
+        <button class="btn" id="playBtn" type="button">▶ Проиграть день</button>
+        <button class="btn" id="nowBtn" type="button">Сейчас</button>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs">
+      <button class="tab" role="tab" data-t="board" aria-selected="true">Прилёты</button>
+      <button class="tab" role="tab" data-t="dep">Вылеты</button>
+      <button class="tab" role="tab" data-t="veh">Машины</button>
+      <button class="tab" role="tab" data-t="guide">Экран гида</button>
+      <button class="tab" role="tab" data-t="checks">Проверка<span class="cnt" id="chkCnt">0</span></button>
+      <button class="tab" role="tab" data-t="contacts">Уведомления</button>
+      <button class="tab" role="tab" data-t="data">Загрузить день</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="v-board">
+    <div class="summary" id="sumBoard"></div>
+    <div class="filters">
+      <select id="fVeh" aria-label="Машина"><option value="">Все машины</option></select>
+      <select id="fHotel" aria-label="Отель"><option value="">Все отели</option></select>
+      <select id="fOp" aria-label="Оператор"><option value="">Все операторы</option></select>
+      <input id="fQ" placeholder="Поиск: рейс, гид, фамилия…" aria-label="Поиск">
+    </div>
+    <div class="board" id="board"></div>
+  </section>
+
+  <section id="v-dep" hidden>
+    <div class="summary" id="sumDep"></div>
+    <p class="hint">Выезды из отелей по времени. Строка подсвечивается, когда до выезда меньше часа.</p>
+    <div class="tbl-wrap"><table id="depTbl"></table></div>
+  </section>
+
+  <section id="v-veh" hidden>
+    <p class="hint">Номер машины, водителя и телефон вводят один раз. Программа сама собирает сообщение для группы в привычном формате и рассылает уведомления. Значения сохраняются в этом браузере.</p>
+    <div class="split">
+      <div class="vgrid" id="vgrid"></div>
+      <div style="display:grid;gap:8px;position:sticky;top:190px">
+        <h2 style="margin:0">Сообщение в группу</h2>
+        <div class="msgbox" id="waMsg"></div>
+        <button class="btn primary" id="copyWa" type="button">Скопировать текст</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="v-guide" hidden>
+    <div class="phone-area">
+      <div>
+        <div class="guide-pick" id="guidePick"></div>
+        <div class="phone">
+          <div class="chat-head"><div class="avatar" id="gAv">D</div><div><b id="gName">—</b><span id="gSub">Sarabi Operasyon</span></div></div>
+          <div class="chat" id="chat"></div>
+          <div class="chat-foot">Mesajlar otomatik gelir · rehber sadece butonlara basar</div>
+        </div>
+      </div>
+      <div style="display:grid;gap:12px;min-width:0">
+        <h2 style="margin:0">Как это видит гид</h2>
+        <p class="hint">Экран построен как обычный чат, потому что гиды и водители уже живут в WhatsApp. Учиться ничему не нужно: сообщения приходят сами, на турецком, а гид только нажимает кнопки.</p>
+        <p class="hint">Утром приходит план дня. За час до выезда из отеля приходит маршрут забора. За 90 минут до посадки приходит карточка рейса. Если рейс задерживается, гид получает новое время раньше, чем оно появится на табло аэропорта. Отметки «встретил» сразу видны диспетчеру.</p>
+        <p class="hint">Двигайте время вверху страницы, чтобы увидеть, как чат меняется в течение дня.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="v-checks" hidden>
+    <div class="recon" id="reconLbl"></div>
+    <p class="hint">Программа сверяет список сама каждый раз, когда загружается новый файл.</p>
+    <div class="checks" id="checks"></div>
+  </section>
+
+  <section id="v-contacts" hidden>
+    <div class="split">
+      <div style="display:grid;gap:10px;min-width:0">
+        <h2 style="margin:0">Кому уведомлять</h2>
+        <p class="hint">Номер вводится один раз. Дальше программа сама пишет гиду, водителю и операционщику, когда рейс задерживается, садится или меняет терминал.</p>
+        <div class="tbl-wrap"><table class="ctable" id="ctable"></table></div>
+      </div>
+      <div style="display:grid;gap:10px;min-width:0">
+        <h2 style="margin:0">Журнал уведомлений</h2>
+        <p class="hint">Что программа отправила бы к выбранному времени.</p>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="v-data" hidden>
+    <div style="display:grid;gap:14px;max-width:820px">
+      <div class="panel">
+        <h2 style="margin:0">Загрузить день</h2>
+        <p class="hint">Перетащите сюда Excel «Transfer Takip Formu» (KAPAK). Программа найдёт все рейсы, выезды, гидов и машины, даже если ячейки в файле склеены, и сверит каждый рейс с итогами «Toplam Pax» из того же файла.</p>
+        <label class="drop" id="drop" for="xls"><b>Выберите или перетащите файл .xlsx</b><span class="hint">Например, 15.10.2026_KAPAK.xlsx</span></label>
+        <input type="file" id="xls" accept=".xlsx,.xls" hidden>
+        <div id="xlsMsg" class="res"></div>
+      </div>
+      <div class="panel">
+        <h2 style="margin:0">Живые статусы рейсов</h2>
+        <p>Сейчас задержки на странице демонстрационные: они придуманы, чтобы было видно, как работает программа. Для живых данных используем <b>AirLabs</b>: бесплатный ключ, без карты. Один запрос «все прилёты в AYT» отдаёт расчётное время и задержку сразу по всем рейсам дня.</p>
+        <p>Ключ хранится на сервере программы, а не в браузере. Сервер раз в 10–15 минут спрашивает статусы и рассылает уведомления, даже когда эта страница закрыта.</p>
+      </div>
+    </div>
+  </section>
+</main>
+<div class="login" id="login" hidden>
+  <form class="panel login-card" id="loginForm">
+    <h2 style="margin:0">SARABI OPS</h2>
+    <p class="hint">Введите пароль, который выдал операционный отдел.</p>
+    <label class="hint" for="loginPass">Пароль</label>
+    <input id="loginPass" type="password" autocomplete="current-password" required>
+    <button class="btn primary" type="submit">Войти</button>
+    <span class="hint" id="loginErr" role="alert"></span>
+  </form>
+</div>
+<div class="toast" id="toast" hidden></div>
