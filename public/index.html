@@ -282,6 +282,27 @@ tr.soon td.t{color:var(--signal-ink)}
 .task .tf .btn{min-height:40px}
 @media (max-width:760px){.top{position:static}.task .th{grid-template-columns:auto minmax(0,1fr)}.task .th .st{grid-column:1/-1}.side-sticky{position:static}}
 
+.ops-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,340px);gap:16px;align-items:start}
+.ops-side{position:sticky;top:190px;display:grid;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.ops-side h2,.ops-main h2{margin:0 0 8px}
+.ops-box{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.ops-box>summary{padding:12px 14px;cursor:pointer;font-weight:600}
+.ops-box[open]>summary{border-bottom:1px solid var(--line)}
+.ops-box .tasks{padding:10px}
+.stat.alert .v{color:var(--crit)}
+.ops-box.stale>summary{color:var(--warn)}
+.gtag{color:var(--ink);text-transform:none;letter-spacing:0;font-weight:600}
+.donebox{border-top:1px solid var(--line);margin-top:4px;padding-top:4px}
+.donebox>summary{cursor:pointer;padding:6px 0;font-size:13px;display:flex;gap:10px;list-style:none}
+.donebox>summary::before{content:"▸";color:var(--muted)}
+.donebox[open]>summary::before{content:"▾"}
+.donebox .nos{color:var(--crit);font-size:13px}
+.prow .at{font-size:11px;color:var(--muted)}
+.noshow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:start;padding:8px 0;border-top:1px solid var(--line)}
+.noshow>div{display:grid;gap:2px;min-width:0}
+.noshow b{color:var(--crit)}
+@media (max-width:900px){.ops-grid{grid-template-columns:minmax(0,1fr)}.ops-side{position:static}}
+
 .chip.gzp{background:var(--warn-soft);color:var(--warn);border-color:transparent}
 .drops{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
 .drop .step{width:26px;height:26px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-weight:600;font-size:13px;justify-self:center}
@@ -314,6 +335,7 @@ tr.soon td.t{color:var(--signal-ink)}
     </div>
     <nav class="tabs" role="tablist" id="tabs">
       <button class="tab" role="tab" data-t="board" aria-selected="true">Прилёты</button>
+      <button class="tab" role="tab" data-t="ops">Контроль</button>
       <button class="tab" role="tab" data-t="dep">Вылеты</button>
       <button class="tab" role="tab" data-t="veh">Машины</button>
       <button class="tab" role="tab" data-t="guide">Гид</button>
@@ -334,6 +356,29 @@ tr.soon td.t{color:var(--signal-ink)}
       <input id="fQ" placeholder="Поиск: рейс, гид, фамилия…" aria-label="Поиск">
     </div>
     <div class="board" id="board"></div>
+  </section>
+
+  <section id="v-ops" hidden>
+    <div class="summary" id="opsSum"></div>
+    <div class="filters">
+      <select id="opsGuide" aria-label="Гид"><option value="">Все гиды</option></select>
+      <select id="opsKind" aria-label="Тип"><option value="">Встречи и заборы</option><option value="arr">Только встречи</option><option value="dep">Только заборы</option></select>
+      <input id="opsQ" placeholder="Фамилия, рейс или отель" aria-label="Поиск">
+    </div>
+    <div class="ops-grid">
+      <div class="ops-main">
+        <h2>Ждём сейчас <span class="hint">· от полутора часов назад до двух часов вперёд</span></h2>
+        <div class="tasks" id="opsWait"></div>
+        <details class="ops-box stale" id="opsStaleBox" hidden><summary>⚠ Прошли, но гид не отметил: <span id="opsStaleN">0</span></summary><div class="tasks" id="opsStale"></div></details>
+        <details class="ops-box" id="opsLaterBox"><summary>Позже: <span id="opsLaterN">0</span> заданий</summary><div style="overflow-x:auto"><table class="legs" id="opsLater"></table></div></details>
+        <details class="ops-box" id="opsDoneBox"><summary>✓ Вышли, задания закрыты: <span id="opsDoneN">0</span></summary><div class="tasks" id="opsDone"></div></details>
+      </div>
+      <aside class="ops-side">
+        <h2>Не пришли</h2>
+        <div id="opsNo"></div>
+        <p class="hint">Отметки гидов приходят сюда сами каждые 20 секунд. Операционщик тоже может отмечать гостей прямо здесь.</p>
+      </aside>
+    </div>
   </section>
 
   <section id="v-dep" hidden>
@@ -739,7 +784,7 @@ async function api(method,path,body){
 let saveT={};
 function saveRemote(kind,data){if(!SERVER)return;clearTimeout(saveT[kind]);const k=dayKey;saveT[kind]=setTimeout(()=>api('PUT','/api/state?d='+encodeURIComponent(k)+'&kind='+kind,data).catch(()=>toast('Нет связи с сервером, изменения сохранены только здесь')),600)}
 function saveAssign(){store.set('assign_'+dayKey,assign);saveRemote('assign',assign)}
-function saveMet(){store.set('met_'+dayKey,met);saveRemote('met',met)}
+function saveMet(){lastLocalMark=Date.now();store.set('met_'+dayKey,met);saveRemote('met',met)}
 function showLogin(err){$('#login').hidden=false;$('#loginErr').textContent=err||'';$('#loginPass').focus()}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();store.set('pass',$('#loginPass').value.trim());$('#login').hidden=true;await serverBoot()});
 async function serverBoot(){
@@ -1042,29 +1087,60 @@ const markOf=(gid,i)=>{const v=(met[gid]||{})[i];return v===true?'out':v||null};
 function marked(g){const m=met[g.id]||{};if(g.p&&g.p.length)return g.p.reduce((s,_,i)=>s+(markOf(g.id,i)==='out'?1:0),0);return Math.min(+m.n||0,+g.pax||0)}
 function groupTotal(g){return g.p&&g.p.length?g.p.length:(+g.pax||0)}
 function resolved(g){if(g.p&&g.p.length)return g.p.reduce((s,_,i)=>s+(markOf(g.id,i)?1:0),0);return marked(g)}
-function setMark(gid,i,val){met[gid]=met[gid]||{};met[gid][i]=val;saveMet()}
+const stamp=()=>nowMinutes();
+function setMark(gid,i,val){met[gid]=met[gid]||{};met[gid][i]=val;met[gid]['@'+i]=val?stamp():null;saveMet()}
+const allGroups=()=>[...DAY.arr,...DAY.dep];
+function rerenderMarks(){renderGuide();renderOps();renderBoard();renderDep()}
 function renderGuidePick(){
   const gl=guides();if(!curGuide||!gl.includes(curGuide))curGuide=gl[0]||null;
   $('#guidePick').innerHTML=gl.map(g=>`<button type="button" aria-pressed="${g===curGuide}" data-g="${esc(g)}">${esc(g)}</button>`).join('');
   $('#guidePick').querySelectorAll('button').forEach(b=>b.onclick=()=>{curGuide=b.dataset.g;store.set('guide',curGuide);renderGuidePick();renderGuide()});
 }
-function guideTasks(g){
-  const tasks=[];
-  const byFl=new Map();
-  DAY.arr.filter(t=>t.g===g).forEach(t=>{const f=flightOfGroup(t);const k=f?f.key:t.id;if(!byFl.has(k))byFl.set(k,{kind:'arr',f,groups:[]});byFl.get(k).groups.push(t)});
-  byFl.forEach(x=>{const f=x.f;x.time=f?f.eta:toMin(x.groups[0].t);x.sort=x.time;tasks.push(x)});
+// tasks = one meeting (all groups of one flight for one guide) or one hotel pick-up
+function buildTasks(keep){
+  const tasks=[];const byFl=new Map();
+  DAY.arr.filter(keep).forEach(t=>{const f=flightOfGroup(t);const k=(f?f.key:t.id)+'|'+(t.g||'');if(!byFl.has(k))byFl.set(k,{kind:'arr',f,guide:t.g||'',groups:[]});byFl.get(k).groups.push(t)});
+  byFl.forEach(x=>{x.time=x.f?x.f.eta:toMin(x.groups[0].t);tasks.push(x)});
   const byPu=new Map();
-  DAY.dep.filter(t=>t.g===g).forEach(t=>{const k=t.pu+'|'+t.h+'|'+t.v;if(!byPu.has(k))byPu.set(k,{kind:'dep',groups:[]});byPu.get(k).groups.push(t)});
-  byPu.forEach(x=>{x.time=toMin(x.groups[0].pu||x.groups[0].t);x.sort=x.time;tasks.push(x)});
-  tasks.sort((a,b)=>a.sort-b.sort);
-  tasks.forEach(t=>{t.total=t.groups.reduce((s,g)=>s+groupTotal(g),0);t.done=t.groups.reduce((s,g)=>s+marked(g),0);t.res=t.groups.reduce((s,g)=>s+resolved(g),0);t.no=t.res-t.done;t.complete=t.total>0&&t.res>=t.total});
+  DAY.dep.filter(keep).forEach(t=>{const k=t.pu+'|'+t.h+'|'+t.v+'|'+(t.g||'');if(!byPu.has(k))byPu.set(k,{kind:'dep',guide:t.g||'',groups:[]});byPu.get(k).groups.push(t)});
+  byPu.forEach(x=>{x.time=toMin(x.groups[0].pu||x.groups[0].t);tasks.push(x)});
+  tasks.sort((a,b)=>a.time-b.time);
+  tasks.forEach(t=>{t.total=t.groups.reduce((s,g)=>s+groupTotal(g),0);t.done=t.groups.reduce((s,g)=>s+marked(g),0);t.res=t.groups.reduce((s,g)=>s+resolved(g),0);t.no=t.res-t.done;t.complete=t.total>0&&t.res>=t.total;
+    t.last=Math.max(-1,...t.groups.flatMap(g=>Object.entries(met[g.id]||{}).filter(([k,v])=>k[0]==='@'&&v!=null).map(([,v])=>+v)))});
   return tasks;
 }
+const guideTasks=g=>buildTasks(t=>t.g===g);
+function taskHead(t,showGuide){
+  const g0=t.groups[0];
+  if(t.kind==='arr'){const f=t.f,st=f?fStatus(f,NOW):null;const late=f&&f.delay>=15&&(f.live||NOW>=f.delayKnownAt);
+    return `<div class="tt ${late?'late':''} num">${late?`<s>${g0.t}</s>`:''}${fmt(t.time)}<small>${st&&st.k==='land'?'сел':'посадка'}</small></div><div><div class="kind arr">Встреча${showGuide?` · <span class="gtag">${esc(t.guide||'гид не указан')}</span>`:''}</div><div class="ttl">${esc(f?[...f.codes].join(' / '):g0.fl)}</div><div class="sub">${esc(CITY[g0.org]||g0.org||'')} · ${g0.to==='GZP'?'<b>Газипаша</b>':termLbl(g0.term)} · ${esc(g0.v||'без машины')}</div></div>${st?`<span class="status ${st.k} st"><span class="dot"></span>${st.lbl}</span>`:''}`}
+  return `<div class="tt num">${esc(g0.pu||g0.t)}<small>выезд</small></div><div><div class="kind dep">Забор из отеля${showGuide?` · <span class="gtag">${esc(t.guide||'гид не указан')}</span>`:''}</div><div class="ttl">${esc(g0.h)}</div><div class="sub">→ ${/^[!?]/.test(g0.fl)?'рейс не указан':esc(normFl(g0.fl))} в ${esc(g0.t)} · ${termLbl(g0.term)} · ${esc(g0.v||'')}${g0.note?' · '+esc(g0.note):''}</div></div><span class="chip st">${t.groups.reduce((s,x)=>s+(+x.pax||0),0)} чел</span>`;
+}
+// passengers still expected first; the ones already marked go into a "Вышли" box with the time
 function paxRows(g,kind){
   const okLbl=kind==='arr'?'Вышел':'Сел';
-  if(g.p&&g.p.length)return g.p.map((p,i)=>{const mk=markOf(g.id,i);return `<div class="prow ${mk||''}"><span class="pn">${i+1}</span><span class="nm">${esc(p[0])} ${esc(p[1])}${p[2]?`<small>${esc(p[2])}</small>`:''}</span><span class="mk"><button type="button" class="ok" aria-pressed="${mk==='out'}" data-mk="${g.id}|${i}|out">✓ ${okLbl}</button><button type="button" class="no" aria-pressed="${mk==='no'}" data-mk="${g.id}|${i}|no" aria-label="Нет">✗</button></span></div>`}).join('');
+  const row=(p,i)=>{const mk=markOf(g.id,i);const at=(met[g.id]||{})['@'+i];return `<div class="prow ${mk||''}"><span class="pn">${i+1}</span><span class="nm">${esc(p[0])} ${esc(p[1])}${p[2]?`<small>${esc(p[2])}</small>`:''}${mk&&at!=null?`<small class="at">${mk==='out'?'✓':'✗'} ${fmt(at)}</small>`:''}</span><span class="mk"><button type="button" class="ok" aria-pressed="${mk==='out'}" data-mk="${g.id}|${i}|out">✓ ${okLbl}</button><button type="button" class="no" aria-pressed="${mk==='no'}" data-mk="${g.id}|${i}|no" aria-label="Нет">✗</button></span></div>`};
+  if(g.p&&g.p.length){
+    const pend=[],done=[];g.p.forEach((p,i)=>(markOf(g.id,i)?done:pend).push([p,i]));
+    const nOut=done.filter(([,i])=>markOf(g.id,i)==='out').length,nNo=done.length-nOut;
+    return pend.map(([p,i])=>row(p,i)).join('')+(done.length?`<details class="donebox"${pend.length?'':' open'}><summary><span class="met">✓ ${kind==='arr'?'Вышли':'Сели'}: ${nOut}</span>${nNo?` <span class="nos">✗ не пришли: ${nNo}</span>`:''}</summary>${done.map(([p,i])=>row(p,i)).join('')}</details>`:'');
+  }
   const n=marked(g);
-  return `<div class="counter"><button type="button" data-cnt="${g.id}|-1" aria-label="Минус">−</button><output>${n} / ${g.pax}</output><button type="button" data-cnt="${g.id}|1" aria-label="Плюс">+</button><span class="hint">Имён нет: загрузите список туристов</span></div>`;
+  return `<div class="counter"><button type="button" data-cnt="${g.id}|-1" aria-label="Минус">−</button><output>${n} / ${g.pax}</output><button type="button" data-cnt="${g.id}|1" aria-label="Плюс">+</button>${kind==='arr'?'<span class="hint">без имён</span>':''}</div>`;
+}
+function grpHtml(t){return t.groups.map(x=>{const d=marked(x),n=groupTotal(x);return `<div class="tgrp"><div class="gh"><span><b>${esc(t.kind==='arr'?x.h:normFl(x.fl)+' '+x.t)}</b> <span class="hint">${esc(x.op||'')} · ${x.pax} чел</span></span><span style="display:flex;gap:8px;align-items:center"><span class="bar"><i style="width:${n?Math.round(d/n*100):0}%"></i></span><span class="num">${d}/${n}</span></span></div>${paxRows(x,t.kind)}</div>`}).join('')}
+function taskCard(t,key,o={}){
+  const cls=['task',t.complete?'done':'',o.next?'next':''].join(' ');
+  const ids=t.groups.map(x=>x.id).join(',');
+  if(t.complete)return `<article class="${cls}"><div class="th">${taskHead(t,o.showGuide)}</div><div class="tf"><span class="met">✓ ${t.kind==='arr'?'Вышли':'Сели'} ${t.done} из ${t.total}${t.no?`, не пришли: ${t.no}`:''}${t.last>=0?` · ${fmt(t.last)}`:''}</span><button class="btn" type="button" data-open="${key}">Показать список</button></div><div hidden id="tg_${key}">${grpHtml(t)}</div></article>`;
+  return `<article class="${cls}"><div class="th">${taskHead(t,o.showGuide)}</div>${grpHtml(t)}<div class="tf"><button class="btn primary" type="button" data-allk="${ids}">${t.kind==='arr'?'Все вышли':'Все сели'}</button><button class="btn" type="button" data-clear="${ids}">Сбросить</button></div></article>`;
+}
+function bindMarks(T){
+  T.querySelectorAll('[data-mk]').forEach(b=>b.onclick=()=>{const [gid,i,val]=b.dataset.mk.split('|');setMark(gid,i,markOf(gid,i)===val?null:val);rerenderMarks()});
+  T.querySelectorAll('[data-cnt]').forEach(b=>b.onclick=()=>{const [gid,d]=b.dataset.cnt.split('|');const g=allGroups().find(x=>x.id===gid);met[gid]=met[gid]||{};met[gid].n=Math.max(0,Math.min(+g.pax||0,(+met[gid].n||0)+(+d)));met[gid]['@n']=stamp();saveMet();rerenderMarks()});
+  T.querySelectorAll('[data-allk]').forEach(b=>b.onclick=()=>{const now=stamp();b.dataset.allk.split(',').forEach(gid=>{const g=allGroups().find(x=>x.id===gid);met[gid]=met[gid]||{};if(g.p&&g.p.length)g.p.forEach((_,i)=>{if(!markOf(gid,i)){met[gid][i]='out';met[gid]['@'+i]=now}});else{met[gid].n=+g.pax||0;met[gid]['@n']=now}});saveMet();rerenderMarks();toast('Отмечено, операционщик это видит')});
+  T.querySelectorAll('[data-clear]').forEach(b=>b.onclick=()=>{b.dataset.clear.split(',').forEach(gid=>{const g=allGroups().find(x=>x.id===gid);met[gid]={n:0,'@n':null};if(g.p)g.p.forEach((_,i)=>{met[gid][i]=null;met[gid]['@'+i]=null})});saveMet();rerenderMarks()});
+  T.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{const el=document.getElementById('tg_'+b.dataset.open);el.hidden=!el.hidden;b.textContent=el.hidden?'Показать список':'Скрыть список'});
 }
 function renderGuide(){
   if(!DAY)return;
@@ -1075,27 +1151,50 @@ function renderGuide(){
   $('#guideHead').innerHTML=`<div class="ghead"><div class="gname">${esc(g)}</div><div class="gmeta">${vehs.map(v=>{const a=assign[v]||{};return `<span><b>${esc(v)}</b>${a.plate?' · '+esc(a.plate):''}${a.phone?' · водитель '+esc(a.phone):''}</span>`}).join('')}</div><div class="gmeta"><span><b>${tasks.filter(t=>t.kind==='arr').length}</b> встреч</span><span><b>${tasks.filter(t=>t.kind==='dep').length}</b> заборов</span><span><b>${tot}</b> гостей</span><span>отмечено <b>${done}</b></span></div></div>`;
   const hide=$('#hideDone').checked;
   const nextIdx=tasks.findIndex(t=>!t.complete&&t.time+60>=NOW);
-  $('#tasks').innerHTML=tasks.map((t,ti)=>{
-    if(hide&&t.complete)return '';
-    const g0=t.groups[0];let head;
-    if(t.kind==='arr'){const f=t.f,st=f?fStatus(f,NOW):null;const late=f&&f.delay>=15&&(f.live||NOW>=f.delayKnownAt);
-      head=`<div class="tt ${late?'late':''} num">${late?`<s>${g0.t}</s>`:''}${fmt(t.time)}<small>${st&&st.k==='land'?'сел':'посадка'}</small></div><div><div class="kind arr">Встреча</div><div class="ttl">${esc(f?[...f.codes].join(' / '):g0.fl)}</div><div class="sub">${esc(CITY[g0.org]||g0.org||'')} · ${g0.to==='GZP'?'<b>Газипаша</b>':termLbl(g0.term)} · ${esc(g0.v||'без машины')}</div></div>${st?`<span class="status ${st.k} st"><span class="dot"></span>${st.lbl}</span>`:''}`;
-    }else{
-      head=`<div class="tt num">${esc(g0.pu||g0.t)}<small>выезд</small></div><div><div class="kind dep">Забор из отеля</div><div class="ttl">${esc(g0.h)}</div><div class="sub">→ ${/^[!?]/.test(g0.fl)?'рейс не указан':esc(normFl(g0.fl))} в ${esc(g0.t)} · ${termLbl(g0.term)} · ${esc(g0.v||'')}${g0.note?' · '+esc(g0.note):''}</div></div><span class="chip st">${t.groups.reduce((s,x)=>s+(+x.pax||0),0)} чел</span>`;
-    }
-    const cls=['task',t.complete?'done':'',ti===nextIdx?'next':''].join(' ');
-    if(t.complete&&!hide)return `<article class="${cls}"><div class="th">${head}</div><div class="tf"><span class="met">✓ ${t.kind==='arr'?'Вышли':'Сели'} ${t.done} из ${t.total}${t.no?`, не пришли: ${t.no}`:''}</span><button class="btn" type="button" data-open="${ti}">Показать список</button></div><div hidden id="tg_${ti}">${grpHtml(t)}</div></article>`;
-    return `<article class="${cls}"><div class="th">${head}</div>${grpHtml(t)}<div class="tf"><button class="btn primary" type="button" data-allk="${t.groups.map(x=>x.id).join(',')}">${t.kind==='arr'?'Все вышли':'Все сели'}</button><button class="btn" type="button" data-clear="${t.groups.map(x=>x.id).join(',')}">Сбросить</button></div></article>`;
-  }).join('')||'<p class="hint">Все задания выполнены.</p>';
-  function grpHtml(t){return t.groups.map(x=>{const d=marked(x),n=groupTotal(x);return `<div class="tgrp"><div class="gh"><span><b>${esc(t.kind==='arr'?x.h:normFl(x.fl)+' '+x.t)}</b> <span class="hint">${esc(x.op||'')} · ${x.pax} чел</span></span><span style="display:flex;gap:8px;align-items:center"><span class="bar"><i style="width:${n?Math.round(d/n*100):0}%"></i></span><span class="num">${d}/${n}</span></span></div>${paxRows(x,t.kind)}</div>`}).join('')}
-  const T=$('#tasks');
-  T.querySelectorAll('[data-mk]').forEach(b=>b.onclick=()=>{const [gid,i,val]=b.dataset.mk.split('|');setMark(gid,i,markOf(gid,i)===val?null:val);renderGuide();renderBoard();renderDep()});
-  T.querySelectorAll('[data-cnt]').forEach(b=>b.onclick=()=>{const [gid,d]=b.dataset.cnt.split('|');const g=[...DAY.arr,...DAY.dep].find(x=>x.id===gid);met[gid]=met[gid]||{};met[gid].n=Math.max(0,Math.min(+g.pax||0,(+met[gid].n||0)+(+d)));saveMet();renderGuide();renderBoard();renderDep()});
-  T.querySelectorAll('[data-allk]').forEach(b=>b.onclick=()=>{b.dataset.allk.split(',').forEach(gid=>{const g=[...DAY.arr,...DAY.dep].find(x=>x.id===gid);met[gid]=met[gid]||{};if(g.p&&g.p.length)g.p.forEach((_,i)=>{if(markOf(gid,i)!=='no')met[gid][i]='out'});else met[gid].n=+g.pax||0});saveMet();renderGuide();renderBoard();renderDep();toast('Отметка ушла диспетчеру')});
-  T.querySelectorAll('[data-clear]').forEach(b=>b.onclick=()=>{b.dataset.clear.split(',').forEach(gid=>{const g=[...DAY.arr,...DAY.dep].find(x=>x.id===gid);met[gid]={};if(g.p)g.p.forEach((_,i)=>met[gid][i]=null);met[gid].n=0});saveMet();renderGuide();renderBoard();renderDep()});
-  T.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{const el=document.getElementById('tg_'+b.dataset.open);el.hidden=!el.hidden;b.textContent=el.hidden?'Показать список':'Скрыть список'});
+  $('#tasks').innerHTML=tasks.map((t,ti)=>hide&&t.complete?'':taskCard(t,'g'+ti,{next:ti===nextIdx})).join('')||'<p class="hint">Все задания выполнены.</p>';
+  bindMarks($('#tasks'));
 }
 $('#hideDone').addEventListener('change',renderGuide);
+
+/* ---------- control screen for the operations desk ---------- */
+let opsOpen={later:false,done:false,stale:false};
+function renderOps(){
+  if(!DAY||!$('#opsWait'))return;
+  const fg=$('#opsGuide').value,fk=$('#opsKind').value,q=$('#opsQ').value.trim().toUpperCase();
+  // guide filter list
+  const gl=guides();const sel=$('#opsGuide');const cur=sel.value;sel.length=1;gl.forEach(g=>sel.add(new Option(g,g)));sel.value=gl.includes(cur)?cur:'';
+  const tasks=buildTasks(t=>(!fg||t.g===fg)).filter(t=>!fk||t.kind===fk).filter(t=>!q||t.groups.some(g=>(g.p||[]).some(p=>p[1].includes(q))||String(g.fl).replace(/\s/g,'').includes(q.replace(/\s/g,''))||(g.h||'').toUpperCase().includes(q)));
+  const open=tasks.filter(t=>!t.complete),done=tasks.filter(t=>t.complete);
+  const now=open.filter(t=>t.time>=NOW-90&&t.time<=NOW+120),later=open.filter(t=>t.time>NOW+120),stale=open.filter(t=>t.time<NOW-90);
+  // no-shows
+  const noShows=[];tasks.forEach(t=>t.groups.forEach(g=>(g.p||[]).forEach((p,i)=>{if(markOf(g.id,i)==='no')noShows.push({t,g,p,i,at:(met[g.id]||{})['@'+i]})})));
+  const sum=(arr,f)=>arr.reduce((s,t)=>s+f(t),0);
+  const waiting=sum(open,t=>t.total-t.res),out=sum(tasks,t=>t.done);
+  $('#opsSum').innerHTML=[['Ждём',waiting,`гостей в ${open.length} заданиях`],['Вышли',out,'отмечено гидами'],['Не пришли',noShows.length,noShows.length?'нужно разобраться':'пока нет'],['Закрыто',`${done.length}/${tasks.length}`,'заданий выполнено']].map(([k,v,s],i)=>`<div class="stat${i===2&&noShows.length?' alert':''}"><div class="k">${k}</div><div class="v num">${v}</div><div class="s">${s}</div></div>`).join('');
+  $('#opsWait').innerHTML=now.length?now.map((t,i)=>taskCard(t,'on'+i,{showGuide:true,next:i===0})).join(''):'<p class="hint">Сейчас никого не ждём.</p>';
+  $('#opsNo').innerHTML=noShows.length?noShows.map(x=>`<div class="noshow"><div><b>${esc(x.p[0]+' '+x.p[1])}</b><span class="hint">${esc(x.t.kind==='arr'?normFl(x.g.fl)+' → '+x.g.h:x.g.h+' → '+normFl(x.g.fl))} · ${esc(x.g.op||'')}</span><span class="hint">${esc(x.g.g||'')} · ${esc(x.g.v||'')}${x.at!=null?' · отмечен в '+fmt(x.at):''}</span></div><button class="btn" type="button" data-mk="${x.g.id}|${x.i}|no">Вернуть</button></div>`).join(''):'<p class="hint">Все, кого отметили, вышли.</p>';
+  $('#opsLaterN').textContent=later.length;$('#opsStaleN').textContent=stale.length;$('#opsStaleBox').hidden=!stale.length;
+  $('#opsStale').innerHTML=stale.map((t,i)=>taskCard(t,'os'+i,{showGuide:true})).join('');$('#opsDoneN').textContent=done.length;
+  $('#opsLater').innerHTML=later.map(t=>`<tr><td class="tm num">${fmt(t.time)}</td><td><span class="act ${t.kind}">${t.kind==='arr'?'Встреча':'Забор'}</span> ${esc(t.kind==='arr'?(t.f?[...t.f.codes].join(' / '):t.groups[0].fl):t.groups[0].h)}<br><span class="hint">${esc(t.groups.map(g=>t.kind==='arr'?g.h:normFl(g.fl)+' '+g.t).join(', '))}</span></td><td>${esc(t.guide||'—')}<br><span class="hint">${esc([...new Set(t.groups.map(g=>g.v))].join(', '))}</span></td><td class="n num">${t.total}</td></tr>`).join('');
+  $('#opsDone').innerHTML=done.slice().reverse().map((t,i)=>taskCard(t,'od'+i,{showGuide:true})).join('');
+  $('#opsLaterBox').open=opsOpen.later;$('#opsStaleBox').open=opsOpen.stale;$('#opsDoneBox').open=opsOpen.done;
+  bindMarks($('#v-ops'));
+}
+['#opsGuide','#opsKind'].forEach(s=>$(s).addEventListener('change',renderOps));$('#opsQ').addEventListener('input',renderOps);
+$('#opsLaterBox').addEventListener('toggle',e=>opsOpen.later=e.target.open);$('#opsStaleBox').addEventListener('toggle',e=>opsOpen.stale=e.target.open);$('#opsDoneBox').addEventListener('toggle',e=>opsOpen.done=e.target.open);
+
+/* ---------- live sync of guide marks between phones ---------- */
+let lastLocalMark=0;
+async function pullMarks(){
+  if(!SERVER||!DAY||document.hidden||Date.now()-lastLocalMark<5000)return;
+  try{const r=await api('GET','/api/state?d='+encodeURIComponent(dayKey)+'&kind=met');const srv=r.data||{};
+    if(Date.now()-lastLocalMark<5000)return;
+    const before=JSON.stringify(met);met=Object.assign({},met,srv);
+    if(JSON.stringify(met)!==before){store.set('met_'+dayKey,met);rerenderMarks()}
+  }catch(e){}
+}
+setInterval(pullMarks,20000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)pullMarks()});
+
 
 /* ---------- contacts & log ---------- */
 function renderContacts(){
@@ -1206,7 +1305,7 @@ function renderDayStatus(){
 }
 
 /* ---------- wiring ---------- */
-function renderAll(){if(!DAY)return;$('#nowLbl').textContent=fmt(NOW);$('#slider').value=NOW;renderBoard();renderDep();renderGuidePick();renderGuide();renderLog();if(!$('#v-veh').hidden&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#vgrid')))renderVeh()}
+function renderAll(){if(!DAY)return;$('#nowLbl').textContent=fmt(NOW);$('#slider').value=NOW;renderBoard();renderDep();renderGuidePick();renderGuide();renderOps();renderLog();if(!$('#v-veh').hidden&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#vgrid')))renderVeh()}
 $('#slider').addEventListener('input',e=>{followNow=false;NOW=+e.target.value;store.set('now_'+dayKey,NOW);renderAll()});
 let play=null;
 $('#playBtn').onclick=()=>{if(play){clearInterval(play);play=null;$('#playBtn').textContent='▶ Проиграть день';return}
@@ -1215,7 +1314,7 @@ setInterval(()=>{if(followNow&&DAY&&!play){NOW=nowMinutes();renderAll()}},60000)
 $('#nowBtn').onclick=()=>{followNow=true;NOW=nowMinutes();store.set('now_'+dayKey,NOW);renderAll()};
 ['#fVeh','#fHotel','#fOp'].forEach(s=>$(s).addEventListener('change',()=>DAY&&renderBoard()));$('#fQ').addEventListener('input',()=>DAY&&renderBoard());
 $('#copyWa').onclick=()=>copy($('#waMsg').textContent);
-const views=['board','dep','veh','guide','checks','contacts','data'];
+const views=['board','ops','dep','veh','guide','checks','contacts','data'];
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b)return;
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t===b));
   views.forEach(v=>$('#v-'+v).hidden=v!==b.dataset.t);store.set('tab',b.dataset.t)});

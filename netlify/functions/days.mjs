@@ -46,6 +46,12 @@ export default async (req) => {
     return json({ ok: true, watched: Object.keys(watch).length, poll: started });
   }
 
+  if (req.method === "GET" && path === "/api/state") {
+    const kind = url.searchParams.get("kind");
+    if (!["assign", "met"].includes(kind)) return json({ error: "Неверный тип" }, 400);
+    return json({ data: (await s.get("state/" + d + "/" + kind, { type: "json" })) || {} });
+  }
+
   if (req.method === "PUT" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
     if (!["assign", "met"].includes(kind)) return json({ error: "Неверный тип" }, 400);

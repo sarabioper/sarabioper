@@ -87,6 +87,27 @@
 .task .tf .btn{min-height:40px}
 @media (max-width:760px){.top{position:static}.task .th{grid-template-columns:auto minmax(0,1fr)}.task .th .st{grid-column:1/-1}.side-sticky{position:static}}
 
+.ops-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,340px);gap:16px;align-items:start}
+.ops-side{position:sticky;top:190px;display:grid;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.ops-side h2,.ops-main h2{margin:0 0 8px}
+.ops-box{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.ops-box>summary{padding:12px 14px;cursor:pointer;font-weight:600}
+.ops-box[open]>summary{border-bottom:1px solid var(--line)}
+.ops-box .tasks{padding:10px}
+.stat.alert .v{color:var(--crit)}
+.ops-box.stale>summary{color:var(--warn)}
+.gtag{color:var(--ink);text-transform:none;letter-spacing:0;font-weight:600}
+.donebox{border-top:1px solid var(--line);margin-top:4px;padding-top:4px}
+.donebox>summary{cursor:pointer;padding:6px 0;font-size:13px;display:flex;gap:10px;list-style:none}
+.donebox>summary::before{content:"▸";color:var(--muted)}
+.donebox[open]>summary::before{content:"▾"}
+.donebox .nos{color:var(--crit);font-size:13px}
+.prow .at{font-size:11px;color:var(--muted)}
+.noshow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:start;padding:8px 0;border-top:1px solid var(--line)}
+.noshow>div{display:grid;gap:2px;min-width:0}
+.noshow b{color:var(--crit)}
+@media (max-width:900px){.ops-grid{grid-template-columns:minmax(0,1fr)}.ops-side{position:static}}
+
 .chip.gzp{background:var(--warn-soft);color:var(--warn);border-color:transparent}
 .drops{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
 .drop .step{width:26px;height:26px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-weight:600;font-size:13px;justify-self:center}
@@ -119,6 +140,7 @@
     </div>
     <nav class="tabs" role="tablist" id="tabs">
       <button class="tab" role="tab" data-t="board" aria-selected="true">Прилёты</button>
+      <button class="tab" role="tab" data-t="ops">Контроль</button>
       <button class="tab" role="tab" data-t="dep">Вылеты</button>
       <button class="tab" role="tab" data-t="veh">Машины</button>
       <button class="tab" role="tab" data-t="guide">Гид</button>
@@ -139,6 +161,29 @@
       <input id="fQ" placeholder="Поиск: рейс, гид, фамилия…" aria-label="Поиск">
     </div>
     <div class="board" id="board"></div>
+  </section>
+
+  <section id="v-ops" hidden>
+    <div class="summary" id="opsSum"></div>
+    <div class="filters">
+      <select id="opsGuide" aria-label="Гид"><option value="">Все гиды</option></select>
+      <select id="opsKind" aria-label="Тип"><option value="">Встречи и заборы</option><option value="arr">Только встречи</option><option value="dep">Только заборы</option></select>
+      <input id="opsQ" placeholder="Фамилия, рейс или отель" aria-label="Поиск">
+    </div>
+    <div class="ops-grid">
+      <div class="ops-main">
+        <h2>Ждём сейчас <span class="hint">· от полутора часов назад до двух часов вперёд</span></h2>
+        <div class="tasks" id="opsWait"></div>
+        <details class="ops-box stale" id="opsStaleBox" hidden><summary>⚠ Прошли, но гид не отметил: <span id="opsStaleN">0</span></summary><div class="tasks" id="opsStale"></div></details>
+        <details class="ops-box" id="opsLaterBox"><summary>Позже: <span id="opsLaterN">0</span> заданий</summary><div style="overflow-x:auto"><table class="legs" id="opsLater"></table></div></details>
+        <details class="ops-box" id="opsDoneBox"><summary>✓ Вышли, задания закрыты: <span id="opsDoneN">0</span></summary><div class="tasks" id="opsDone"></div></details>
+      </div>
+      <aside class="ops-side">
+        <h2>Не пришли</h2>
+        <div id="opsNo"></div>
+        <p class="hint">Отметки гидов приходят сюда сами каждые 20 секунд. Операционщик тоже может отмечать гостей прямо здесь.</p>
+      </aside>
+    </div>
   </section>
 
   <section id="v-dep" hidden>
