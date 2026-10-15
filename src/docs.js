@@ -10,7 +10,8 @@ async function pdfToRows(buf,lib){
     const items=tc.items.filter(i=>i.str&&i.str.trim()).map(i=>({s:i.str,x:i.transform[4],y:i.transform[5],w:i.width,h:Math.abs(i.transform[3])||8}));
     // KAPAK prints departures and arrivals side by side: read the two halves separately
     const arrHdr=items.find(i=>/^\s*ARRIVAL\s*$/.test(i.s));
-    const cut=arrHdr?Math.min(arrHdr.x-10,...items.filter(i=>/^\s*Operat/.test(i.s)&&i.x>arrHdr.x-400).map(i=>i.x-4)):null;
+    const ops=items.filter(i=>/^\s*Operat/.test(i.s)).map(i=>i.x);
+    const cut=arrHdr?(ops.length>1?Math.max(...ops)-8:arrHdr.x-10):null;
     const cols=cut?[items.filter(i=>i.x<cut),items.filter(i=>i.x>=cut)]:[items];
     cols.forEach(col=>{
       col.sort((a,b)=>b.y-a.y||a.x-b.x);
@@ -20,7 +21,10 @@ async function pdfToRows(buf,lib){
       lines.forEach(L=>{
         L.items.sort((a,b)=>a.x-b.x);
         let txt='',end=null;
-        L.items.forEach(it=>{if(end!=null){const gap=it.x-end;txt+=gap>it.h*1.2?'  ':(gap>it.h*0.15?' ':'')}txt+=it.s;end=it.x+it.w});
+        L.items.forEach(it=>{if(end!=null){const gap=it.x-end;
+          // a number printed right after a word ("SPA2", "RESORT29") is a separate column
+          const glued=gap>-1&&((/[A-Za-zÇĞİÖŞÜçğıöşü)]$/.test(txt)&&/^\d/.test(it.s))||(/\d$/.test(txt)&&/^[A-Za-zÇĞİÖŞÜ(]/.test(it.s)));
+          txt+=gap>it.h*1.2?'  ':(gap>it.h*0.15||gap<-0.5||glued?' ':'')}txt+=it.s;end=it.x+it.w});
         rows.push([txt]);
       });
     });

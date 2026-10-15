@@ -88,7 +88,7 @@
 @media (max-width:760px){.top{position:static}.task .th{grid-template-columns:auto minmax(0,1fr)}.task .th .st{grid-column:1/-1}.side-sticky{position:static}}
 
 .chip.gzp{background:var(--warn-soft);color:var(--warn);border-color:transparent}
-.drops{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.drops{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
 .drop .step{width:26px;height:26px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-weight:600;font-size:13px;justify-self:center}
 .drop b{font-size:16px}
 .day-status{display:flex;gap:8px;flex-wrap:wrap}
@@ -196,12 +196,14 @@
         <h2 style="margin:0">Загрузить день</h2>
         <div class="day-status" id="dayStatus"></div>
         <div class="drops">
-          <label class="drop" id="dropK" for="xlsK"><span class="step">1</span><b>Капак</b><span class="hint">Excel (.xlsx) · Transfer Takip Formu</span><span class="hint">рейсы, выезды, гиды, машины</span></label>
-          <label class="drop" id="dropT" for="xlsT"><span class="step">2</span><b>Имена туристов</b><span class="hint">Word (.docx) или PDF · Genel Geliş, Araç Listesi</span><span class="hint">появятся у гида с кнопкой «Вышел»</span></label>
+          <label class="drop" id="dropK" for="xlsK"><span class="step">1</span><b>Капак</b><span class="hint">Excel или PDF · Transfer Takip Formu</span><span class="hint">рейсы, выезды, гиды, машины</span></label>
+          <label class="drop" id="dropA" for="xlsA"><span class="step">2</span><b>Машины</b><span class="hint">PDF, Word или Excel · Araç Transfer Listesi</span><span class="hint">кто в какой машине, гиды, имена с возрастом</span></label>
+          <label class="drop" id="dropT" for="xlsT"><span class="step">3</span><b>Имена туристов</b><span class="hint">PDF, Word или Excel · Genel Geliş</span><span class="hint">если Araç Listesi нет</span></label>
         </div>
-        <input type="file" id="xlsK" accept=".xlsx,.xls" multiple hidden>
-        <input type="file" id="xlsT" accept=".docx,.doc,.pdf,.xlsx" multiple hidden>
-        <p class="hint">Нажмите на окно или перетащите в него файл. Можно перетащить оба файла в любое окно: программа сама поймёт, где Капак, а где имена.</p>
+        <input type="file" id="xlsK" accept=".xlsx,.xls,.pdf" multiple hidden>
+        <input type="file" id="xlsA" accept=".pdf,.docx,.doc,.xlsx,.xls" multiple hidden>
+        <input type="file" id="xlsT" accept=".pdf,.docx,.doc,.xlsx,.xls" multiple hidden>
+        <p class="hint">Нажмите на окно или перетащите в него файлы. Можно перетащить все файлы дня в любое окно сразу: программа сама поймёт, где Капак, где лист машин, а где имена.</p>
         <div id="xlsMsg" class="res"></div>
       </div>
       <div class="panel">

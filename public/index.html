@@ -283,7 +283,7 @@ tr.soon td.t{color:var(--signal-ink)}
 @media (max-width:760px){.top{position:static}.task .th{grid-template-columns:auto minmax(0,1fr)}.task .th .st{grid-column:1/-1}.side-sticky{position:static}}
 
 .chip.gzp{background:var(--warn-soft);color:var(--warn);border-color:transparent}
-.drops{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.drops{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
 .drop .step{width:26px;height:26px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-weight:600;font-size:13px;justify-self:center}
 .drop b{font-size:16px}
 .day-status{display:flex;gap:8px;flex-wrap:wrap}
@@ -391,12 +391,14 @@ tr.soon td.t{color:var(--signal-ink)}
         <h2 style="margin:0">Загрузить день</h2>
         <div class="day-status" id="dayStatus"></div>
         <div class="drops">
-          <label class="drop" id="dropK" for="xlsK"><span class="step">1</span><b>Капак</b><span class="hint">Excel (.xlsx) · Transfer Takip Formu</span><span class="hint">рейсы, выезды, гиды, машины</span></label>
-          <label class="drop" id="dropT" for="xlsT"><span class="step">2</span><b>Имена туристов</b><span class="hint">Word (.docx) или PDF · Genel Geliş, Araç Listesi</span><span class="hint">появятся у гида с кнопкой «Вышел»</span></label>
+          <label class="drop" id="dropK" for="xlsK"><span class="step">1</span><b>Капак</b><span class="hint">Excel или PDF · Transfer Takip Formu</span><span class="hint">рейсы, выезды, гиды, машины</span></label>
+          <label class="drop" id="dropA" for="xlsA"><span class="step">2</span><b>Машины</b><span class="hint">PDF, Word или Excel · Araç Transfer Listesi</span><span class="hint">кто в какой машине, гиды, имена с возрастом</span></label>
+          <label class="drop" id="dropT" for="xlsT"><span class="step">3</span><b>Имена туристов</b><span class="hint">PDF, Word или Excel · Genel Geliş</span><span class="hint">если Araç Listesi нет</span></label>
         </div>
-        <input type="file" id="xlsK" accept=".xlsx,.xls" multiple hidden>
-        <input type="file" id="xlsT" accept=".docx,.doc,.pdf,.xlsx" multiple hidden>
-        <p class="hint">Нажмите на окно или перетащите в него файл. Можно перетащить оба файла в любое окно: программа сама поймёт, где Капак, а где имена.</p>
+        <input type="file" id="xlsK" accept=".xlsx,.xls,.pdf" multiple hidden>
+        <input type="file" id="xlsA" accept=".pdf,.docx,.doc,.xlsx,.xls" multiple hidden>
+        <input type="file" id="xlsT" accept=".pdf,.docx,.doc,.xlsx,.xls" multiple hidden>
+        <p class="hint">Нажмите на окно или перетащите в него файлы. Можно перетащить все файлы дня в любое окно сразу: программа сама поймёт, где Капак, где лист машин, а где имена.</p>
         <div id="xlsMsg" class="res"></div>
       </div>
       <div class="panel">
@@ -547,6 +549,11 @@ function parseTourists(rows){
   const hdr=/(\d{1,4})-\s+(\d\d\/\d\d\/\d\d)\s+(GRUB|İND|IND|ARA|NO)\s+(?:(\d\d:\d\d)\s+)?([A-Z?]{1,3})\s*=>\s*([A-Z?]{1,3})\s*/g;
   const heads=[];let m;
   while((m=hdr.exec(S)))heads.push({start:m.index,end:hdr.lastIndex,type:m[3],time:m[4]||'',from:m[5],to:m[6]});
+  const isArac=/ARAÇ\s+TRANSFER\s+L[İI]STES[İI]/.test(S);
+  const marks=[];const mk=/(BUS\s?\d+|MİNİ\s?\d+|MİN\s?\d+|MİDİ\s?\d+|VİTO\s?\d*)\s+(?=Bas\S*m Tarihi|GEL[İI]Ş|G[İI]D[İI]Ş|D[ÖO]N[ÜU]Ş)/g;
+  if(isArac)while((m=mk.exec(S)))marks.push({pos:m.index,v:m[1].replace(/\s+/g,' ').replace(/^(BUS|MİNİ|MİN|MİDİ)(\d)/,'$1 $2').trim()});
+  const vehAt=pos=>{let v='';for(const x of marks){if(x.pos<pos)v=x.v;else break}return v};
+  const totals={};if(isArac){const tr=/TOPLAM PAX\s*:\s*(\d+)/g;let t;while((t=tr.exec(S))){const v=vehAt(t.index);if(v)totals[v]=+t[1]}}
   const groups=[];
   heads.forEach((h,i)=>{
     const seg=S.slice(h.end,i+1<heads.length?heads[i+1].start:S.length);
@@ -555,11 +562,17 @@ function parseTourists(rows){
     let hotelTxt;
     if(fm)hotelTxt=head.slice(head.indexOf(fm[0])+fm[0].length);
     else hotelTxt=head.replace(/=>/,' ');
-    const pm=hotelTxt.match(/^(.*?)\s*(\d{1,3})\s+(?=<|[A-ZİÇ]{3}|BUS|MİN|VİTO|MİDİ|\d)/);
+    const pm=hotelTxt.match(/^(.*?)\s*(\d{1,3})\s+(?=<|[A-ZÇĞİÖŞÜ]{3}|BUS|MİN|VİTO|MİDİ|\d)/);
     const hotel=pm?pm[1]:hotelTxt.split(/\s\d/)[0];
     const pax=pm?+pm[2]:0;
     const vm=head.match(/\b(BUS|MİNİ|MİN|MİDİ|VİTO)\b\s*(\d*)/);
-    const g={type:h.type,time:h.time,from:h.from,to:h.to,fl:fm&&!/^[!?]/.test(fm[1])?fm[1].replace(/^([A-Z0-9]{2})\s?0*(\d+)$/,'$1 $2'):'',fFrom:fm?fm[2]:'',fTo:fm?fm[3]:'',hotel:normHotel(hotel),hotelRaw:hotel.trim(),pax,veh:vm?(vm[1]+(vm[2]?' '+vm[2]:'')):'',people:[]};
+    // guide: capital words after the passenger count (skipping the vehicle), until terminal or a number
+    let guide='';{const after=pm?hotelTxt.slice(pm[0].length):'';const tk=after.replace(/<[^>]*>/g,' ').split(' ').filter(Boolean);const gw=[];
+      for(let k=0;k<tk.length;k++){const t=tk[k];if(/^(BUS|MİNİ|MİN|MİDİ)$/.test(t)&&/^\d+$/.test(tk[k+1]||'')){k++;continue}if(t==='VİTO')continue;if(/^(TER|ICHAT|NOT)$/.test(t)||/\d/.test(t)){if(gw.length)break;continue}if(T_CAPS.test(t.replace(/\.$/,''))&&!T_STOP.has(t))gw.push(t);else if(gw.length)break}
+      guide=gw.join(' ')}
+    const term=/\bICHAT\b/.test(head)?'İÇ':/\bTER\b/.test(head)?'DIŞ':'';
+    const opm=seg.slice(0,400).match(/\b([A-Z]{3,6}\d{2}|AIR|SKY|BINALI|SIBIR|URAN|KAP|MERID|SARAB)\s+NOT\b/);
+    const g={type:h.type,time:h.time,from:h.from,to:h.to,fl:fm&&!/^[!?]/.test(fm[1])?fm[1].replace(/^([A-Z0-9]{2})\s?0*(\d+)$/,'$1 $2'):'',fFrom:fm?fm[2]:'',fTo:fm?fm[3]:'',hotel:normHotel(hotel),hotelRaw:hotel.trim(),pax,veh:isArac?vehAt(h.start):(vm?(vm[1]+(vm[2]?' '+vm[2]:'')):''),guide,term,op:opm?opm[1]:'',people:[]};
     g.dir=g.fTo==='AYT'?'arr':g.fFrom==='AYT'?'dep':h.type==='ARA'?'h2h':'arr';
     // people
     const pr=/(\d{1,3})-\s+(Mr|Mrs|Ms|Miss|Chd|Inf)\s*\.?\s+/g;const anchors=[];let p;
@@ -576,12 +589,12 @@ function parseTourists(rows){
     });
     groups.push(g);
   });
-  return {date,groups};
+  return {date,groups,isArac,totals,vehicles:[...new Set(marks.map(x=>x.v))]};
 }
 // Attach names to the day's groups: same flight + same hotel; several groups -> by passenger count.
 function applyTourists(day,parsed){
   const key=(fl,h)=>String(fl).replace(/\s+/g,'').replace(/^([A-Z0-9]{2})0*/,'$1')+'|'+h;
-  const used=new Set();let matched=0,people=0;const unmatched=[];
+  const used=new Set();let matched=0,people=0;const unmatched=[];const changed=[];
   const pools={arr:day.arr,dep:day.dep};
   parsed.groups.forEach(t=>{
     if(!t.people.length||t.dir==='h2h'||!t.fl)return;
@@ -591,9 +604,21 @@ function applyTourists(day,parsed){
     if(!cands.length){unmatched.push(t);return}
     const g=cands.find(c=>+c.pax===t.pax)||cands.find(c=>+c.pax===t.people.length)||cands[0];
     used.add(g.id);g.p=t.people;matched++;people+=t.people.length;
+    if(parsed.isArac){if(t.veh&&g.v!==t.veh){changed.push(`${g.fl} ${g.h}: ${g.v||'—'} → ${t.veh}`);g.v=t.veh}if(t.guide)g.g=t.guide;if(t.term&&!g.term)g.term=t.term;if(t.op&&(!g.op||g.op==='—'))g.op=t.op}
   });
+  // vehicle list: transfers missing from KAPAK are added, so the vehicle plan is complete
+  let added=0;
+  if(parsed.isArac)unmatched.slice().forEach(t=>{if(!t.fl||t.dir!=='arr'&&t.dir!=='dep')return;
+    const id=(day.key||'')+'v'+(day.arr.length+day.dep.length+added);
+    const g=t.dir==='arr'?{id,t:t.time,fl:t.fl,org:t.fFrom.replace(/\?/g,''),to:t.fTo||'AYT',h:t.hotel,v:t.veh,g:t.guide,op:t.op||'—',term:t.term,p:t.people,pax:t.pax||t.people.length,note:'добавлено из Araç Listesi'}
+      :{id,fl:t.fl,dest:t.fTo.replace(/\?/g,''),t:t.time,h:t.hotel,pax:t.pax||t.people.length,pu:'',g:t.guide,v:t.veh,term:t.term,op:t.op||'—',note:'добавлено из Araç Listesi',p:t.people};
+    (t.dir==='arr'?day.arr:day.dep).push(g);added++;people+=t.people.length;unmatched.splice(unmatched.indexOf(t),1)});
+  // departures in KAPAK often carry only the first name ("BAİRAM"): use the full name when it is unique
+  if(parsed.isArac){const full=[...new Set(day.arr.map(g=>g.g).filter(n=>/\s/.test(n||'')))];
+    day.dep.forEach(r=>{if(!r.g||/\s/.test(r.g))return;const k=r.g.normalize('NFD').replace(/[\u0300-\u036f]/g,'');const c=full.filter(f=>f.split(' ')[0].normalize('NFD').replace(/[\u0300-\u036f]/g,'')===k);if(c.length===1)r.g=c[0]});
+    day.aracTotals=parsed.totals;day.aracVehicles=parsed.vehicles;}
   const h2h=parsed.groups.filter(t=>t.dir==='h2h').reduce((s,t)=>s+t.people.length,0);
-  return {matched,people,unmatched,h2h};
+  return {matched,people,unmatched,h2h,changed,added};
 }
 if(typeof module!=='undefined')module.exports={parseTourists,applyTourists};
 
@@ -609,7 +634,8 @@ async function pdfToRows(buf,lib){
     const items=tc.items.filter(i=>i.str&&i.str.trim()).map(i=>({s:i.str,x:i.transform[4],y:i.transform[5],w:i.width,h:Math.abs(i.transform[3])||8}));
     // KAPAK prints departures and arrivals side by side: read the two halves separately
     const arrHdr=items.find(i=>/^\s*ARRIVAL\s*$/.test(i.s));
-    const cut=arrHdr?Math.min(arrHdr.x-10,...items.filter(i=>/^\s*Operat/.test(i.s)&&i.x>arrHdr.x-400).map(i=>i.x-4)):null;
+    const ops=items.filter(i=>/^\s*Operat/.test(i.s)).map(i=>i.x);
+    const cut=arrHdr?(ops.length>1?Math.max(...ops)-8:arrHdr.x-10):null;
     const cols=cut?[items.filter(i=>i.x<cut),items.filter(i=>i.x>=cut)]:[items];
     cols.forEach(col=>{
       col.sort((a,b)=>b.y-a.y||a.x-b.x);
@@ -619,7 +645,10 @@ async function pdfToRows(buf,lib){
       lines.forEach(L=>{
         L.items.sort((a,b)=>a.x-b.x);
         let txt='',end=null;
-        L.items.forEach(it=>{if(end!=null){const gap=it.x-end;txt+=gap>it.h*1.2?'  ':(gap>it.h*0.15?' ':'')}txt+=it.s;end=it.x+it.w});
+        L.items.forEach(it=>{if(end!=null){const gap=it.x-end;
+          // a number printed right after a word ("SPA2", "RESORT29") is a separate column
+          const glued=gap>-1&&((/[A-Za-zÇĞİÖŞÜçğıöşü)]$/.test(txt)&&/^\d/.test(it.s))||(/\d$/.test(txt)&&/^[A-Za-zÇĞİÖŞÜ(]/.test(it.s)));
+          txt+=gap>it.h*1.2?'  ':(gap>it.h*0.15||gap<-0.5||glued?' ':'')}txt+=it.s;end=it.x+it.w});
         rows.push([txt]);
       });
     });
@@ -915,6 +944,7 @@ function renderVeh(){
   const active=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#vgrid')?document.activeElement.id:null;
   $('#vgrid').innerHTML=vs.map(x=>{const a=assign[x.v]||{};const id=x.v.replace(/\W/g,'_');const st=vehNow(x);
     const warn=[];if(!a.plate)warn.push('<span class="chip bad">номер не назначен</span>');if(!a.phone)warn.push('<span class="chip">нет телефона водителя</span>');
+    if(DAY.aracTotals&&DAY.aracTotals[x.v]!=null){const n=x.legs.filter(l=>l.kind==='arr').reduce((s,l)=>{const g=DAY.arr.find(a=>a.id===l.gid);return s+(g&&g.p&&g.p.length?g.p.filter(p=>p[0]!=='Inf').length:l.pax)},0);warn.push(n===DAY.aracTotals[x.v]?`<span class="chip ok">Araç Listesi: ${n} чел ✓</span>`:`<span class="chip bad">Araç Listesi: ${DAY.aracTotals[x.v]} чел, в программе ${n}</span>`)}
     x.over.forEach(t=>warn.push(`<span class="chip bad">перегруз ${fmt(t.start)}: ${t.pax} чел при ${x.cap} местах</span>`));
     x.legs.filter(l=>l.late).forEach(l=>warn.push(`<span class="chip gzp">${esc(normFl(l.fl))} задерживается на ${l.late} мин</span>`));
     const rows=x.trips.map((t,ti)=>(x.trips.length>1?`<tr class="trip"><td colspan="4">Поездка ${ti+1} · ${t.kind==='arr'?'из аэропорта':'в аэропорт'} · ${t.pax} из ${x.cap} мест</td></tr>`:'')+t.legs.map(l=>`<tr class="${l.end<NOW?'past':''}"><td class="tm num">${esc(l.t)}</td><td><span class="act ${l.kind}">${l.kind==='arr'?'Встреча':'Забор'}</span><br>${esc(legPlace(l))}${l.note?` <span class="hint">· ${esc(l.note)}</span>`:''}</td><td>${l.kind==='arr'?termLbl(l.term):'вылет '+esc(l.ft)}<br><span class="hint">${esc(l.op||'')}${l.g&&x.gs.size>1?' · '+esc(l.g):''}</span></td><td class="n num">${l.pax}</td></tr>`).join('')).join('');
@@ -1118,6 +1148,7 @@ async function importKapak(rows,file){
   if(!d.arr.length&&!d.dep.length)throw new Error('в файле не найдено ни одного рейса');
   d.iso=dm?`${dm[3]}-${dm[2]}-${dm[1]}`:'';
   const prev=DAYS[key];let names=null;
+  if(prev&&prev.arac){d.arac=prev.arac;applyTourists(d,d.arac)}
   if(prev&&prev.tourists){d.tourists=prev.tourists;names=applyTourists(d,d.tourists)}
   DAYS[key]=d;
   const srv=await saveDay(key,d);
@@ -1125,19 +1156,29 @@ async function importKapak(rows,file){
 }
 async function importTourists(T,file){
   const key=T.date?T.date.d+'.'+T.date.m:null;
-  if(!key)throw new Error('не нашёл дату в списке туристов');
-  const d=DAYS[key];
-  if(!d)throw new Error(`сначала загрузите Капак на ${key}, потом список туристов`);
-  const r=applyTourists(d,T);d.tourists=T;
+  if(!key)throw new Error('не нашёл дату в списке');
+  let d=DAYS[key],created=false;
+  if(!d){
+    if(!T.isArac)throw new Error(`сначала загрузите Капак или Araç Listesi на ${key}, потом имена`);
+    // a vehicle list alone is enough to build the arrivals of the day
+    d={key,title:`${+T.date.d} ${MONTHS[+T.date.m-1]} ${T.date.y}`,source:'Araç Listesi',arr:[],dep:[],self:0,h2h:0,recon:null,delays:{},extra:[],iso:`${T.date.y}-${T.date.m}-${T.date.d}`};
+    DAYS[key]=d;created=true;
+  }
+  const r=applyTourists(d,T);
+  if(T.isArac)d.arac=T;else d.tourists=T;
   await saveDay(key,d);
-  const un=r.unmatched.filter(t=>t.people.length);
-  return {key,html:`<b>Список туристов ${esc(key)} загружен.</b><span>Имена добавлены в ${r.matched} групп, всего ${r.people} туристов. Теперь у гидов есть кнопки «Вышел».</span>${r.h2h?`<span>${r.h2h} туристов в межотельных переездах, в Капаке их нет.</span>`:''}${un.length?`<span>Не нашлись в Капаке (${un.length}): ${un.slice(0,8).map(t=>esc((t.fl||'без рейса')+' '+t.hotel+' · '+t.people.length+' чел')).join('; ')}${un.length>8?'…':''}</span>`:''}`};
+  const un=r.unmatched.filter(t=>t.people.length&&t.fl);
+  if(T.isArac){
+    const per=T.vehicles.map(v=>{const n=d.arr.concat(d.dep).filter(g=>g.v===v).reduce((s,g)=>s+(g.p&&g.p.length?g.p.filter(p=>p[0]!=='Inf').length:+g.pax||0),0);const tot=T.totals[v];return `${esc(v)}: ${n}${tot!=null?(n===tot?' ✓':` (в листе ${tot})`):''}`});
+    return {key,html:`<b>Araç Listesi ${esc(key)} загружен: ${T.vehicles.length} машин.</b><span>${created?'Капака на этот день нет, прилёты построены по листу машин. ':''}Машины, гиды и терминалы обновлены, имена добавлены в ${r.matched+r.added} групп, всего ${r.people} туристов.</span><span>По машинам: ${per.join(' · ')}</span>${r.changed.length?`<span>Машина изменилась по сравнению с Капаком: ${r.changed.map(esc).join('; ')}</span>`:''}${r.added&&!created?`<span>Добавлено трансферов, которых не было в Капаке: ${r.added}.</span>`:''}`};
+  }
+  return {key,html:`<b>Имена туристов ${esc(key)} загружены.</b><span>Имена добавлены в ${r.matched} групп, всего ${r.people} туристов. Теперь у гидов есть кнопки «Вышел».</span>${r.h2h?`<span>${r.h2h} туристов в межотельных переездах, в Капаке их нет.</span>`:''}${un.length?`<span>Не нашлись в Капаке (${un.length}): ${un.slice(0,8).map(t=>esc((t.fl||'без рейса')+' '+t.hotel+' · '+t.people.length+' чел')).join('; ')}${un.length>8?'…':''}</span>`:''}`};
 }
 async function importFiles(files){
   const msg=$('#xlsMsg');msg.innerHTML='Читаю файлы…';
   const items=[];
   for(const file of files){try{const rows=await readRows(file);const T=parseTourists(rows);const people=T.groups.reduce((s,g)=>s+g.people.length,0);items.push({file,rows,T,isTourists:people>0})}catch(e){items.push({file,err:e.message})}}
-  items.sort((a,b)=>(a.isTourists?1:0)-(b.isTourists?1:0));
+  items.sort((a,b)=>(a.isTourists?(a.T.isArac?1:2):0)-(b.isTourists?(b.T.isArac?1:2):0));
   const out=[];let last=null;
   for(const it of items){
     if(it.err){out.push(`<span>${esc(it.file.name)}: не удалось прочитать (${esc(it.err)}).</span>`);continue}
@@ -1149,8 +1190,8 @@ async function importFiles(files){
 }
 // kept for older callers and tests
 const importFile=f=>importFiles([f]);
-['#xlsK','#xlsT'].forEach(id=>$(id).addEventListener('change',e=>{if(e.target.files.length)importFiles([...e.target.files]);e.target.value=''}));
-['#dropK','#dropT'].forEach(id=>{const drop=$(id);
+['#xlsK','#xlsA','#xlsT'].forEach(id=>$(id).addEventListener('change',e=>{if(e.target.files.length)importFiles([...e.target.files]);e.target.value=''}));
+['#dropK','#dropA','#dropT'].forEach(id=>{const drop=$(id);
   ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
   ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
   drop.addEventListener('drop',e=>{const f=[...e.dataTransfer.files];if(f.length)importFiles(f)})});
@@ -1158,7 +1199,10 @@ function renderDayStatus(){
   const el=$('#dayStatus');if(!el)return;
   if(!DAY){el.innerHTML='<span class="chip">День ещё не загружен</span>';return}
   const named=DAY.arr.filter(g=>g.p&&g.p.length),ppl=[...DAY.arr,...DAY.dep].reduce((s,g)=>s+(g.p?g.p.length:0),0);
-  el.innerHTML=`<span class="chip ok">${esc(DAY.key||dayKey)} · Капак загружен: ${DAY.arr.length} групп на прилёт, ${DAY.dep.length} на вылет</span>`+(ppl?`<span class="chip ok">Имена: ${ppl} туристов в ${named.length} группах</span>`:'<span class="chip bad">Имена туристов ещё не загружены</span>');
+  const hasK=DAY.source!=='Araç Listesi';
+  el.innerHTML=(hasK?`<span class="chip ok">${esc(DAY.key||dayKey)} · Капак: ${DAY.arr.length} групп на прилёт, ${DAY.dep.length} на вылет</span>`:`<span class="chip bad">${esc(DAY.key||dayKey)} · Капак не загружен (вылетов нет)</span>`)
+    +(DAY.aracVehicles?`<span class="chip ok">Машины: ${DAY.aracVehicles.length} из Araç Listesi</span>`:'<span class="chip">Araç Listesi не загружен</span>')
+    +(ppl?`<span class="chip ok">Имена: ${ppl} туристов в ${named.length} группах</span>`:'<span class="chip bad">Имена туристов ещё не загружены</span>');
 }
 
 /* ---------- wiring ---------- */
