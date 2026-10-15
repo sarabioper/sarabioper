@@ -17,6 +17,7 @@ ${r("src/body.html")}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 ${r("src/parser.js")}
+${r("src/tourists.js")}
 ${r("src/app.js")}
 </script>
 </body>

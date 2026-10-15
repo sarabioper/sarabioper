@@ -6,7 +6,7 @@ function parseKapak(rows){
   const STOP=new Set(['GRUB','İND','IND','NO','ARA','TER','ICHAT','TOPLAM','PAX']);
   const totals={};const dayTotals=[];
   const normFl=s=>s.replace(/^([A-Z0-9]{2})\s?0*(\d+)$/,'$1 $2');
-  const anchorRe=/((?:[A-Z][A-Z0-9]|[0-9][A-Z])\s?\d{1,5}|!{2,}|\?{2,})\s*\(([A-ZİÇ?]*)-([A-ZİÇ?]*)\)/g;
+  const anchorRe=/((?:[A-Z]{3}|[A-Z][A-Z0-9]|[0-9][A-Z])\s?\d{1,5}|!{2,}|\?{2,})\s*\(([A-ZİÇ?]*)-([A-ZİÇ?]*)\)/g;
 
   function tokenizeBody(body){
     const toks=body.split(/[\s¦]+/).filter(Boolean);

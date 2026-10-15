@@ -102,7 +102,7 @@ function loadDay(k){
   met=store.get('met_'+k,{});contacts=store.get('contacts_'+k,null);
   if(DAY.assign)assign=Object.assign({},assign,DAY.assign);if(DAY.met)met=Object.assign({},met,DAY.met);
   NOW=SERVER?nowMinutes():store.get('now_'+k,k==='15.10'?nowMinutes():540);followNow=SERVER;
-  buildFlights();fillFilters();curGuide=null;
+  buildFlights();fillFilters();
   $('#dateLbl').textContent='Операционный центр · '+DAY.title+' · '+DAY.source;
   renderDaySel();renderVeh();runChecks();renderContacts();renderAll();
 }
@@ -155,7 +155,7 @@ function fillFilters(){
   opt('#fHotel',[...new Set(DAY.arr.map(t=>t.h))].sort());
   opt('#fOp',[...new Set(DAY.arr.map(t=>t.op))].sort());
 }
-const metCount=g=>Object.values(met[g.id]||{}).filter(Boolean).length;
+const metCount=g=>marked(g);
 function renderBoard(){
   const fv=$('#fVeh').value,fh=$('#fHotel').value,fo=$('#fOp').value,q=$('#fQ').value.trim().toUpperCase();
   let html='',nowPlaced=false,land=0,air=0,late=0,paxLanded=0,paxMet=0;
@@ -177,7 +177,7 @@ function renderBoard(){
       <div class="mid">
         <div class="fl-head"><span class="fl-code">${esc([...f.codes].join(' / '))}</span><span class="fl-from">${esc(CITY[f.org]||f.org||'город вылета не указан')}</span>
         ${f.to==='GZP'?'<span class="chip gzp">Аэропорт Газипаша</span>':terms.map(t=>{const bad=t&&f.org&&t!==expected;return `<span class="chip term ${bad||!t?'bad':''}">${termLbl(t)}${bad?' ⚠':''}</span>`}).join('')}</div>
-        ${gs.map(g=>{const mc=metCount(g);return `<div class="grp"><span class="h">${esc(g.h)} <span class="op">${esc(g.op)}</span>${mc?` <span class="met">встречено ${mc}/${g.p.length}</span>`:''}${g.note?` <span class="op">· ${esc(g.note)}</span>`:''}</span><span class="chip">${esc(g.v||'нет машины')}</span><span class="px">${g.pax} чел</span></div>`}).join('')}
+        ${gs.map(g=>{const mc=metCount(g);return `<div class="grp"><span class="h">${esc(g.h)} <span class="op">${esc(g.op)}</span>${mc?` <span class="met">вышли ${mc}/${groupTotal(g)}</span>`:''}${g.note?` <span class="op">· ${esc(g.note)}</span>`:''}</span><span class="chip">${esc(g.v||'нет машины')}</span><span class="px">${g.pax} чел</span></div>`}).join('')}
       </div>
       <div class="side">
         <span class="status ${st.k}"><span class="dot"></span>${st.lbl}</span>
@@ -202,10 +202,10 @@ function renderBoard(){
 /* ---------- departures ---------- */
 function renderDep(){
   const rows=DAY.dep.slice().sort((a,b)=>toMin(a.pu)-toMin(b.pu)||toMin(a.t)-toMin(b.t));
-  $('#depTbl').innerHTML=`<thead><tr><th>Выезд</th><th>Отель</th><th class="n">Чел</th><th>Рейс</th><th>Вылет</th><th>Терминал</th><th>Машина</th><th>Гид</th><th>Опер.</th><th>Примечание</th></tr></thead><tbody>${rows.map(r=>{
+  $('#depTbl').innerHTML=`<thead><tr><th>Выезд</th><th>Отель</th><th class="n">Чел</th><th>Рейс</th><th>Вылет</th><th>Терминал</th><th>Машина</th><th>Гид</th><th>Опер.</th><th>Сели</th><th>Примечание</th></tr></thead><tbody>${rows.map(r=>{
     const pu=toMin(r.pu),cls=r.pu&&pu<NOW?'past':(r.pu&&pu-NOW<=60&&pu>=NOW?'soon':'');
     const a=assign[r.v]||{};const unk=/^[!?]/.test(r.fl);
-    return `<tr class="${cls}"><td class="t num">${r.pu||'—'}</td><td>${esc(r.h)}</td><td class="n">${r.pax}</td><td class="mono">${unk?'<span class="chip bad">рейс не указан</span>':esc(r.fl)} <span class="hint">${esc(CITY[r.dest]||r.dest)}</span></td><td class="num">${r.t}</td><td><span class="chip term">${r.term==='İÇ'?'İÇ HATLAR':r.term==='DIŞ'?'T2':'?'}</span></td><td class="mono">${esc(r.v||'—')}${a.plate?'<br><span class="hint">'+esc(a.plate)+'</span>':''}</td><td>${esc(r.g||'—')}</td><td class="mono hint">${esc(r.op)}</td><td>${r.note?`<span class="chip">${esc(r.note)}</span>`:''}</td></tr>`}).join('')}</tbody>`;
+    return `<tr class="${cls}"><td class="t num">${r.pu||'—'}</td><td>${esc(r.h)}</td><td class="n">${r.pax}</td><td class="mono">${unk?'<span class="chip bad">рейс не указан</span>':esc(r.fl)} <span class="hint">${esc(CITY[r.dest]||r.dest)}</span></td><td class="num">${r.t}</td><td><span class="chip term">${r.term==='İÇ'?'İÇ HATLAR':r.term==='DIŞ'?'T2':'?'}</span></td><td class="mono">${esc(r.v||'—')}${a.plate?'<br><span class="hint">'+esc(a.plate)+'</span>':''}</td><td>${esc(r.g||'—')}</td><td class="mono hint">${esc(r.op)}</td><td class="num">${marked(r)?`<span class="met">${marked(r)}/${groupTotal(r)}</span>`:'—'}</td><td>${r.note?`<span class="chip">${esc(r.note)}</span>`:''}</td></tr>`}).join('')}</tbody>`;
   const tot=rows.reduce((s,r)=>s+r.pax,0),done=rows.filter(r=>r.pu&&toMin(r.pu)<NOW).reduce((s,r)=>s+r.pax,0);
   const next=rows.find(r=>r.pu&&toMin(r.pu)>=NOW);
   $('#sumDep').innerHTML=[
@@ -217,28 +217,86 @@ function renderDep(){
 }
 
 /* ---------- vehicles ---------- */
-function allVehicles(){
+const CAP=v=>/^BUS/.test(v)?46:/^MİDİ/.test(v)?27:/^VİTO/.test(v)?7:16;
+const capOf=v=>+((assign[v]||{}).cap)||CAP(v);
+const flightOfGroup=g=>flights.find(f=>f.groups.includes(g));
+// Each vehicle's legs: arrival = meet at airport then drive to hotel; departure = pick up at hotel then drive to AYT.
+function vehicleLegs(){
   const m=new Map();
-  const add=(v,g,kind,leg)=>{if(!v)return;if(!m.has(v))m.set(v,{v,gs:new Set(),kinds:new Set(),legs:[]});const x=m.get(v);if(g)x.gs.add(g);x.kinds.add(kind);x.legs.push(leg)};
-  DAY.arr.forEach(t=>add(t.v,t.g,'Прилёты',{t:t.t,pax:t.pax}));
-  DAY.dep.forEach(r=>add(r.v,r.g,'Вылеты',{t:r.pu||r.t,pax:r.pax}));
-  return [...m.values()].map(x=>({...x,kind:[...x.kinds].join(' + '),g:[...x.gs].join(', ')})).sort((a,b)=>a.kind.localeCompare(b.kind,'ru')||a.v.localeCompare(b.v,'tr',{numeric:true}));
+  const add=(v,leg)=>{if(!v)return;if(!m.has(v))m.set(v,{v,legs:[],gs:new Set()});const x=m.get(v);x.legs.push(leg);if(leg.g)x.gs.add(leg.g)};
+  DAY.arr.forEach(g=>{const f=flightOfGroup(g);const eta=f?f.eta:toMin(g.t);
+    add(g.v,{kind:'arr',start:eta-20,meet:eta,end:eta+45+TRAVEL(g.h),t:fmt(eta),sch:g.t,late:f&&f.delay>=15?f.delay:0,fl:g.fl,h:g.h,pax:+g.pax||0,g:g.g,term:g.term,org:g.org,to:g.to,op:g.op,gid:g.id,st:f?fStatus(f,NOW):null})});
+  DAY.dep.forEach(r=>{const pu=toMin(r.pu||r.t);
+    add(r.v,{kind:'dep',start:pu,meet:pu,end:pu+TRAVEL(r.h)+15,t:r.pu||r.t,fl:r.fl,ft:r.t,h:r.h,pax:+r.pax||0,g:r.g,term:r.term,dest:r.dest,op:r.op,note:r.note,gid:r.id})});
+  return [...m.values()].map(x=>{
+    x.legs.sort((a,b)=>a.start-b.start);
+    // legs that overlap in time ride together: one trip
+    const trips=[];x.legs.forEach(l=>{const t=trips[trips.length-1];if(t&&l.start<=t.end&&l.kind===t.kind){t.legs.push(l);t.end=Math.max(t.end,l.end);t.pax+=l.pax}else trips.push({kind:l.kind,start:l.start,end:l.end,pax:l.pax,legs:[l]})});
+    x.trips=trips;x.cap=capOf(x.v);x.pax=x.legs.reduce((s,l)=>s+l.pax,0);
+    x.over=trips.filter(t=>t.pax>x.cap);
+    trips.forEach(t=>{t.over=t.pax>x.cap;t.legs.forEach(l=>l.over=t.over)});
+    x.kind=[...new Set(x.legs.map(l=>l.kind))];
+    return x;
+  }).sort((a,b)=>a.legs[0].start-b.legs[0].start);
 }
+function vehNow(x){
+  const cur=x.legs.find(l=>NOW>=l.start&&NOW<l.end);
+  if(cur){if(cur.kind==='arr')return {busy:true,txt:NOW<cur.meet?`Ждёт ${normFl(cur.fl)} в ${cur.t}${cur.late?' (+'+cur.late+')':''}`:`Везёт ${cur.pax} чел в ${cur.h}`};
+    return {busy:true,txt:NOW<cur.start+15?`Забор: ${cur.h}, ${cur.pax} чел`:`Едет в аэропорт к ${normFl(cur.fl)} ${cur.ft}`}}
+  const next=x.legs.find(l=>l.start>=NOW);
+  if(next)return {busy:false,txt:`Свободна до ${fmt(next.start)}`};
+  return {busy:false,done:true,txt:'Работа на сегодня закончена'};
+}
+const legPlace=l=>l.kind==='arr'?`${/^[!?]/.test(l.fl)?'рейс не указан':normFl(l.fl)} · ${CITY[l.org]||l.org||''} → ${l.h}`:`${l.h} → ${/^[!?]/.test(l.fl)?'рейс не указан':normFl(l.fl)} ${l.ft}`;
 function renderVeh(){
-  const vs=allVehicles();
-  $('#vgrid').innerHTML=vs.map(x=>{const a=assign[x.v]||{};const ts=x.legs.map(l=>toMin(l.t));const pax=x.legs.reduce((s,l)=>s+l.pax,0);const id=x.v.replace(/\W/g,'_');
-    return `<div class="vcard"><div class="vh"><span class="vn">${esc(x.v)}</span><span class="vk">${x.kind} · ${pax} чел</span></div>
-    <div class="vk">${esc(x.g||'гид не указан')} · ${fmt(Math.min(...ts))}–${fmt(Math.max(...ts))} · ${x.legs.length} заб.</div>
-    <div class="vrow"><label>Номер<input id="pl_${id}" data-v="${esc(x.v)}" data-f="plate" value="${esc(a.plate||'')}" placeholder="07 ABC 123"></label>
-    <label>Телефон водителя<input id="ph_${id}" data-v="${esc(x.v)}" data-f="phone" value="${esc(a.phone||'')}" placeholder="05xx xxx xx xx"></label></div>
-    <label>Водитель<input id="dr_${id}" data-v="${esc(x.v)}" data-f="driver" value="${esc(a.driver||'')}" placeholder="Имя"></label></div>`}).join('');
-  $('#vgrid').querySelectorAll('input').forEach(i=>i.addEventListener('input',e=>{const v=e.target.dataset.v,f=e.target.dataset.f;assign[v]=assign[v]||{};assign[v][f]=e.target.value;saveAssign();renderWa()}));
+  if(!DAY)return;
+  const vs=vehicleLegs();
+  // summary
+  const noPlate=vs.filter(x=>!(assign[x.v]||{}).plate).length;
+  const busy=vs.filter(x=>vehNow(x).busy).length;
+  $('#sumVeh').innerHTML=[['Машин',vs.length,`${vs.filter(x=>x.kind.includes('arr')).length} на прилёт · ${vs.filter(x=>x.kind.includes('dep')).length} на вылет`],['Сейчас в работе',busy,'по расписанию Капака'],['Без номера',noPlate,noPlate?'нужно назначить':'все назначены'],['Перегруз',vs.reduce((s,x)=>s+x.over.length,0),'поездок больше мест']].map(([k,v,s])=>`<div class="stat"><div class="k">${k}</div><div class="v num">${v}</div><div class="s">${s}</div></div>`).join('');
+  // gantt
+  const lo=Math.floor(Math.min(...vs.map(x=>x.legs[0].start))/60)*60,hi=Math.ceil(Math.max(...vs.map(x=>Math.max(...x.legs.map(l=>l.end))))/60)*60;
+  const pos=t=>((t-lo)/(hi-lo)*100).toFixed(2)+'%';const w=(a,b)=>((b-a)/(hi-lo)*100).toFixed(2)+'%';
+  let ticks='';for(let h=lo;h<=hi;h+=60)if((h-lo)%120===0)ticks+=`<span style="left:${pos(h)}">${fmt(h)}</span>`;
+  $('#gantt').innerHTML=`<div class="g-ticks"><div></div><div class="t">${ticks}</div></div>`+vs.map(x=>{const a=assign[x.v]||{};
+    return `<div class="g-row"><div class="g-lbl" data-jump="${esc(x.v)}">${esc(x.v)}<small>${esc(a.plate||'без номера')}</small></div><div class="g-track">${x.legs.map(l=>`<div class="g-blk ${l.kind}${l.over?' over':''}${l.end<NOW?' past':''}" style="left:${pos(l.start)};width:${w(l.start,l.end)}" title="${esc(fmt(l.start)+' '+legPlace(l)+' · '+l.pax+' чел')}">${esc(l.t)} ${l.pax}</div>`).join('')}${NOW>=lo&&NOW<=hi?`<div class="g-now" style="left:${pos(NOW)}"></div>`:''}</div></div>`}).join('');
+  {const gw=$('.gantt-wrap');if(gw&&gw.scrollWidth>gw.clientWidth&&NOW>=lo&&NOW<=hi)gw.scrollLeft=Math.max(0,(NOW-lo)/(hi-lo)*($('#gantt').scrollWidth-92)-gw.clientWidth/3)}
+  $('#gantt').querySelectorAll('[data-jump]').forEach(el=>el.onclick=()=>{const c=document.getElementById('veh_'+el.dataset.jump.replace(/\W/g,'_'));if(c)c.scrollIntoView({behavior:'smooth'})});
+  // cards
+  const active=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#vgrid')?document.activeElement.id:null;
+  $('#vgrid').innerHTML=vs.map(x=>{const a=assign[x.v]||{};const id=x.v.replace(/\W/g,'_');const st=vehNow(x);
+    const warn=[];if(!a.plate)warn.push('<span class="chip bad">номер не назначен</span>');if(!a.phone)warn.push('<span class="chip">нет телефона водителя</span>');
+    x.over.forEach(t=>warn.push(`<span class="chip bad">перегруз ${fmt(t.start)}: ${t.pax} чел при ${x.cap} местах</span>`));
+    x.legs.filter(l=>l.late).forEach(l=>warn.push(`<span class="chip gzp">${esc(normFl(l.fl))} задерживается на ${l.late} мин</span>`));
+    const rows=x.trips.map((t,ti)=>(x.trips.length>1?`<tr class="trip"><td colspan="4">Поездка ${ti+1} · ${t.kind==='arr'?'из аэропорта':'в аэропорт'} · ${t.pax} из ${x.cap} мест</td></tr>`:'')+t.legs.map(l=>`<tr class="${l.end<NOW?'past':''}"><td class="tm num">${esc(l.t)}</td><td><span class="act ${l.kind}">${l.kind==='arr'?'Встреча':'Забор'}</span><br>${esc(legPlace(l))}${l.note?` <span class="hint">· ${esc(l.note)}</span>`:''}</td><td>${l.kind==='arr'?termLbl(l.term):'вылет '+esc(l.ft)}<br><span class="hint">${esc(l.op||'')}${l.g&&x.gs.size>1?' · '+esc(l.g):''}</span></td><td class="n num">${l.pax}</td></tr>`).join('')).join('');
+    return `<article class="vcard2" id="veh_${id}"><div class="vtop"><div><div class="vn">${esc(x.v)}</div><div class="hint">${esc([...x.gs].join(', ')||'гид не указан')} · ${x.legs.length} заб. · ${x.pax} чел</div></div><span class="vnow ${st.busy?'busy':''} ${st.done?'done':''}">${esc(st.txt)}</span></div>
+    <div class="vfields"><label>Номер<input id="pl_${id}" data-v="${esc(x.v)}" data-f="plate" value="${esc(a.plate||'')}" placeholder="07 ABC 123"></label><label>Телефон водителя<input id="ph_${id}" data-v="${esc(x.v)}" data-f="phone" value="${esc(a.phone||'')}" placeholder="05xx xxx xx xx" inputmode="tel"></label><label>Водитель<input id="dr_${id}" data-v="${esc(x.v)}" data-f="driver" value="${esc(a.driver||'')}" placeholder="Имя"></label><label>Мест<input id="cp_${id}" data-v="${esc(x.v)}" data-f="cap" value="${esc(a.cap||'')}" placeholder="${CAP(x.v)}" inputmode="numeric"></label></div>
+    ${warn.length?`<div class="vwarn">${warn.join('')}</div>`:''}
+    <div style="overflow-x:auto"><table class="legs">${rows}</table></div>
+    <div class="vfoot"><button class="btn" type="button" data-drv="${esc(x.v)}">Скопировать задание водителю</button></div></article>`}).join('');
+  $('#vgrid').querySelectorAll('input').forEach(i=>i.addEventListener('change',e=>{const v=e.target.dataset.v,f=e.target.dataset.f;assign[v]=assign[v]||{};assign[v][f]=e.target.value.trim();saveAssign();renderVeh();renderBoard()}));
+  $('#vgrid').querySelectorAll('input').forEach(i=>i.addEventListener('input',e=>{const v=e.target.dataset.v,f=e.target.dataset.f;assign[v]=assign[v]||{};assign[v][f]=e.target.value;renderWa()}));
+  $('#vgrid').querySelectorAll('[data-drv]').forEach(b=>b.onclick=()=>copy(driverText(vs.find(x=>x.v===b.dataset.drv))));
+  if(active){const el=document.getElementById(active);if(el)el.focus()}
   renderWa();
 }
-function renderWa(){
-  const vs=allVehicles();const line=x=>{const a=assign[x.v]||{};return `${x.v} - ${a.plate||'?'} - ${a.phone||'?'}${a.driver?' - '+a.driver:''}`};
-  $('#waMsg').textContent=`*${dayKey}.26*\n\nARRİVAL\n`+vs.filter(x=>x.kind.includes('Прилёты')).map(line).join('\n')+'\n\nDEPARTURE\n'+vs.filter(x=>!x.kind.includes('Прилёты')).map(line).join('\n');
+function driverText(x){
+  const a=assign[x.v]||{};
+  const lines=x.legs.map(l=>l.kind==='arr'
+    ?`${l.t} KARŞILAMA ${/^[!?]/.test(l.fl)?'uçuş belirsiz':normFl(l.fl)}${l.org?' ('+(CITY_TR[l.org]||l.org)+')':''} · ${termTr(l.term)} → ${l.h} · ${l.pax} kişi`
+    :`${l.t} ALIM ${l.h} · ${l.pax} kişi → ${/^[!?]/.test(l.fl)?'uçuş belirsiz':normFl(l.fl)} ${l.ft} · ${termTr(l.term)}`);
+  return `*${x.v} · ${dayKey}*\n${a.plate?'Plaka: '+a.plate+'\n':''}Rehber: ${[...x.gs].join(', ')||'-'}\n\n${lines.join('\n')}\n\nToplam ${x.pax} kişi`;
 }
+function renderWa(){
+  if(!DAY)return;
+  const vs=vehicleLegs();const withG=$('#waGuide').checked,withT=$('#waTime').checked,withEmpty=$('#waEmpty').checked;
+  const line=x=>{const a=assign[x.v]||{};if(!withEmpty&&!a.plate)return null;return [x.v,a.plate||'?',a.phone||'?',a.driver,withG?[...x.gs].join('/'):'',withT?fmt(x.legs[0].start):''].filter(Boolean).join(' - ')};
+  const arr=vs.filter(x=>x.kind.includes('arr')).map(line).filter(Boolean),dep=vs.filter(x=>!x.kind.includes('arr')).map(line).filter(Boolean);
+  $('#waMsg').textContent=`*${dayKey}.26*\n\nARRİVAL\n${arr.join('\n')}\n\nDEPARTURE\n${dep.join('\n')}`;
+}
+['#waGuide','#waTime','#waEmpty'].forEach(s=>$(s).addEventListener('change',renderWa));
+
 
 /* ---------- checks ---------- */
 const gkey=n=>String(n||'').split(/\s+/)[0].normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.\s]/g,'').replace(/Y/g,'V').replace(/S$/,'Z');
@@ -298,50 +356,68 @@ function runChecks(){
   $('#reconLbl').innerHTML=r?`Сверка с итогами файла: <b>${r.ok} из ${r.total}</b> рейсов сходятся по количеству гостей${r.bad.length?' · не сходятся: '+r.bad.map(b=>esc(b.fl)+' ('+b.got+' из '+b.expected+')').join(', '):''}`:'Источник: PDF-списки, сверка по итогам не проводилась.';
 }
 
-/* ---------- guide chat ---------- */
-let curGuide=null;
+/* ---------- guide screen ---------- */
+// marks: met[groupId][i] = 'out' | 'no' | null ; met[groupId].n = counter when the group has no names
+let curGuide=store.get('guide',null);
 const guides=()=>[...new Set([...DAY.arr,...DAY.dep].map(x=>x.g).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'tr'));
+const markOf=(gid,i)=>{const v=(met[gid]||{})[i];return v===true?'out':v||null};
+function marked(g){const m=met[g.id]||{};if(g.p&&g.p.length)return g.p.reduce((s,_,i)=>s+(markOf(g.id,i)==='out'?1:0),0);return Math.min(+m.n||0,+g.pax||0)}
+function groupTotal(g){return g.p&&g.p.length?g.p.length:(+g.pax||0)}
+function resolved(g){if(g.p&&g.p.length)return g.p.reduce((s,_,i)=>s+(markOf(g.id,i)?1:0),0);return marked(g)}
+function setMark(gid,i,val){met[gid]=met[gid]||{};met[gid][i]=val;saveMet()}
 function renderGuidePick(){
-  const gl=guides();if(!curGuide||!gl.includes(curGuide))curGuide=gl[0];
+  const gl=guides();if(!curGuide||!gl.includes(curGuide))curGuide=gl[0]||null;
   $('#guidePick').innerHTML=gl.map(g=>`<button type="button" aria-pressed="${g===curGuide}" data-g="${esc(g)}">${esc(g)}</button>`).join('');
-  $('#guidePick').querySelectorAll('button').forEach(b=>b.onclick=()=>{curGuide=b.dataset.g;renderGuidePick();renderChat()});
+  $('#guidePick').querySelectorAll('button').forEach(b=>b.onclick=()=>{curGuide=b.dataset.g;store.set('guide',curGuide);renderGuidePick();renderGuide()});
 }
-function renderChat(){
-  const g=curGuide;if(!g){$('#chat').innerHTML='';return}
-  const mineA=DAY.arr.filter(t=>t.g===g).sort((a,b)=>toMin(a.t)-toMin(b.t));
-  const mineD=DAY.dep.filter(t=>t.g===g).sort((a,b)=>toMin(a.pu)-toMin(b.pu));
-  $('#gName').textContent=g;$('#gAv').textContent=g[0];
-  const vehs=[...new Set([...mineD,...mineA].map(t=>t.v).filter(Boolean))];
-  $('#gSub').textContent='Sarabi Operasyon · '+vehs.join(', ');
-  const msgs=[];
-  const firsts=[...mineA.map(t=>toMin(t.t)-120),...mineD.map(t=>toMin(t.pu)-90)];
-  const planAt=Math.max(0,Math.min(420,...firsts));
-  if(NOW>=planAt){
-    const lines=[...mineD.map(t=>({m:toMin(t.pu),s:`${t.pu} · <b>${esc(t.h)}</b> → ${esc(t.fl)} ${t.t}`})),...[...new Map(mineA.map(t=>[normFl(t.fl)+t.t,t])).values()].map(t=>({m:toMin(t.t),s:`${t.t} · karşılama <b>${esc(normFl(t.fl))}</b> · ${termTr(t.term)}`}))].sort((a,b)=>a.m-b.m);
-    msgs.push({at:planAt,html:`<b>Bugünkü planın · ${dayKey}</b><br>Araç: <b>${esc(vehs.join(', '))}</b>${vehs.map(v=>assign[v]&&assign[v].plate?'<br>'+esc(v)+': '+esc(assign[v].plate)+(assign[v].phone?' · şoför '+esc(assign[v].phone):''):'').join('')}<br><br>${lines.map(l=>l.s).join('<br>')}<br><br>Toplam ${[...mineA,...mineD].reduce((s,t)=>s+t.pax,0)} misafir. İyi çalışmalar!`});
-  }
-  // departure runs
-  const runs={};mineD.forEach(r=>{(runs[r.v]=runs[r.v]||[]).push(r)});
-  Object.entries(runs).forEach(([v,rs])=>{const at=toMin(rs[0].pu)-60;if(NOW<at)return;
-    msgs.push({at,html:`<b>Alım · ${esc(v)}</b><br>${rs.map(r=>`${r.pu} · ${esc(r.h)} · ${r.pax} kişi<br><span style="color:var(--muted)">→ ${/^[!?]/.test(r.fl)?'uçuş belirsiz':esc(r.fl)} ${r.t} · ${termTr(r.term)}${r.note?' · '+esc(r.note):''}</span>`).join('<br>')}`});
-  });
-  // arrivals
-  const byFl=new Map();mineA.forEach(t=>{const k=normFl(t.fl)+'|'+t.t;if(!byFl.has(k))byFl.set(k,[]);byFl.get(k).push(t)});
-  byFl.forEach((gs,k)=>{
-    const f=flights.find(x=>x.key===k);if(!f)return;
-    const cardAt=f.sched-90;
-    if(NOW>=cardAt)msgs.push({at:cardAt,html:`<span class="fl">${esc([...f.codes].join(' / '))}</span> · ${esc(CITY_TR[f.org]||f.org||'')}<br>İniş: <b>${f.t}</b> · ${f.to==='GZP'?'<b>GAZİPAŞA havalimanı</b>':termTr(gs[0].term)}<br>${gs.map(t=>`<br><b>${esc(t.h)}</b> · ${t.pax} kişi · ${esc(t.op)}${t.p.length?`<ul class="plist">${t.p.map((p,i)=>{const on=!!(met[t.id]&&met[t.id][i]);return `<li><button type="button" aria-pressed="${on}" aria-label="Karşılandı" data-tid="${t.id}" data-i="${i}">${on?'✓':''}</button><span>${esc(p[0])} ${esc(p[1])}</span><span class="age">${p[2]||''}</span></li>`}).join('')}</ul>`:`<br><span style="color:var(--muted)">İsim listesi genel listeden gelecek</span>`}`).join('')}<div class="qr"><button type="button" data-all="${gs.map(t=>t.id).join(',')}">Hepsini karşıladım</button><button type="button" data-miss="${esc(f.code)}">Eksik misafir var</button></div>`});
-    if(f.delay&&NOW>=f.delayKnownAt&&f.delayKnownAt<f.eta)msgs.push({at:f.delayKnownAt,cls:'alert',html:`<b>Rötar: ${esc(f.code)}</b><br>Yeni tahmini iniş: <b>${fmt(f.eta)}</b> (+${f.delay} dk).<br>Şoföre de bildirildi.`});
-    if(!f.unknown&&NOW>=f.eta)msgs.push({at:f.eta,cls:'land',html:`<b>${esc(f.code)} indi</b> · ${fmt(f.eta)}<br>${termTr(gs[0].term)} çıkışında bekleyin. Misafirler ~25 dk içinde çıkar.`});
-  });
-  msgs.sort((x,y)=>x.at-y.at);
-  const chat=$('#chat');
-  chat.innerHTML=`<div class="daysep">${dayKey}.2026</div>`+(msgs.length?msgs.map(m=>`<div class="bub ${m.cls||''}">${m.html}<span class="tm">${fmt(m.at)}</span></div>`).join(''):`<div class="daysep">Henüz mesaj yok · ilk mesaj ${fmt(planAt)}</div>`);
-  chat.scrollTop=chat.scrollHeight;
-  chat.querySelectorAll('.plist button').forEach(b=>b.onclick=()=>{const t=b.dataset.tid,i=b.dataset.i;met[t]=met[t]||{};met[t][i]=!met[t][i];saveMet();renderChat();renderBoard()});
-  chat.querySelectorAll('[data-all]').forEach(b=>b.onclick=()=>{b.dataset.all.split(',').forEach(id=>{const t=DAY.arr.find(x=>x.id===id);met[id]={};const n=t.p.length||t.pax;for(let i=0;i<n;i++)met[id][i]=true});saveMet();renderChat();renderBoard();toast('Отметка ушла диспетчеру')});
-  chat.querySelectorAll('[data-miss]').forEach(b=>b.onclick=()=>toast('Диспетчер получил: не все гости на '+b.dataset.miss));
+function guideTasks(g){
+  const tasks=[];
+  const byFl=new Map();
+  DAY.arr.filter(t=>t.g===g).forEach(t=>{const f=flightOfGroup(t);const k=f?f.key:t.id;if(!byFl.has(k))byFl.set(k,{kind:'arr',f,groups:[]});byFl.get(k).groups.push(t)});
+  byFl.forEach(x=>{const f=x.f;x.time=f?f.eta:toMin(x.groups[0].t);x.sort=x.time;tasks.push(x)});
+  const byPu=new Map();
+  DAY.dep.filter(t=>t.g===g).forEach(t=>{const k=t.pu+'|'+t.h+'|'+t.v;if(!byPu.has(k))byPu.set(k,{kind:'dep',groups:[]});byPu.get(k).groups.push(t)});
+  byPu.forEach(x=>{x.time=toMin(x.groups[0].pu||x.groups[0].t);x.sort=x.time;tasks.push(x)});
+  tasks.sort((a,b)=>a.sort-b.sort);
+  tasks.forEach(t=>{t.total=t.groups.reduce((s,g)=>s+groupTotal(g),0);t.done=t.groups.reduce((s,g)=>s+marked(g),0);t.res=t.groups.reduce((s,g)=>s+resolved(g),0);t.no=t.res-t.done;t.complete=t.total>0&&t.res>=t.total});
+  return tasks;
 }
+function paxRows(g,kind){
+  const okLbl=kind==='arr'?'Вышел':'Сел';
+  if(g.p&&g.p.length)return g.p.map((p,i)=>{const mk=markOf(g.id,i);return `<div class="prow ${mk||''}"><span class="pn">${i+1}</span><span class="nm">${esc(p[0])} ${esc(p[1])}${p[2]?`<small>${esc(p[2])}</small>`:''}</span><span class="mk"><button type="button" class="ok" aria-pressed="${mk==='out'}" data-mk="${g.id}|${i}|out">✓ ${okLbl}</button><button type="button" class="no" aria-pressed="${mk==='no'}" data-mk="${g.id}|${i}|no" aria-label="Нет">✗</button></span></div>`}).join('');
+  const n=marked(g);
+  return `<div class="counter"><button type="button" data-cnt="${g.id}|-1" aria-label="Минус">−</button><output>${n} / ${g.pax}</output><button type="button" data-cnt="${g.id}|1" aria-label="Плюс">+</button><span class="hint">Имён нет: загрузите список туристов</span></div>`;
+}
+function renderGuide(){
+  if(!DAY)return;
+  const g=curGuide;if(!g){$('#guideHead').innerHTML='<p class="hint">В этом дне нет гидов.</p>';$('#tasks').innerHTML='';return}
+  const tasks=guideTasks(g);
+  const vehs=[...new Set(tasks.flatMap(t=>t.groups.map(x=>x.v)).filter(Boolean))];
+  const tot=tasks.reduce((s,t)=>s+t.total,0),done=tasks.reduce((s,t)=>s+t.done,0);
+  $('#guideHead').innerHTML=`<div class="ghead"><div class="gname">${esc(g)}</div><div class="gmeta">${vehs.map(v=>{const a=assign[v]||{};return `<span><b>${esc(v)}</b>${a.plate?' · '+esc(a.plate):''}${a.phone?' · водитель '+esc(a.phone):''}</span>`}).join('')}</div><div class="gmeta"><span><b>${tasks.filter(t=>t.kind==='arr').length}</b> встреч</span><span><b>${tasks.filter(t=>t.kind==='dep').length}</b> заборов</span><span><b>${tot}</b> гостей</span><span>отмечено <b>${done}</b></span></div></div>`;
+  const hide=$('#hideDone').checked;
+  const nextIdx=tasks.findIndex(t=>!t.complete&&t.time+60>=NOW);
+  $('#tasks').innerHTML=tasks.map((t,ti)=>{
+    if(hide&&t.complete)return '';
+    const g0=t.groups[0];let head;
+    if(t.kind==='arr'){const f=t.f,st=f?fStatus(f,NOW):null;const late=f&&f.delay>=15&&(f.live||NOW>=f.delayKnownAt);
+      head=`<div class="tt ${late?'late':''} num">${late?`<s>${g0.t}</s>`:''}${fmt(t.time)}<small>${st&&st.k==='land'?'сел':'посадка'}</small></div><div><div class="kind arr">Встреча</div><div class="ttl">${esc(f?[...f.codes].join(' / '):g0.fl)}</div><div class="sub">${esc(CITY[g0.org]||g0.org||'')} · ${g0.to==='GZP'?'<b>Газипаша</b>':termLbl(g0.term)} · ${esc(g0.v||'без машины')}</div></div>${st?`<span class="status ${st.k} st"><span class="dot"></span>${st.lbl}</span>`:''}`;
+    }else{
+      head=`<div class="tt num">${esc(g0.pu||g0.t)}<small>выезд</small></div><div><div class="kind dep">Забор из отеля</div><div class="ttl">${esc(g0.h)}</div><div class="sub">→ ${/^[!?]/.test(g0.fl)?'рейс не указан':esc(normFl(g0.fl))} в ${esc(g0.t)} · ${termLbl(g0.term)} · ${esc(g0.v||'')}${g0.note?' · '+esc(g0.note):''}</div></div><span class="chip st">${t.groups.reduce((s,x)=>s+(+x.pax||0),0)} чел</span>`;
+    }
+    const cls=['task',t.complete?'done':'',ti===nextIdx?'next':''].join(' ');
+    if(t.complete&&!hide)return `<article class="${cls}"><div class="th">${head}</div><div class="tf"><span class="met">✓ ${t.kind==='arr'?'Вышли':'Сели'} ${t.done} из ${t.total}${t.no?`, не пришли: ${t.no}`:''}</span><button class="btn" type="button" data-open="${ti}">Показать список</button></div><div hidden id="tg_${ti}">${grpHtml(t)}</div></article>`;
+    return `<article class="${cls}"><div class="th">${head}</div>${grpHtml(t)}<div class="tf"><button class="btn primary" type="button" data-allk="${t.groups.map(x=>x.id).join(',')}">${t.kind==='arr'?'Все вышли':'Все сели'}</button><button class="btn" type="button" data-clear="${t.groups.map(x=>x.id).join(',')}">Сбросить</button></div></article>`;
+  }).join('')||'<p class="hint">Все задания выполнены.</p>';
+  function grpHtml(t){return t.groups.map(x=>{const d=marked(x),n=groupTotal(x);return `<div class="tgrp"><div class="gh"><span><b>${esc(t.kind==='arr'?x.h:normFl(x.fl)+' '+x.t)}</b> <span class="hint">${esc(x.op||'')} · ${x.pax} чел</span></span><span style="display:flex;gap:8px;align-items:center"><span class="bar"><i style="width:${n?Math.round(d/n*100):0}%"></i></span><span class="num">${d}/${n}</span></span></div>${paxRows(x,t.kind)}</div>`}).join('')}
+  const T=$('#tasks');
+  T.querySelectorAll('[data-mk]').forEach(b=>b.onclick=()=>{const [gid,i,val]=b.dataset.mk.split('|');setMark(gid,i,markOf(gid,i)===val?null:val);renderGuide();renderBoard();renderDep()});
+  T.querySelectorAll('[data-cnt]').forEach(b=>b.onclick=()=>{const [gid,d]=b.dataset.cnt.split('|');const g=[...DAY.arr,...DAY.dep].find(x=>x.id===gid);met[gid]=met[gid]||{};met[gid].n=Math.max(0,Math.min(+g.pax||0,(+met[gid].n||0)+(+d)));saveMet();renderGuide();renderBoard();renderDep()});
+  T.querySelectorAll('[data-allk]').forEach(b=>b.onclick=()=>{b.dataset.allk.split(',').forEach(gid=>{const g=[...DAY.arr,...DAY.dep].find(x=>x.id===gid);met[gid]=met[gid]||{};if(g.p&&g.p.length)g.p.forEach((_,i)=>{if(markOf(gid,i)!=='no')met[gid][i]='out'});else met[gid].n=+g.pax||0});saveMet();renderGuide();renderBoard();renderDep();toast('Отметка ушла диспетчеру')});
+  T.querySelectorAll('[data-clear]').forEach(b=>b.onclick=()=>{b.dataset.clear.split(',').forEach(gid=>{const g=[...DAY.arr,...DAY.dep].find(x=>x.id===gid);met[gid]={};if(g.p)g.p.forEach((_,i)=>met[gid][i]=null);met[gid].n=0});saveMet();renderGuide();renderBoard();renderDep()});
+  T.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{const el=document.getElementById('tg_'+b.dataset.open);el.hidden=!el.hidden;b.textContent=el.hidden?'Показать список':'Скрыть список'});
+}
+$('#hideDone').addEventListener('change',renderGuide);
 
 /* ---------- contacts & log ---------- */
 function renderContacts(){
@@ -367,37 +443,65 @@ function renderLog(){
 }
 
 /* ---------- excel import ---------- */
-async function importFile(file){
-  const msg=$('#xlsMsg');msg.innerHTML='Читаю файл…';
-  try{
-    if(typeof XLSX==='undefined')throw new Error('Библиотека Excel не загрузилась, обновите страницу.');
-    const wb=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array'});
-    let rows=[];wb.SheetNames.forEach(n=>rows=rows.concat(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:false})));
-    const flat=rows.slice(0,40).map(r=>(r||[]).join(' ')).join(' ');
-    const dm=flat.match(/Tarih\s*:\s*(\d\d)\/(\d\d)\/(\d{4})/)||file.name.match(/(\d\d)[._](\d\d)[._](\d{4})/);
-    const key=dm?dm[1]+'.'+dm[2]:file.name.replace(/\.\w+$/,'').slice(0,10);
-    const months=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
-    const title=dm?`${+dm[1]} ${months[+dm[2]-1]} ${dm[3]}`:key;
-    const K=parseKapak(rows);
-    const ok=K.recon.filter(c=>c.expected===c.got).length;
-    const pack={recs:K.recs,recon:{ok,total:K.recon.length,bad:K.recon.filter(c=>c.expected!==c.got)}};
-    const d=dayFromKapak(pack,key,title);
-    if(!d.arr.length&&!d.dep.length)throw new Error('В файле не найдено ни одного рейса.');
-    d.iso=dm?`${dm[3]}-${dm[2]}-${dm[1]}`:'';
-    DAYS[key]=d;
-    let srv=null;if(SERVER){srv=await api('PUT','/api/day?d='+encodeURIComponent(key),d);refreshLive()}else{const imp=store.get('imported',{});imp[key]=d;store.set('imported',imp)}
-    loadDay(key);
-    msg.innerHTML=`<b>День ${esc(key)} загружен.</b><span>${d.arr.length} групп на прилёт, ${d.dep.length} на вылет, ${d.self} гостей едут сами, ${d.h2h} межотельных.</span>${srv?`<span>Программа следит за ${srv.watched} рейсами из этого Капака${srv.poll&&srv.poll.ok?`, первые данные уже получены (${srv.poll.found})`:''}.</span>`:''}<span>Сверка с итогами файла: ${ok} из ${K.recon.length} рейсов сходятся.${pack.recon.bad.length?' Не сходятся: '+pack.recon.bad.map(b=>esc(b.fl)).join(', ')+'.':''}</span>`;
-  }catch(err){msg.innerHTML='<span>Не удалось прочитать файл: '+esc(err.message)+'</span>'}
+const MONTHS=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+async function readRows(file){
+  const wb=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array'});
+  let rows=[];wb.SheetNames.forEach(n=>rows=rows.concat(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:false})));
+  return rows;
 }
-$('#xls').addEventListener('change',e=>{if(e.target.files[0])importFile(e.target.files[0])});
+async function saveDay(key,d){if(SERVER)return api('PUT','/api/day?d='+encodeURIComponent(key),d);const imp=store.get('imported',{});imp[key]=d;store.set('imported',imp);return null}
+async function importKapak(rows,file){
+  const flat=rows.slice(0,40).map(r=>(r||[]).join(' ')).join(' ');
+  const dm=flat.match(/Tarih\s*:\s*(\d\d)\/(\d\d)\/(\d{4})/)||file.name.match(/(\d\d)[._](\d\d)[._](\d{4})/);
+  const key=dm?dm[1]+'.'+dm[2]:file.name.replace(/\.\w+$/,'').slice(0,10);
+  const title=dm?`${+dm[1]} ${MONTHS[+dm[2]-1]} ${dm[3]}`:key;
+  const K=parseKapak(rows);
+  const ok=K.recon.filter(c=>c.expected===c.got).length;
+  const pack={recs:K.recs,recon:{ok,total:K.recon.length,bad:K.recon.filter(c=>c.expected!==c.got)}};
+  const d=dayFromKapak(pack,key,title);
+  if(!d.arr.length&&!d.dep.length)throw new Error('в файле не найдено ни одного рейса');
+  d.iso=dm?`${dm[3]}-${dm[2]}-${dm[1]}`:'';
+  const prev=DAYS[key];let names=null;
+  if(prev&&prev.tourists){d.tourists=prev.tourists;names=applyTourists(d,d.tourists)}
+  DAYS[key]=d;
+  const srv=await saveDay(key,d);
+  return {key,html:`<b>Капак ${esc(key)} загружен.</b><span>${d.arr.length} групп на прилёт, ${d.dep.length} на вылет, ${d.self} гостей едут сами, ${d.h2h} межотельных.</span>${srv?`<span>Программа следит за ${srv.watched} рейсами из этого Капака${srv.poll&&srv.poll.ok?`, первые данные уже получены (${srv.poll.found})`:''}.</span>`:''}<span>Сверка с итогами файла: ${ok} из ${K.recon.length} рейсов сходятся.${pack.recon.bad.length?' Не сходятся: '+pack.recon.bad.map(b=>esc(b.fl)).join(', ')+'.':''}</span>${names?`<span>Имена туристов из прошлой загрузки сохранены: ${names.people}.</span>`:''}`};
+}
+async function importTourists(T,file){
+  const key=T.date?T.date.d+'.'+T.date.m:null;
+  if(!key)throw new Error('не нашёл дату в списке туристов');
+  const d=DAYS[key];
+  if(!d)throw new Error(`сначала загрузите Капак на ${key}, потом список туристов`);
+  const r=applyTourists(d,T);d.tourists=T;
+  await saveDay(key,d);
+  const un=r.unmatched.filter(t=>t.people.length);
+  return {key,html:`<b>Список туристов ${esc(key)} загружен.</b><span>Имена добавлены в ${r.matched} групп, всего ${r.people} туристов. Теперь у гидов есть кнопки «Вышел».</span>${r.h2h?`<span>${r.h2h} туристов в межотельных переездах, в Капаке их нет.</span>`:''}${un.length?`<span>Не нашлись в Капаке (${un.length}): ${un.slice(0,8).map(t=>esc((t.fl||'без рейса')+' '+t.hotel+' · '+t.people.length+' чел')).join('; ')}${un.length>8?'…':''}</span>`:''}`};
+}
+async function importFiles(files){
+  const msg=$('#xlsMsg');msg.innerHTML='Читаю файлы…';
+  if(typeof XLSX==='undefined'){msg.innerHTML='<span>Библиотека Excel не загрузилась, обновите страницу.</span>';return}
+  const items=[];
+  for(const file of files){try{const rows=await readRows(file);const T=parseTourists(rows);const people=T.groups.reduce((s,g)=>s+g.people.length,0);items.push({file,rows,T,isTourists:people>0})}catch(e){items.push({file,err:e.message})}}
+  items.sort((a,b)=>(a.isTourists?1:0)-(b.isTourists?1:0));
+  const out=[];let last=null;
+  for(const it of items){
+    if(it.err){out.push(`<span>${esc(it.file.name)}: не удалось прочитать (${esc(it.err)}).</span>`);continue}
+    try{const r=it.isTourists?await importTourists(it.T,it.file):await importKapak(it.rows,it.file);last=r.key;out.push(r.html)}
+    catch(e){if(e.message==='401')return;out.push(`<span>${esc(it.file.name)}: ${esc(e.message)}.</span>`)}
+  }
+  if(last){if(SERVER)refreshLive();loadDay(last)}
+  msg.innerHTML=out.join('');
+}
+// kept for older callers and tests
+const importFile=f=>importFiles([f]);
+$('#xls').addEventListener('change',e=>{if(e.target.files.length)importFiles([...e.target.files]);e.target.value=''});
 const drop=$('#drop');
 ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
 ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
-drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)importFile(f)});
+drop.addEventListener('drop',e=>{const f=[...e.dataTransfer.files];if(f.length)importFiles(f)});
 
 /* ---------- wiring ---------- */
-function renderAll(){if(!DAY)return;$('#nowLbl').textContent=fmt(NOW);$('#slider').value=NOW;renderBoard();renderDep();renderGuidePick();renderChat();renderLog()}
+function renderAll(){if(!DAY)return;$('#nowLbl').textContent=fmt(NOW);$('#slider').value=NOW;renderBoard();renderDep();renderGuidePick();renderGuide();renderLog();if(!$('#v-veh').hidden&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#vgrid')))renderVeh()}
 $('#slider').addEventListener('input',e=>{followNow=false;NOW=+e.target.value;store.set('now_'+dayKey,NOW);renderAll()});
 let play=null;
 $('#playBtn').onclick=()=>{if(play){clearInterval(play);play=null;$('#playBtn').textContent='▶ Проиграть день';return}

@@ -202,6 +202,86 @@ tr.soon td.t{color:var(--signal-ink)}
 .recon{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
 .recon b{color:var(--ok)}
 .recon.bad b{color:var(--warn)}
+
+
+.vt-head{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin:6px 0 8px}
+.gantt-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);margin-bottom:18px}
+.gantt{min-width:760px;position:relative;padding:6px 0 4px}
+.g-row{display:grid;grid-template-columns:92px 1fr;align-items:center;min-height:30px;border-top:1px solid var(--line)}
+.g-row:first-child{border-top:0}
+.g-lbl{position:sticky;left:0;z-index:2;background:var(--surface);align-self:stretch;display:flex;flex-direction:column;justify-content:center;font-family:var(--f-mono);font-size:12px;padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.g-lbl small{display:block;color:var(--muted);font-family:var(--f-body);font-size:10.5px}
+.g-track{position:relative;height:30px}
+.g-blk{position:absolute;top:6px;height:18px;border-radius:3px;font-size:10.5px;line-height:18px;padding:0 4px;overflow:hidden;white-space:nowrap;color:var(--ink)}
+.g-blk.arr{background:var(--info-soft);border:1px solid color-mix(in srgb,var(--info) 45%,transparent)}
+.g-blk.dep{background:var(--signal-soft);border:1px solid color-mix(in srgb,var(--signal) 55%,transparent)}
+.g-blk.over{outline:2px solid var(--crit);outline-offset:0}
+.g-blk.past{opacity:.45}
+.g-ticks{display:grid;grid-template-columns:92px 1fr;font-size:10.5px;color:var(--muted)}
+.g-ticks .t{position:relative;height:16px}
+.g-ticks .t span{position:absolute;transform:translateX(-50%)}
+.g-now{position:absolute;top:0;bottom:0;width:2px;background:var(--signal);pointer-events:none}
+.vlist{display:grid;gap:12px;min-width:0}
+.vcard2{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);display:grid;min-width:0;scroll-margin-top:200px}
+.vcard2 .vtop{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;border-bottom:1px solid var(--line)}
+.vcard2 .vn{font-family:var(--f-display);font-size:26px;font-weight:700;line-height:1}
+.vcard2 .vnow{font-size:13px;padding:3px 9px;border-radius:4px;background:var(--sunk)}
+.vcard2 .vnow.busy{background:var(--info-soft);color:var(--info)}
+.vcard2 .vnow.done{color:var(--muted)}
+.vfields{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;padding:10px 14px}
+.vfields label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:grid;gap:3px}
+.vfields input{border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:var(--sunk);font-family:var(--f-mono);font-size:13px;width:100%;min-width:0}
+.vwarn{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 8px}
+.legs{width:100%;border-collapse:collapse;font-size:13px}
+.legs td{padding:6px 10px;border-top:1px solid var(--line);vertical-align:top}
+.legs td.tm{font-family:var(--f-display);font-size:17px;font-weight:600;white-space:nowrap;width:1%}
+.legs tr.past td{color:var(--muted)}
+.legs .act{font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.legs .act.arr{color:var(--info)} .legs .act.dep{color:var(--signal-ink)}
+.legs .trip td{background:var(--sunk);font-size:12px;color:var(--muted);padding:4px 10px}
+.vfoot{display:flex;gap:8px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--line)}
+.side-sticky{display:grid;gap:8px;position:sticky;top:190px;align-self:start}
+.opts{display:flex;gap:12px;flex-wrap:wrap;font-size:13px}
+.gfilters{margin:10px 0;font-size:13px}
+#guideHead .ghead{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:grid;gap:6px}
+.ghead .gname{font-family:var(--f-display);font-size:28px;font-weight:700;line-height:1}
+.ghead .gmeta{display:flex;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.ghead .gmeta b{color:var(--ink);font-weight:600}
+.tasks{display:grid;gap:10px}
+.task{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.task.next{border-color:var(--signal);box-shadow:0 0 0 1px var(--signal)}
+.task.done{opacity:.8}
+.task .th{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px}
+.task .tt{font-family:var(--f-display);font-weight:600;font-size:30px;line-height:1;text-align:center;min-width:72px}
+.task .tt small{display:block;font-size:12px;font-family:var(--f-body);color:var(--muted);font-weight:400;margin-top:2px}
+.task .tt s{display:block;font-size:15px;color:var(--muted)}
+.task .tt.late{color:var(--warn)}
+.task .kind{font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+.task .kind.arr{color:var(--info)} .task .kind.dep{color:var(--signal-ink)}
+.task .ttl{font-family:var(--f-display);font-size:21px;font-weight:700;letter-spacing:.02em}
+.task .sub{font-size:13px;color:var(--muted)}
+.task .tgrp{border-top:1px solid var(--line);padding:10px 14px;display:grid;gap:8px}
+.tgrp .gh{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.tgrp .gh b{font-size:15px}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;min-width:80px;flex:1;max-width:160px}
+.bar i{display:block;height:100%;background:var(--ok)}
+.prow{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:8px;align-items:center;padding:4px 0;border-top:1px dashed var(--line)}
+.prow:first-child{border-top:0}
+.prow .pn{color:var(--muted);font-size:12px;text-align:right}
+.prow .nm{min-width:0;overflow-wrap:anywhere;font-size:14px}
+.prow .nm small{color:var(--muted);margin-left:6px}
+.prow.out .nm{color:var(--ok)} .prow.no .nm{color:var(--crit);text-decoration:line-through}
+.mk{display:flex;gap:6px}
+.mk button{border:1.5px solid var(--line);background:var(--surface);border-radius:6px;padding:7px 10px;font-size:13px;min-width:44px;min-height:36px}
+.mk button.ok[aria-pressed=true]{background:var(--ok);border-color:var(--ok);color:#fff}
+.mk button.no[aria-pressed=true]{background:var(--crit);border-color:var(--crit);color:#fff}
+.counter{display:flex;align-items:center;gap:8px}
+.counter button{width:40px;height:40px;border-radius:6px;border:1.5px solid var(--line);background:var(--surface);font-size:20px}
+.counter output{font-family:var(--f-display);font-size:24px;font-weight:600;min-width:64px;text-align:center}
+.task .tf{display:flex;gap:8px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--line);background:var(--sunk)}
+.task .tf .btn{min-height:40px}
+@media (max-width:760px){.top{position:static}.task .th{grid-template-columns:auto minmax(0,1fr)}.task .th .st{grid-column:1/-1}.side-sticky{position:static}}
+
 .chip.gzp{background:var(--warn-soft);color:var(--warn);border-color:transparent}
 .drop{border:1.5px dashed var(--line);border-radius:var(--r);padding:22px;text-align:center;display:grid;gap:8px;background:var(--sunk)}
 .drop.over{border-color:var(--signal);background:var(--signal-soft)}
@@ -230,7 +310,7 @@ tr.soon td.t{color:var(--signal-ink)}
       <button class="tab" role="tab" data-t="board" aria-selected="true">Прилёты</button>
       <button class="tab" role="tab" data-t="dep">Вылеты</button>
       <button class="tab" role="tab" data-t="veh">Машины</button>
-      <button class="tab" role="tab" data-t="guide">Экран гида</button>
+      <button class="tab" role="tab" data-t="guide">Гид</button>
       <button class="tab" role="tab" data-t="checks">Проверка<span class="cnt" id="chkCnt">0</span></button>
       <button class="tab" role="tab" data-t="contacts">Уведомления</button>
       <button class="tab" role="tab" data-t="data">Загрузить день</button>
@@ -257,11 +337,14 @@ tr.soon td.t{color:var(--signal-ink)}
   </section>
 
   <section id="v-veh" hidden>
-    <p class="hint">Номер машины, водителя и телефон вводят один раз. Программа сама собирает сообщение для группы в привычном формате и рассылает уведомления. Значения сохраняются в этом браузере.</p>
+    <div class="summary" id="sumVeh"></div>
+    <div class="vt-head"><h2 style="margin:0">День машин</h2><span class="hint">Синие блоки: встреча в аэропорту и дорога в отель. Жёлтые: забор из отеля и дорога в аэропорт. Красная рамка: перегруз.</span></div>
+    <div class="gantt-wrap"><div class="gantt" id="gantt"></div></div>
     <div class="split">
-      <div class="vgrid" id="vgrid"></div>
-      <div style="display:grid;gap:8px;position:sticky;top:190px">
+      <div class="vlist" id="vgrid"></div>
+      <div class="side-sticky">
         <h2 style="margin:0">Сообщение в группу</h2>
+        <div class="opts"><label><input type="checkbox" id="waGuide"> гид</label><label><input type="checkbox" id="waTime"> первое время</label><label><input type="checkbox" id="waEmpty" checked> без номера тоже</label></div>
         <div class="msgbox" id="waMsg"></div>
         <button class="btn primary" id="copyWa" type="button">Скопировать текст</button>
       </div>
@@ -269,22 +352,10 @@ tr.soon td.t{color:var(--signal-ink)}
   </section>
 
   <section id="v-guide" hidden>
-    <div class="phone-area">
-      <div>
-        <div class="guide-pick" id="guidePick"></div>
-        <div class="phone">
-          <div class="chat-head"><div class="avatar" id="gAv">D</div><div><b id="gName">—</b><span id="gSub">Sarabi Operasyon</span></div></div>
-          <div class="chat" id="chat"></div>
-          <div class="chat-foot">Mesajlar otomatik gelir · rehber sadece butonlara basar</div>
-        </div>
-      </div>
-      <div style="display:grid;gap:12px;min-width:0">
-        <h2 style="margin:0">Как это видит гид</h2>
-        <p class="hint">Экран построен как обычный чат, потому что гиды и водители уже живут в WhatsApp. Учиться ничему не нужно: сообщения приходят сами, на турецком, а гид только нажимает кнопки.</p>
-        <p class="hint">Утром приходит план дня. За час до выезда из отеля приходит маршрут забора. За 90 минут до посадки приходит карточка рейса. Если рейс задерживается, гид получает новое время раньше, чем оно появится на табло аэропорта. Отметки «встретил» сразу видны диспетчеру.</p>
-        <p class="hint">Двигайте время вверху страницы, чтобы увидеть, как чат меняется в течение дня.</p>
-      </div>
-    </div>
+    <div class="guide-pick" id="guidePick"></div>
+    <div id="guideHead"></div>
+    <div class="gfilters"><label><input type="checkbox" id="hideDone"> скрыть выполненные</label></div>
+    <div class="tasks" id="tasks"></div>
   </section>
 
   <section id="v-checks" hidden>
@@ -312,9 +383,9 @@ tr.soon td.t{color:var(--signal-ink)}
     <div style="display:grid;gap:14px;max-width:820px">
       <div class="panel">
         <h2 style="margin:0">Загрузить день</h2>
-        <p class="hint">Перетащите сюда Excel «Transfer Takip Formu» (KAPAK). Программа найдёт все рейсы, выезды, гидов и машины, даже если ячейки в файле склеены, и сверит каждый рейс с итогами «Toplam Pax» из того же файла.</p>
-        <label class="drop" id="drop" for="xls"><b>Выберите или перетащите файл .xlsx</b><span class="hint">Например, 15.10.2026_KAPAK.xlsx</span></label>
-        <input type="file" id="xls" accept=".xlsx,.xls" hidden>
+        <p class="hint">Перетащите сюда Excel-файлы дня, можно оба сразу:</p><ul class="hint" style="margin:0;padding-left:18px"><li><b>Капак</b> (Transfer Takip Formu): рейсы, выезды, гиды и машины. Программа сверит каждый рейс с итогами «Toplam Pax».</li><li><b>Список туристов</b> (Genel Geliş или Araç Transfer Listesi): фамилии. Они появятся у гида с кнопками «Вышел».</li></ul><p class="hint">Сначала загружается Капак, потом список туристов того же дня.</p>
+        <label class="drop" id="drop" for="xls"><b>Выберите или перетащите файлы .xlsx</b><span class="hint">Например, 15.10.2026_KAPAK.xlsx и 15.10.2026_GENEL_GELİŞ.xlsx</span></label>
+        <input type="file" id="xls" accept=".xlsx,.xls" multiple hidden>
         <div id="xlsMsg" class="res"></div>
       </div>
       <div class="panel">
@@ -347,7 +418,7 @@ function parseKapak(rows){
   const STOP=new Set(['GRUB','İND','IND','NO','ARA','TER','ICHAT','TOPLAM','PAX']);
   const totals={};const dayTotals=[];
   const normFl=s=>s.replace(/^([A-Z0-9]{2})\s?0*(\d+)$/,'$1 $2');
-  const anchorRe=/((?:[A-Z][A-Z0-9]|[0-9][A-Z])\s?\d{1,5}|!{2,}|\?{2,})\s*\(([A-ZİÇ?]*)-([A-ZİÇ?]*)\)/g;
+  const anchorRe=/((?:[A-Z]{3}|[A-Z][A-Z0-9]|[0-9][A-Z])\s?\d{1,5}|!{2,}|\?{2,})\s*\(([A-ZİÇ?]*)-([A-ZİÇ?]*)\)/g;
 
   function tokenizeBody(body){
     const toks=body.split(/[\s¦]+/).filter(Boolean);
@@ -451,6 +522,69 @@ function normHotel(h){
   return h.trim()||'—';
 }
 if(typeof module!=='undefined')module.exports={parseKapak,normHotel};
+
+// Tourist lists (GENEL GELİŞ / ARAÇ TRANSFER LİSTESİ) as Excel, including PDF→Excel conversions.
+// The sheet is read as one text stream, so it does not matter how the converter split cells and rows.
+const T_STOP=new Set(['GRUB','İND','IND','ARA','NO','TER','ICHAT','BUS','MİN','MİNİ','MİDİ','VİTO','DBL','SNG','TRP','TPL','QUAD','QDR','STD','SUP','DLX','FAM','ECO','ROOM','HB','BB','FB','AI','UAI','RO','NOT','GELİŞ','GİDİŞ','DÖNÜŞ','TRANSFER','LİSTESİ','LISTESI','ARAÇ','ARAC','EXTRA','TICKET','YOK','KENDİ','GİDER','HAVALİMANI','HAVAALANI','OTELE','DIŞ','İÇ','HATLAR']);
+const T_CAPS=/^[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜ'\-]*$/;
+function parseTourists(rows){
+  const parts=[];
+  rows.forEach(r=>{(r||[]).forEach(c=>{if(c==null||c==='')return;String(c).split('\n').forEach(p=>{p=p.trim();if(p)parts.push(p)})})});
+  const S=' '+parts.join(' ').replace(/\s+/g,' ')+' ';
+  const dm=S.replace(/Bas\S*m Tarihi\s*:\s*\d\d\/\d\d\/\d{4}/g,' ').match(/\b(\d\d)\/(\d\d)\/(\d{4})\b/)||S.match(/\b(\d\d)\/(\d\d)\/(\d\d)\b/);
+  const date=dm?{d:dm[1],m:dm[2],y:dm[3].length===2?'20'+dm[3]:dm[3]}:null;
+  const hdr=/(\d{1,4})-\s+(\d\d\/\d\d\/\d\d)\s+(GRUB|İND|IND|ARA|NO)\s+(?:(\d\d:\d\d)\s+)?([A-Z?]{1,3})\s*=>\s*([A-Z?]{1,3})\s*/g;
+  const heads=[];let m;
+  while((m=hdr.exec(S)))heads.push({start:m.index,end:hdr.lastIndex,type:m[3],time:m[4]||'',from:m[5],to:m[6]});
+  const groups=[];
+  heads.forEach((h,i)=>{
+    const seg=S.slice(h.end,i+1<heads.length?heads[i+1].start:S.length);
+    const head=seg.slice(0,220);
+    const fm=head.match(/((?:[A-Z]{3}|[A-Z][A-Z0-9]|[0-9][A-Z])\s?\d{1,5}|\?{2,}|!{2,})\s*\(([A-ZİÇ?]*)-([A-ZİÇ?]*)\)\s*=>\s*/);
+    let hotelTxt;
+    if(fm)hotelTxt=head.slice(head.indexOf(fm[0])+fm[0].length);
+    else hotelTxt=head.replace(/=>/,' ');
+    const pm=hotelTxt.match(/^(.*?)\s*(\d{1,3})\s+(?=<|[A-ZİÇ]{3}|BUS|MİN|VİTO|MİDİ|\d)/);
+    const hotel=pm?pm[1]:hotelTxt.split(/\s\d/)[0];
+    const pax=pm?+pm[2]:0;
+    const vm=head.match(/\b(BUS|MİNİ|MİN|MİDİ|VİTO)\b\s*(\d*)/);
+    const g={type:h.type,time:h.time,from:h.from,to:h.to,fl:fm&&!/^[!?]/.test(fm[1])?fm[1].replace(/^([A-Z0-9]{2})\s?0*(\d+)$/,'$1 $2'):'',fFrom:fm?fm[2]:'',fTo:fm?fm[3]:'',hotel:normHotel(hotel),hotelRaw:hotel.trim(),pax,veh:vm?(vm[1]+(vm[2]?' '+vm[2]:'')):'',people:[]};
+    g.dir=g.fTo==='AYT'?'arr':g.fFrom==='AYT'?'dep':h.type==='ARA'?'h2h':'arr';
+    // people
+    const pr=/(\d{1,3})-\s+(Mr|Mrs|Ms|Miss|Chd|Inf)\s*\.?\s+/g;const anchors=[];let p;
+    while((p=pr.exec(seg)))anchors.push({start:p.index,end:pr.lastIndex,title:p[2]});
+    anchors.forEach((a,j)=>{
+      const toks=seg.slice(a.end,j+1<anchors.length?anchors[j+1].start:seg.length).trim().split(' ');
+      const name=[];let k=0;
+      while(k<toks.length&&T_CAPS.test(toks[k])&&!T_STOP.has(toks[k])){name.push(toks[k]);k++}
+      let age='';if(/^\d{1,2}$/.test(toks[k]||'')){age=toks[k];k++}
+      // a long name wraps to the next line in the PDF: its tail shows up after the room/board columns
+      const tail=toks.slice(k);let sawRoom=false;
+      for(const t of tail){if(T_STOP.has(t)||/\d/.test(t)){sawRoom=true;continue}if(T_CAPS.test(t)&&t.length>2){name.push(t)}else if(sawRoom&&!T_CAPS.test(t))break}
+      if(name.length)g.people.push([a.title==='Ms'||a.title==='Miss'?'Mrs':a.title,name.join(' '),age]);
+    });
+    groups.push(g);
+  });
+  return {date,groups};
+}
+// Attach names to the day's groups: same flight + same hotel; several groups -> by passenger count.
+function applyTourists(day,parsed){
+  const key=(fl,h)=>String(fl).replace(/\s+/g,'').replace(/^([A-Z0-9]{2})0*/,'$1')+'|'+h;
+  const used=new Set();let matched=0,people=0;const unmatched=[];
+  const pools={arr:day.arr,dep:day.dep};
+  parsed.groups.forEach(t=>{
+    if(!t.people.length||t.dir==='h2h'||!t.fl)return;
+    const pool=pools[t.dir]||[];
+    let cands=pool.filter(g=>!used.has(g.id)&&key(g.fl,g.h)===key(t.fl,t.hotel));
+    if(!cands.length)cands=pool.filter(g=>!used.has(g.id)&&key(g.fl,'')===key(t.fl,'')&&(+g.pax===t.people.length||+g.pax===t.pax));
+    if(!cands.length){unmatched.push(t);return}
+    const g=cands.find(c=>+c.pax===t.pax)||cands.find(c=>+c.pax===t.people.length)||cands[0];
+    used.add(g.id);g.p=t.people;matched++;people+=t.people.length;
+  });
+  const h2h=parsed.groups.filter(t=>t.dir==='h2h').reduce((s,t)=>s+t.people.length,0);
+  return {matched,people,unmatched,h2h};
+}
+if(typeof module!=='undefined')module.exports={parseTourists,applyTourists};
 
 
 /* ---------- helpers ---------- */
@@ -556,7 +690,7 @@ function loadDay(k){
   met=store.get('met_'+k,{});contacts=store.get('contacts_'+k,null);
   if(DAY.assign)assign=Object.assign({},assign,DAY.assign);if(DAY.met)met=Object.assign({},met,DAY.met);
   NOW=SERVER?nowMinutes():store.get('now_'+k,k==='15.10'?nowMinutes():540);followNow=SERVER;
-  buildFlights();fillFilters();curGuide=null;
+  buildFlights();fillFilters();
   $('#dateLbl').textContent='Операционный центр · '+DAY.title+' · '+DAY.source;
   renderDaySel();renderVeh();runChecks();renderContacts();renderAll();
 }
@@ -609,7 +743,7 @@ function fillFilters(){
   opt('#fHotel',[...new Set(DAY.arr.map(t=>t.h))].sort());
   opt('#fOp',[...new Set(DAY.arr.map(t=>t.op))].sort());
 }
-const metCount=g=>Object.values(met[g.id]||{}).filter(Boolean).length;
+const metCount=g=>marked(g);
 function renderBoard(){
   const fv=$('#fVeh').value,fh=$('#fHotel').value,fo=$('#fOp').value,q=$('#fQ').value.trim().toUpperCase();
   let html='',nowPlaced=false,land=0,air=0,late=0,paxLanded=0,paxMet=0;
@@ -631,7 +765,7 @@ function renderBoard(){
       <div class="mid">
         <div class="fl-head"><span class="fl-code">${esc([...f.codes].join(' / '))}</span><span class="fl-from">${esc(CITY[f.org]||f.org||'город вылета не указан')}</span>
         ${f.to==='GZP'?'<span class="chip gzp">Аэропорт Газипаша</span>':terms.map(t=>{const bad=t&&f.org&&t!==expected;return `<span class="chip term ${bad||!t?'bad':''}">${termLbl(t)}${bad?' ⚠':''}</span>`}).join('')}</div>
-        ${gs.map(g=>{const mc=metCount(g);return `<div class="grp"><span class="h">${esc(g.h)} <span class="op">${esc(g.op)}</span>${mc?` <span class="met">встречено ${mc}/${g.p.length}</span>`:''}${g.note?` <span class="op">· ${esc(g.note)}</span>`:''}</span><span class="chip">${esc(g.v||'нет машины')}</span><span class="px">${g.pax} чел</span></div>`}).join('')}
+        ${gs.map(g=>{const mc=metCount(g);return `<div class="grp"><span class="h">${esc(g.h)} <span class="op">${esc(g.op)}</span>${mc?` <span class="met">вышли ${mc}/${groupTotal(g)}</span>`:''}${g.note?` <span class="op">· ${esc(g.note)}</span>`:''}</span><span class="chip">${esc(g.v||'нет машины')}</span><span class="px">${g.pax} чел</span></div>`}).join('')}
       </div>
       <div class="side">
         <span class="status ${st.k}"><span class="dot"></span>${st.lbl}</span>
@@ -656,10 +790,10 @@ function renderBoard(){
 /* ---------- departures ---------- */
 function renderDep(){
   const rows=DAY.dep.slice().sort((a,b)=>toMin(a.pu)-toMin(b.pu)||toMin(a.t)-toMin(b.t));
-  $('#depTbl').innerHTML=`<thead><tr><th>Выезд</th><th>Отель</th><th class="n">Чел</th><th>Рейс</th><th>Вылет</th><th>Терминал</th><th>Машина</th><th>Гид</th><th>Опер.</th><th>Примечание</th></tr></thead><tbody>${rows.map(r=>{
+  $('#depTbl').innerHTML=`<thead><tr><th>Выезд</th><th>Отель</th><th class="n">Чел</th><th>Рейс</th><th>Вылет</th><th>Терминал</th><th>Машина</th><th>Гид</th><th>Опер.</th><th>Сели</th><th>Примечание</th></tr></thead><tbody>${rows.map(r=>{
     const pu=toMin(r.pu),cls=r.pu&&pu<NOW?'past':(r.pu&&pu-NOW<=60&&pu>=NOW?'soon':'');
     const a=assign[r.v]||{};const unk=/^[!?]/.test(r.fl);
-    return `<tr class="${cls}"><td class="t num">${r.pu||'—'}</td><td>${esc(r.h)}</td><td class="n">${r.pax}</td><td class="mono">${unk?'<span class="chip bad">рейс не указан</span>':esc(r.fl)} <span class="hint">${esc(CITY[r.dest]||r.dest)}</span></td><td class="num">${r.t}</td><td><span class="chip term">${r.term==='İÇ'?'İÇ HATLAR':r.term==='DIŞ'?'T2':'?'}</span></td><td class="mono">${esc(r.v||'—')}${a.plate?'<br><span class="hint">'+esc(a.plate)+'</span>':''}</td><td>${esc(r.g||'—')}</td><td class="mono hint">${esc(r.op)}</td><td>${r.note?`<span class="chip">${esc(r.note)}</span>`:''}</td></tr>`}).join('')}</tbody>`;
+    return `<tr class="${cls}"><td class="t num">${r.pu||'—'}</td><td>${esc(r.h)}</td><td class="n">${r.pax}</td><td class="mono">${unk?'<span class="chip bad">рейс не указан</span>':esc(r.fl)} <span class="hint">${esc(CITY[r.dest]||r.dest)}</span></td><td class="num">${r.t}</td><td><span class="chip term">${r.term==='İÇ'?'İÇ HATLAR':r.term==='DIŞ'?'T2':'?'}</span></td><td class="mono">${esc(r.v||'—')}${a.plate?'<br><span class="hint">'+esc(a.plate)+'</span>':''}</td><td>${esc(r.g||'—')}</td><td class="mono hint">${esc(r.op)}</td><td class="num">${marked(r)?`<span class="met">${marked(r)}/${groupTotal(r)}</span>`:'—'}</td><td>${r.note?`<span class="chip">${esc(r.note)}</span>`:''}</td></tr>`}).join('')}</tbody>`;
   const tot=rows.reduce((s,r)=>s+r.pax,0),done=rows.filter(r=>r.pu&&toMin(r.pu)<NOW).reduce((s,r)=>s+r.pax,0);
   const next=rows.find(r=>r.pu&&toMin(r.pu)>=NOW);
   $('#sumDep').innerHTML=[
@@ -671,28 +805,86 @@ function renderDep(){
 }
 
 /* ---------- vehicles ---------- */
-function allVehicles(){
+const CAP=v=>/^BUS/.test(v)?46:/^MİDİ/.test(v)?27:/^VİTO/.test(v)?7:16;
+const capOf=v=>+((assign[v]||{}).cap)||CAP(v);
+const flightOfGroup=g=>flights.find(f=>f.groups.includes(g));
+// Each vehicle's legs: arrival = meet at airport then drive to hotel; departure = pick up at hotel then drive to AYT.
+function vehicleLegs(){
   const m=new Map();
-  const add=(v,g,kind,leg)=>{if(!v)return;if(!m.has(v))m.set(v,{v,gs:new Set(),kinds:new Set(),legs:[]});const x=m.get(v);if(g)x.gs.add(g);x.kinds.add(kind);x.legs.push(leg)};
-  DAY.arr.forEach(t=>add(t.v,t.g,'Прилёты',{t:t.t,pax:t.pax}));
-  DAY.dep.forEach(r=>add(r.v,r.g,'Вылеты',{t:r.pu||r.t,pax:r.pax}));
-  return [...m.values()].map(x=>({...x,kind:[...x.kinds].join(' + '),g:[...x.gs].join(', ')})).sort((a,b)=>a.kind.localeCompare(b.kind,'ru')||a.v.localeCompare(b.v,'tr',{numeric:true}));
+  const add=(v,leg)=>{if(!v)return;if(!m.has(v))m.set(v,{v,legs:[],gs:new Set()});const x=m.get(v);x.legs.push(leg);if(leg.g)x.gs.add(leg.g)};
+  DAY.arr.forEach(g=>{const f=flightOfGroup(g);const eta=f?f.eta:toMin(g.t);
+    add(g.v,{kind:'arr',start:eta-20,meet:eta,end:eta+45+TRAVEL(g.h),t:fmt(eta),sch:g.t,late:f&&f.delay>=15?f.delay:0,fl:g.fl,h:g.h,pax:+g.pax||0,g:g.g,term:g.term,org:g.org,to:g.to,op:g.op,gid:g.id,st:f?fStatus(f,NOW):null})});
+  DAY.dep.forEach(r=>{const pu=toMin(r.pu||r.t);
+    add(r.v,{kind:'dep',start:pu,meet:pu,end:pu+TRAVEL(r.h)+15,t:r.pu||r.t,fl:r.fl,ft:r.t,h:r.h,pax:+r.pax||0,g:r.g,term:r.term,dest:r.dest,op:r.op,note:r.note,gid:r.id})});
+  return [...m.values()].map(x=>{
+    x.legs.sort((a,b)=>a.start-b.start);
+    // legs that overlap in time ride together: one trip
+    const trips=[];x.legs.forEach(l=>{const t=trips[trips.length-1];if(t&&l.start<=t.end&&l.kind===t.kind){t.legs.push(l);t.end=Math.max(t.end,l.end);t.pax+=l.pax}else trips.push({kind:l.kind,start:l.start,end:l.end,pax:l.pax,legs:[l]})});
+    x.trips=trips;x.cap=capOf(x.v);x.pax=x.legs.reduce((s,l)=>s+l.pax,0);
+    x.over=trips.filter(t=>t.pax>x.cap);
+    trips.forEach(t=>{t.over=t.pax>x.cap;t.legs.forEach(l=>l.over=t.over)});
+    x.kind=[...new Set(x.legs.map(l=>l.kind))];
+    return x;
+  }).sort((a,b)=>a.legs[0].start-b.legs[0].start);
 }
+function vehNow(x){
+  const cur=x.legs.find(l=>NOW>=l.start&&NOW<l.end);
+  if(cur){if(cur.kind==='arr')return {busy:true,txt:NOW<cur.meet?`Ждёт ${normFl(cur.fl)} в ${cur.t}${cur.late?' (+'+cur.late+')':''}`:`Везёт ${cur.pax} чел в ${cur.h}`};
+    return {busy:true,txt:NOW<cur.start+15?`Забор: ${cur.h}, ${cur.pax} чел`:`Едет в аэропорт к ${normFl(cur.fl)} ${cur.ft}`}}
+  const next=x.legs.find(l=>l.start>=NOW);
+  if(next)return {busy:false,txt:`Свободна до ${fmt(next.start)}`};
+  return {busy:false,done:true,txt:'Работа на сегодня закончена'};
+}
+const legPlace=l=>l.kind==='arr'?`${/^[!?]/.test(l.fl)?'рейс не указан':normFl(l.fl)} · ${CITY[l.org]||l.org||''} → ${l.h}`:`${l.h} → ${/^[!?]/.test(l.fl)?'рейс не указан':normFl(l.fl)} ${l.ft}`;
 function renderVeh(){
-  const vs=allVehicles();
-  $('#vgrid').innerHTML=vs.map(x=>{const a=assign[x.v]||{};const ts=x.legs.map(l=>toMin(l.t));const pax=x.legs.reduce((s,l)=>s+l.pax,0);const id=x.v.replace(/\W/g,'_');
-    return `<div class="vcard"><div class="vh"><span class="vn">${esc(x.v)}</span><span class="vk">${x.kind} · ${pax} чел</span></div>
-    <div class="vk">${esc(x.g||'гид не указан')} · ${fmt(Math.min(...ts))}–${fmt(Math.max(...ts))} · ${x.legs.length} заб.</div>
-    <div class="vrow"><label>Номер<input id="pl_${id}" data-v="${esc(x.v)}" data-f="plate" value="${esc(a.plate||'')}" placeholder="07 ABC 123"></label>
-    <label>Телефон водителя<input id="ph_${id}" data-v="${esc(x.v)}" data-f="phone" value="${esc(a.phone||'')}" placeholder="05xx xxx xx xx"></label></div>
-    <label>Водитель<input id="dr_${id}" data-v="${esc(x.v)}" data-f="driver" value="${esc(a.driver||'')}" placeholder="Имя"></label></div>`}).join('');
-  $('#vgrid').querySelectorAll('input').forEach(i=>i.addEventListener('input',e=>{const v=e.target.dataset.v,f=e.target.dataset.f;assign[v]=assign[v]||{};assign[v][f]=e.target.value;saveAssign();renderWa()}));
+  if(!DAY)return;
+  const vs=vehicleLegs();
+  // summary
+  const noPlate=vs.filter(x=>!(assign[x.v]||{}).plate).length;
+  const busy=vs.filter(x=>vehNow(x).busy).length;
+  $('#sumVeh').innerHTML=[['Машин',vs.length,`${vs.filter(x=>x.kind.includes('arr')).length} на прилёт · ${vs.filter(x=>x.kind.includes('dep')).length} на вылет`],['Сейчас в работе',busy,'по расписанию Капака'],['Без номера',noPlate,noPlate?'нужно назначить':'все назначены'],['Перегруз',vs.reduce((s,x)=>s+x.over.length,0),'поездок больше мест']].map(([k,v,s])=>`<div class="stat"><div class="k">${k}</div><div class="v num">${v}</div><div class="s">${s}</div></div>`).join('');
+  // gantt
+  const lo=Math.floor(Math.min(...vs.map(x=>x.legs[0].start))/60)*60,hi=Math.ceil(Math.max(...vs.map(x=>Math.max(...x.legs.map(l=>l.end))))/60)*60;
+  const pos=t=>((t-lo)/(hi-lo)*100).toFixed(2)+'%';const w=(a,b)=>((b-a)/(hi-lo)*100).toFixed(2)+'%';
+  let ticks='';for(let h=lo;h<=hi;h+=60)if((h-lo)%120===0)ticks+=`<span style="left:${pos(h)}">${fmt(h)}</span>`;
+  $('#gantt').innerHTML=`<div class="g-ticks"><div></div><div class="t">${ticks}</div></div>`+vs.map(x=>{const a=assign[x.v]||{};
+    return `<div class="g-row"><div class="g-lbl" data-jump="${esc(x.v)}">${esc(x.v)}<small>${esc(a.plate||'без номера')}</small></div><div class="g-track">${x.legs.map(l=>`<div class="g-blk ${l.kind}${l.over?' over':''}${l.end<NOW?' past':''}" style="left:${pos(l.start)};width:${w(l.start,l.end)}" title="${esc(fmt(l.start)+' '+legPlace(l)+' · '+l.pax+' чел')}">${esc(l.t)} ${l.pax}</div>`).join('')}${NOW>=lo&&NOW<=hi?`<div class="g-now" style="left:${pos(NOW)}"></div>`:''}</div></div>`}).join('');
+  {const gw=$('.gantt-wrap');if(gw&&gw.scrollWidth>gw.clientWidth&&NOW>=lo&&NOW<=hi)gw.scrollLeft=Math.max(0,(NOW-lo)/(hi-lo)*($('#gantt').scrollWidth-92)-gw.clientWidth/3)}
+  $('#gantt').querySelectorAll('[data-jump]').forEach(el=>el.onclick=()=>{const c=document.getElementById('veh_'+el.dataset.jump.replace(/\W/g,'_'));if(c)c.scrollIntoView({behavior:'smooth'})});
+  // cards
+  const active=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#vgrid')?document.activeElement.id:null;
+  $('#vgrid').innerHTML=vs.map(x=>{const a=assign[x.v]||{};const id=x.v.replace(/\W/g,'_');const st=vehNow(x);
+    const warn=[];if(!a.plate)warn.push('<span class="chip bad">номер не назначен</span>');if(!a.phone)warn.push('<span class="chip">нет телефона водителя</span>');
+    x.over.forEach(t=>warn.push(`<span class="chip bad">перегруз ${fmt(t.start)}: ${t.pax} чел при ${x.cap} местах</span>`));
+    x.legs.filter(l=>l.late).forEach(l=>warn.push(`<span class="chip gzp">${esc(normFl(l.fl))} задерживается на ${l.late} мин</span>`));
+    const rows=x.trips.map((t,ti)=>(x.trips.length>1?`<tr class="trip"><td colspan="4">Поездка ${ti+1} · ${t.kind==='arr'?'из аэропорта':'в аэропорт'} · ${t.pax} из ${x.cap} мест</td></tr>`:'')+t.legs.map(l=>`<tr class="${l.end<NOW?'past':''}"><td class="tm num">${esc(l.t)}</td><td><span class="act ${l.kind}">${l.kind==='arr'?'Встреча':'Забор'}</span><br>${esc(legPlace(l))}${l.note?` <span class="hint">· ${esc(l.note)}</span>`:''}</td><td>${l.kind==='arr'?termLbl(l.term):'вылет '+esc(l.ft)}<br><span class="hint">${esc(l.op||'')}${l.g&&x.gs.size>1?' · '+esc(l.g):''}</span></td><td class="n num">${l.pax}</td></tr>`).join('')).join('');
+    return `<article class="vcard2" id="veh_${id}"><div class="vtop"><div><div class="vn">${esc(x.v)}</div><div class="hint">${esc([...x.gs].join(', ')||'гид не указан')} · ${x.legs.length} заб. · ${x.pax} чел</div></div><span class="vnow ${st.busy?'busy':''} ${st.done?'done':''}">${esc(st.txt)}</span></div>
+    <div class="vfields"><label>Номер<input id="pl_${id}" data-v="${esc(x.v)}" data-f="plate" value="${esc(a.plate||'')}" placeholder="07 ABC 123"></label><label>Телефон водителя<input id="ph_${id}" data-v="${esc(x.v)}" data-f="phone" value="${esc(a.phone||'')}" placeholder="05xx xxx xx xx" inputmode="tel"></label><label>Водитель<input id="dr_${id}" data-v="${esc(x.v)}" data-f="driver" value="${esc(a.driver||'')}" placeholder="Имя"></label><label>Мест<input id="cp_${id}" data-v="${esc(x.v)}" data-f="cap" value="${esc(a.cap||'')}" placeholder="${CAP(x.v)}" inputmode="numeric"></label></div>
+    ${warn.length?`<div class="vwarn">${warn.join('')}</div>`:''}
+    <div style="overflow-x:auto"><table class="legs">${rows}</table></div>
+    <div class="vfoot"><button class="btn" type="button" data-drv="${esc(x.v)}">Скопировать задание водителю</button></div></article>`}).join('');
+  $('#vgrid').querySelectorAll('input').forEach(i=>i.addEventListener('change',e=>{const v=e.target.dataset.v,f=e.target.dataset.f;assign[v]=assign[v]||{};assign[v][f]=e.target.value.trim();saveAssign();renderVeh();renderBoard()}));
+  $('#vgrid').querySelectorAll('input').forEach(i=>i.addEventListener('input',e=>{const v=e.target.dataset.v,f=e.target.dataset.f;assign[v]=assign[v]||{};assign[v][f]=e.target.value;renderWa()}));
+  $('#vgrid').querySelectorAll('[data-drv]').forEach(b=>b.onclick=()=>copy(driverText(vs.find(x=>x.v===b.dataset.drv))));
+  if(active){const el=document.getElementById(active);if(el)el.focus()}
   renderWa();
 }
-function renderWa(){
-  const vs=allVehicles();const line=x=>{const a=assign[x.v]||{};return `${x.v} - ${a.plate||'?'} - ${a.phone||'?'}${a.driver?' - '+a.driver:''}`};
-  $('#waMsg').textContent=`*${dayKey}.26*\n\nARRİVAL\n`+vs.filter(x=>x.kind.includes('Прилёты')).map(line).join('\n')+'\n\nDEPARTURE\n'+vs.filter(x=>!x.kind.includes('Прилёты')).map(line).join('\n');
+function driverText(x){
+  const a=assign[x.v]||{};
+  const lines=x.legs.map(l=>l.kind==='arr'
+    ?`${l.t} KARŞILAMA ${/^[!?]/.test(l.fl)?'uçuş belirsiz':normFl(l.fl)}${l.org?' ('+(CITY_TR[l.org]||l.org)+')':''} · ${termTr(l.term)} → ${l.h} · ${l.pax} kişi`
+    :`${l.t} ALIM ${l.h} · ${l.pax} kişi → ${/^[!?]/.test(l.fl)?'uçuş belirsiz':normFl(l.fl)} ${l.ft} · ${termTr(l.term)}`);
+  return `*${x.v} · ${dayKey}*\n${a.plate?'Plaka: '+a.plate+'\n':''}Rehber: ${[...x.gs].join(', ')||'-'}\n\n${lines.join('\n')}\n\nToplam ${x.pax} kişi`;
 }
+function renderWa(){
+  if(!DAY)return;
+  const vs=vehicleLegs();const withG=$('#waGuide').checked,withT=$('#waTime').checked,withEmpty=$('#waEmpty').checked;
+  const line=x=>{const a=assign[x.v]||{};if(!withEmpty&&!a.plate)return null;return [x.v,a.plate||'?',a.phone||'?',a.driver,withG?[...x.gs].join('/'):'',withT?fmt(x.legs[0].start):''].filter(Boolean).join(' - ')};
+  const arr=vs.filter(x=>x.kind.includes('arr')).map(line).filter(Boolean),dep=vs.filter(x=>!x.kind.includes('arr')).map(line).filter(Boolean);
+  $('#waMsg').textContent=`*${dayKey}.26*\n\nARRİVAL\n${arr.join('\n')}\n\nDEPARTURE\n${dep.join('\n')}`;
+}
+['#waGuide','#waTime','#waEmpty'].forEach(s=>$(s).addEventListener('change',renderWa));
+
 
 /* ---------- checks ---------- */
 const gkey=n=>String(n||'').split(/\s+/)[0].normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.\s]/g,'').replace(/Y/g,'V').replace(/S$/,'Z');
@@ -752,50 +944,68 @@ function runChecks(){
   $('#reconLbl').innerHTML=r?`Сверка с итогами файла: <b>${r.ok} из ${r.total}</b> рейсов сходятся по количеству гостей${r.bad.length?' · не сходятся: '+r.bad.map(b=>esc(b.fl)+' ('+b.got+' из '+b.expected+')').join(', '):''}`:'Источник: PDF-списки, сверка по итогам не проводилась.';
 }
 
-/* ---------- guide chat ---------- */
-let curGuide=null;
+/* ---------- guide screen ---------- */
+// marks: met[groupId][i] = 'out' | 'no' | null ; met[groupId].n = counter when the group has no names
+let curGuide=store.get('guide',null);
 const guides=()=>[...new Set([...DAY.arr,...DAY.dep].map(x=>x.g).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'tr'));
+const markOf=(gid,i)=>{const v=(met[gid]||{})[i];return v===true?'out':v||null};
+function marked(g){const m=met[g.id]||{};if(g.p&&g.p.length)return g.p.reduce((s,_,i)=>s+(markOf(g.id,i)==='out'?1:0),0);return Math.min(+m.n||0,+g.pax||0)}
+function groupTotal(g){return g.p&&g.p.length?g.p.length:(+g.pax||0)}
+function resolved(g){if(g.p&&g.p.length)return g.p.reduce((s,_,i)=>s+(markOf(g.id,i)?1:0),0);return marked(g)}
+function setMark(gid,i,val){met[gid]=met[gid]||{};met[gid][i]=val;saveMet()}
 function renderGuidePick(){
-  const gl=guides();if(!curGuide||!gl.includes(curGuide))curGuide=gl[0];
+  const gl=guides();if(!curGuide||!gl.includes(curGuide))curGuide=gl[0]||null;
   $('#guidePick').innerHTML=gl.map(g=>`<button type="button" aria-pressed="${g===curGuide}" data-g="${esc(g)}">${esc(g)}</button>`).join('');
-  $('#guidePick').querySelectorAll('button').forEach(b=>b.onclick=()=>{curGuide=b.dataset.g;renderGuidePick();renderChat()});
+  $('#guidePick').querySelectorAll('button').forEach(b=>b.onclick=()=>{curGuide=b.dataset.g;store.set('guide',curGuide);renderGuidePick();renderGuide()});
 }
-function renderChat(){
-  const g=curGuide;if(!g){$('#chat').innerHTML='';return}
-  const mineA=DAY.arr.filter(t=>t.g===g).sort((a,b)=>toMin(a.t)-toMin(b.t));
-  const mineD=DAY.dep.filter(t=>t.g===g).sort((a,b)=>toMin(a.pu)-toMin(b.pu));
-  $('#gName').textContent=g;$('#gAv').textContent=g[0];
-  const vehs=[...new Set([...mineD,...mineA].map(t=>t.v).filter(Boolean))];
-  $('#gSub').textContent='Sarabi Operasyon · '+vehs.join(', ');
-  const msgs=[];
-  const firsts=[...mineA.map(t=>toMin(t.t)-120),...mineD.map(t=>toMin(t.pu)-90)];
-  const planAt=Math.max(0,Math.min(420,...firsts));
-  if(NOW>=planAt){
-    const lines=[...mineD.map(t=>({m:toMin(t.pu),s:`${t.pu} · <b>${esc(t.h)}</b> → ${esc(t.fl)} ${t.t}`})),...[...new Map(mineA.map(t=>[normFl(t.fl)+t.t,t])).values()].map(t=>({m:toMin(t.t),s:`${t.t} · karşılama <b>${esc(normFl(t.fl))}</b> · ${termTr(t.term)}`}))].sort((a,b)=>a.m-b.m);
-    msgs.push({at:planAt,html:`<b>Bugünkü planın · ${dayKey}</b><br>Araç: <b>${esc(vehs.join(', '))}</b>${vehs.map(v=>assign[v]&&assign[v].plate?'<br>'+esc(v)+': '+esc(assign[v].plate)+(assign[v].phone?' · şoför '+esc(assign[v].phone):''):'').join('')}<br><br>${lines.map(l=>l.s).join('<br>')}<br><br>Toplam ${[...mineA,...mineD].reduce((s,t)=>s+t.pax,0)} misafir. İyi çalışmalar!`});
-  }
-  // departure runs
-  const runs={};mineD.forEach(r=>{(runs[r.v]=runs[r.v]||[]).push(r)});
-  Object.entries(runs).forEach(([v,rs])=>{const at=toMin(rs[0].pu)-60;if(NOW<at)return;
-    msgs.push({at,html:`<b>Alım · ${esc(v)}</b><br>${rs.map(r=>`${r.pu} · ${esc(r.h)} · ${r.pax} kişi<br><span style="color:var(--muted)">→ ${/^[!?]/.test(r.fl)?'uçuş belirsiz':esc(r.fl)} ${r.t} · ${termTr(r.term)}${r.note?' · '+esc(r.note):''}</span>`).join('<br>')}`});
-  });
-  // arrivals
-  const byFl=new Map();mineA.forEach(t=>{const k=normFl(t.fl)+'|'+t.t;if(!byFl.has(k))byFl.set(k,[]);byFl.get(k).push(t)});
-  byFl.forEach((gs,k)=>{
-    const f=flights.find(x=>x.key===k);if(!f)return;
-    const cardAt=f.sched-90;
-    if(NOW>=cardAt)msgs.push({at:cardAt,html:`<span class="fl">${esc([...f.codes].join(' / '))}</span> · ${esc(CITY_TR[f.org]||f.org||'')}<br>İniş: <b>${f.t}</b> · ${f.to==='GZP'?'<b>GAZİPAŞA havalimanı</b>':termTr(gs[0].term)}<br>${gs.map(t=>`<br><b>${esc(t.h)}</b> · ${t.pax} kişi · ${esc(t.op)}${t.p.length?`<ul class="plist">${t.p.map((p,i)=>{const on=!!(met[t.id]&&met[t.id][i]);return `<li><button type="button" aria-pressed="${on}" aria-label="Karşılandı" data-tid="${t.id}" data-i="${i}">${on?'✓':''}</button><span>${esc(p[0])} ${esc(p[1])}</span><span class="age">${p[2]||''}</span></li>`}).join('')}</ul>`:`<br><span style="color:var(--muted)">İsim listesi genel listeden gelecek</span>`}`).join('')}<div class="qr"><button type="button" data-all="${gs.map(t=>t.id).join(',')}">Hepsini karşıladım</button><button type="button" data-miss="${esc(f.code)}">Eksik misafir var</button></div>`});
-    if(f.delay&&NOW>=f.delayKnownAt&&f.delayKnownAt<f.eta)msgs.push({at:f.delayKnownAt,cls:'alert',html:`<b>Rötar: ${esc(f.code)}</b><br>Yeni tahmini iniş: <b>${fmt(f.eta)}</b> (+${f.delay} dk).<br>Şoföre de bildirildi.`});
-    if(!f.unknown&&NOW>=f.eta)msgs.push({at:f.eta,cls:'land',html:`<b>${esc(f.code)} indi</b> · ${fmt(f.eta)}<br>${termTr(gs[0].term)} çıkışında bekleyin. Misafirler ~25 dk içinde çıkar.`});
-  });
-  msgs.sort((x,y)=>x.at-y.at);
-  const chat=$('#chat');
-  chat.innerHTML=`<div class="daysep">${dayKey}.2026</div>`+(msgs.length?msgs.map(m=>`<div class="bub ${m.cls||''}">${m.html}<span class="tm">${fmt(m.at)}</span></div>`).join(''):`<div class="daysep">Henüz mesaj yok · ilk mesaj ${fmt(planAt)}</div>`);
-  chat.scrollTop=chat.scrollHeight;
-  chat.querySelectorAll('.plist button').forEach(b=>b.onclick=()=>{const t=b.dataset.tid,i=b.dataset.i;met[t]=met[t]||{};met[t][i]=!met[t][i];saveMet();renderChat();renderBoard()});
-  chat.querySelectorAll('[data-all]').forEach(b=>b.onclick=()=>{b.dataset.all.split(',').forEach(id=>{const t=DAY.arr.find(x=>x.id===id);met[id]={};const n=t.p.length||t.pax;for(let i=0;i<n;i++)met[id][i]=true});saveMet();renderChat();renderBoard();toast('Отметка ушла диспетчеру')});
-  chat.querySelectorAll('[data-miss]').forEach(b=>b.onclick=()=>toast('Диспетчер получил: не все гости на '+b.dataset.miss));
+function guideTasks(g){
+  const tasks=[];
+  const byFl=new Map();
+  DAY.arr.filter(t=>t.g===g).forEach(t=>{const f=flightOfGroup(t);const k=f?f.key:t.id;if(!byFl.has(k))byFl.set(k,{kind:'arr',f,groups:[]});byFl.get(k).groups.push(t)});
+  byFl.forEach(x=>{const f=x.f;x.time=f?f.eta:toMin(x.groups[0].t);x.sort=x.time;tasks.push(x)});
+  const byPu=new Map();
+  DAY.dep.filter(t=>t.g===g).forEach(t=>{const k=t.pu+'|'+t.h+'|'+t.v;if(!byPu.has(k))byPu.set(k,{kind:'dep',groups:[]});byPu.get(k).groups.push(t)});
+  byPu.forEach(x=>{x.time=toMin(x.groups[0].pu||x.groups[0].t);x.sort=x.time;tasks.push(x)});
+  tasks.sort((a,b)=>a.sort-b.sort);
+  tasks.forEach(t=>{t.total=t.groups.reduce((s,g)=>s+groupTotal(g),0);t.done=t.groups.reduce((s,g)=>s+marked(g),0);t.res=t.groups.reduce((s,g)=>s+resolved(g),0);t.no=t.res-t.done;t.complete=t.total>0&&t.res>=t.total});
+  return tasks;
 }
+function paxRows(g,kind){
+  const okLbl=kind==='arr'?'Вышел':'Сел';
+  if(g.p&&g.p.length)return g.p.map((p,i)=>{const mk=markOf(g.id,i);return `<div class="prow ${mk||''}"><span class="pn">${i+1}</span><span class="nm">${esc(p[0])} ${esc(p[1])}${p[2]?`<small>${esc(p[2])}</small>`:''}</span><span class="mk"><button type="button" class="ok" aria-pressed="${mk==='out'}" data-mk="${g.id}|${i}|out">✓ ${okLbl}</button><button type="button" class="no" aria-pressed="${mk==='no'}" data-mk="${g.id}|${i}|no" aria-label="Нет">✗</button></span></div>`}).join('');
+  const n=marked(g);
+  return `<div class="counter"><button type="button" data-cnt="${g.id}|-1" aria-label="Минус">−</button><output>${n} / ${g.pax}</output><button type="button" data-cnt="${g.id}|1" aria-label="Плюс">+</button><span class="hint">Имён нет: загрузите список туристов</span></div>`;
+}
+function renderGuide(){
+  if(!DAY)return;
+  const g=curGuide;if(!g){$('#guideHead').innerHTML='<p class="hint">В этом дне нет гидов.</p>';$('#tasks').innerHTML='';return}
+  const tasks=guideTasks(g);
+  const vehs=[...new Set(tasks.flatMap(t=>t.groups.map(x=>x.v)).filter(Boolean))];
+  const tot=tasks.reduce((s,t)=>s+t.total,0),done=tasks.reduce((s,t)=>s+t.done,0);
+  $('#guideHead').innerHTML=`<div class="ghead"><div class="gname">${esc(g)}</div><div class="gmeta">${vehs.map(v=>{const a=assign[v]||{};return `<span><b>${esc(v)}</b>${a.plate?' · '+esc(a.plate):''}${a.phone?' · водитель '+esc(a.phone):''}</span>`}).join('')}</div><div class="gmeta"><span><b>${tasks.filter(t=>t.kind==='arr').length}</b> встреч</span><span><b>${tasks.filter(t=>t.kind==='dep').length}</b> заборов</span><span><b>${tot}</b> гостей</span><span>отмечено <b>${done}</b></span></div></div>`;
+  const hide=$('#hideDone').checked;
+  const nextIdx=tasks.findIndex(t=>!t.complete&&t.time+60>=NOW);
+  $('#tasks').innerHTML=tasks.map((t,ti)=>{
+    if(hide&&t.complete)return '';
+    const g0=t.groups[0];let head;
+    if(t.kind==='arr'){const f=t.f,st=f?fStatus(f,NOW):null;const late=f&&f.delay>=15&&(f.live||NOW>=f.delayKnownAt);
+      head=`<div class="tt ${late?'late':''} num">${late?`<s>${g0.t}</s>`:''}${fmt(t.time)}<small>${st&&st.k==='land'?'сел':'посадка'}</small></div><div><div class="kind arr">Встреча</div><div class="ttl">${esc(f?[...f.codes].join(' / '):g0.fl)}</div><div class="sub">${esc(CITY[g0.org]||g0.org||'')} · ${g0.to==='GZP'?'<b>Газипаша</b>':termLbl(g0.term)} · ${esc(g0.v||'без машины')}</div></div>${st?`<span class="status ${st.k} st"><span class="dot"></span>${st.lbl}</span>`:''}`;
+    }else{
+      head=`<div class="tt num">${esc(g0.pu||g0.t)}<small>выезд</small></div><div><div class="kind dep">Забор из отеля</div><div class="ttl">${esc(g0.h)}</div><div class="sub">→ ${/^[!?]/.test(g0.fl)?'рейс не указан':esc(normFl(g0.fl))} в ${esc(g0.t)} · ${termLbl(g0.term)} · ${esc(g0.v||'')}${g0.note?' · '+esc(g0.note):''}</div></div><span class="chip st">${t.groups.reduce((s,x)=>s+(+x.pax||0),0)} чел</span>`;
+    }
+    const cls=['task',t.complete?'done':'',ti===nextIdx?'next':''].join(' ');
+    if(t.complete&&!hide)return `<article class="${cls}"><div class="th">${head}</div><div class="tf"><span class="met">✓ ${t.kind==='arr'?'Вышли':'Сели'} ${t.done} из ${t.total}${t.no?`, не пришли: ${t.no}`:''}</span><button class="btn" type="button" data-open="${ti}">Показать список</button></div><div hidden id="tg_${ti}">${grpHtml(t)}</div></article>`;
+    return `<article class="${cls}"><div class="th">${head}</div>${grpHtml(t)}<div class="tf"><button class="btn primary" type="button" data-allk="${t.groups.map(x=>x.id).join(',')}">${t.kind==='arr'?'Все вышли':'Все сели'}</button><button class="btn" type="button" data-clear="${t.groups.map(x=>x.id).join(',')}">Сбросить</button></div></article>`;
+  }).join('')||'<p class="hint">Все задания выполнены.</p>';
+  function grpHtml(t){return t.groups.map(x=>{const d=marked(x),n=groupTotal(x);return `<div class="tgrp"><div class="gh"><span><b>${esc(t.kind==='arr'?x.h:normFl(x.fl)+' '+x.t)}</b> <span class="hint">${esc(x.op||'')} · ${x.pax} чел</span></span><span style="display:flex;gap:8px;align-items:center"><span class="bar"><i style="width:${n?Math.round(d/n*100):0}%"></i></span><span class="num">${d}/${n}</span></span></div>${paxRows(x,t.kind)}</div>`}).join('')}
+  const T=$('#tasks');
+  T.querySelectorAll('[data-mk]').forEach(b=>b.onclick=()=>{const [gid,i,val]=b.dataset.mk.split('|');setMark(gid,i,markOf(gid,i)===val?null:val);renderGuide();renderBoard();renderDep()});
+  T.querySelectorAll('[data-cnt]').forEach(b=>b.onclick=()=>{const [gid,d]=b.dataset.cnt.split('|');const g=[...DAY.arr,...DAY.dep].find(x=>x.id===gid);met[gid]=met[gid]||{};met[gid].n=Math.max(0,Math.min(+g.pax||0,(+met[gid].n||0)+(+d)));saveMet();renderGuide();renderBoard();renderDep()});
+  T.querySelectorAll('[data-allk]').forEach(b=>b.onclick=()=>{b.dataset.allk.split(',').forEach(gid=>{const g=[...DAY.arr,...DAY.dep].find(x=>x.id===gid);met[gid]=met[gid]||{};if(g.p&&g.p.length)g.p.forEach((_,i)=>{if(markOf(gid,i)!=='no')met[gid][i]='out'});else met[gid].n=+g.pax||0});saveMet();renderGuide();renderBoard();renderDep();toast('Отметка ушла диспетчеру')});
+  T.querySelectorAll('[data-clear]').forEach(b=>b.onclick=()=>{b.dataset.clear.split(',').forEach(gid=>{const g=[...DAY.arr,...DAY.dep].find(x=>x.id===gid);met[gid]={};if(g.p)g.p.forEach((_,i)=>met[gid][i]=null);met[gid].n=0});saveMet();renderGuide();renderBoard();renderDep()});
+  T.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{const el=document.getElementById('tg_'+b.dataset.open);el.hidden=!el.hidden;b.textContent=el.hidden?'Показать список':'Скрыть список'});
+}
+$('#hideDone').addEventListener('change',renderGuide);
 
 /* ---------- contacts & log ---------- */
 function renderContacts(){
@@ -821,37 +1031,65 @@ function renderLog(){
 }
 
 /* ---------- excel import ---------- */
-async function importFile(file){
-  const msg=$('#xlsMsg');msg.innerHTML='Читаю файл…';
-  try{
-    if(typeof XLSX==='undefined')throw new Error('Библиотека Excel не загрузилась, обновите страницу.');
-    const wb=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array'});
-    let rows=[];wb.SheetNames.forEach(n=>rows=rows.concat(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:false})));
-    const flat=rows.slice(0,40).map(r=>(r||[]).join(' ')).join(' ');
-    const dm=flat.match(/Tarih\s*:\s*(\d\d)\/(\d\d)\/(\d{4})/)||file.name.match(/(\d\d)[._](\d\d)[._](\d{4})/);
-    const key=dm?dm[1]+'.'+dm[2]:file.name.replace(/\.\w+$/,'').slice(0,10);
-    const months=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
-    const title=dm?`${+dm[1]} ${months[+dm[2]-1]} ${dm[3]}`:key;
-    const K=parseKapak(rows);
-    const ok=K.recon.filter(c=>c.expected===c.got).length;
-    const pack={recs:K.recs,recon:{ok,total:K.recon.length,bad:K.recon.filter(c=>c.expected!==c.got)}};
-    const d=dayFromKapak(pack,key,title);
-    if(!d.arr.length&&!d.dep.length)throw new Error('В файле не найдено ни одного рейса.');
-    d.iso=dm?`${dm[3]}-${dm[2]}-${dm[1]}`:'';
-    DAYS[key]=d;
-    let srv=null;if(SERVER){srv=await api('PUT','/api/day?d='+encodeURIComponent(key),d);refreshLive()}else{const imp=store.get('imported',{});imp[key]=d;store.set('imported',imp)}
-    loadDay(key);
-    msg.innerHTML=`<b>День ${esc(key)} загружен.</b><span>${d.arr.length} групп на прилёт, ${d.dep.length} на вылет, ${d.self} гостей едут сами, ${d.h2h} межотельных.</span>${srv?`<span>Программа следит за ${srv.watched} рейсами из этого Капака${srv.poll&&srv.poll.ok?`, первые данные уже получены (${srv.poll.found})`:''}.</span>`:''}<span>Сверка с итогами файла: ${ok} из ${K.recon.length} рейсов сходятся.${pack.recon.bad.length?' Не сходятся: '+pack.recon.bad.map(b=>esc(b.fl)).join(', ')+'.':''}</span>`;
-  }catch(err){msg.innerHTML='<span>Не удалось прочитать файл: '+esc(err.message)+'</span>'}
+const MONTHS=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+async function readRows(file){
+  const wb=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array'});
+  let rows=[];wb.SheetNames.forEach(n=>rows=rows.concat(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:false})));
+  return rows;
 }
-$('#xls').addEventListener('change',e=>{if(e.target.files[0])importFile(e.target.files[0])});
+async function saveDay(key,d){if(SERVER)return api('PUT','/api/day?d='+encodeURIComponent(key),d);const imp=store.get('imported',{});imp[key]=d;store.set('imported',imp);return null}
+async function importKapak(rows,file){
+  const flat=rows.slice(0,40).map(r=>(r||[]).join(' ')).join(' ');
+  const dm=flat.match(/Tarih\s*:\s*(\d\d)\/(\d\d)\/(\d{4})/)||file.name.match(/(\d\d)[._](\d\d)[._](\d{4})/);
+  const key=dm?dm[1]+'.'+dm[2]:file.name.replace(/\.\w+$/,'').slice(0,10);
+  const title=dm?`${+dm[1]} ${MONTHS[+dm[2]-1]} ${dm[3]}`:key;
+  const K=parseKapak(rows);
+  const ok=K.recon.filter(c=>c.expected===c.got).length;
+  const pack={recs:K.recs,recon:{ok,total:K.recon.length,bad:K.recon.filter(c=>c.expected!==c.got)}};
+  const d=dayFromKapak(pack,key,title);
+  if(!d.arr.length&&!d.dep.length)throw new Error('в файле не найдено ни одного рейса');
+  d.iso=dm?`${dm[3]}-${dm[2]}-${dm[1]}`:'';
+  const prev=DAYS[key];let names=null;
+  if(prev&&prev.tourists){d.tourists=prev.tourists;names=applyTourists(d,d.tourists)}
+  DAYS[key]=d;
+  const srv=await saveDay(key,d);
+  return {key,html:`<b>Капак ${esc(key)} загружен.</b><span>${d.arr.length} групп на прилёт, ${d.dep.length} на вылет, ${d.self} гостей едут сами, ${d.h2h} межотельных.</span>${srv?`<span>Программа следит за ${srv.watched} рейсами из этого Капака${srv.poll&&srv.poll.ok?`, первые данные уже получены (${srv.poll.found})`:''}.</span>`:''}<span>Сверка с итогами файла: ${ok} из ${K.recon.length} рейсов сходятся.${pack.recon.bad.length?' Не сходятся: '+pack.recon.bad.map(b=>esc(b.fl)).join(', ')+'.':''}</span>${names?`<span>Имена туристов из прошлой загрузки сохранены: ${names.people}.</span>`:''}`};
+}
+async function importTourists(T,file){
+  const key=T.date?T.date.d+'.'+T.date.m:null;
+  if(!key)throw new Error('не нашёл дату в списке туристов');
+  const d=DAYS[key];
+  if(!d)throw new Error(`сначала загрузите Капак на ${key}, потом список туристов`);
+  const r=applyTourists(d,T);d.tourists=T;
+  await saveDay(key,d);
+  const un=r.unmatched.filter(t=>t.people.length);
+  return {key,html:`<b>Список туристов ${esc(key)} загружен.</b><span>Имена добавлены в ${r.matched} групп, всего ${r.people} туристов. Теперь у гидов есть кнопки «Вышел».</span>${r.h2h?`<span>${r.h2h} туристов в межотельных переездах, в Капаке их нет.</span>`:''}${un.length?`<span>Не нашлись в Капаке (${un.length}): ${un.slice(0,8).map(t=>esc((t.fl||'без рейса')+' '+t.hotel+' · '+t.people.length+' чел')).join('; ')}${un.length>8?'…':''}</span>`:''}`};
+}
+async function importFiles(files){
+  const msg=$('#xlsMsg');msg.innerHTML='Читаю файлы…';
+  if(typeof XLSX==='undefined'){msg.innerHTML='<span>Библиотека Excel не загрузилась, обновите страницу.</span>';return}
+  const items=[];
+  for(const file of files){try{const rows=await readRows(file);const T=parseTourists(rows);const people=T.groups.reduce((s,g)=>s+g.people.length,0);items.push({file,rows,T,isTourists:people>0})}catch(e){items.push({file,err:e.message})}}
+  items.sort((a,b)=>(a.isTourists?1:0)-(b.isTourists?1:0));
+  const out=[];let last=null;
+  for(const it of items){
+    if(it.err){out.push(`<span>${esc(it.file.name)}: не удалось прочитать (${esc(it.err)}).</span>`);continue}
+    try{const r=it.isTourists?await importTourists(it.T,it.file):await importKapak(it.rows,it.file);last=r.key;out.push(r.html)}
+    catch(e){if(e.message==='401')return;out.push(`<span>${esc(it.file.name)}: ${esc(e.message)}.</span>`)}
+  }
+  if(last){if(SERVER)refreshLive();loadDay(last)}
+  msg.innerHTML=out.join('');
+}
+// kept for older callers and tests
+const importFile=f=>importFiles([f]);
+$('#xls').addEventListener('change',e=>{if(e.target.files.length)importFiles([...e.target.files]);e.target.value=''});
 const drop=$('#drop');
 ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
 ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
-drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)importFile(f)});
+drop.addEventListener('drop',e=>{const f=[...e.dataTransfer.files];if(f.length)importFiles(f)});
 
 /* ---------- wiring ---------- */
-function renderAll(){if(!DAY)return;$('#nowLbl').textContent=fmt(NOW);$('#slider').value=NOW;renderBoard();renderDep();renderGuidePick();renderChat();renderLog()}
+function renderAll(){if(!DAY)return;$('#nowLbl').textContent=fmt(NOW);$('#slider').value=NOW;renderBoard();renderDep();renderGuidePick();renderGuide();renderLog();if(!$('#v-veh').hidden&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#vgrid')))renderVeh()}
 $('#slider').addEventListener('input',e=>{followNow=false;NOW=+e.target.value;store.set('now_'+dayKey,NOW);renderAll()});
 let play=null;
 $('#playBtn').onclick=()=>{if(play){clearInterval(play);play=null;$('#playBtn').textContent='▶ Проиграть день';return}
