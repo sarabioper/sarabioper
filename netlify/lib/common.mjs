@@ -12,8 +12,10 @@ export const json = (data, status = 200) =>
 export function authorized(req) {
   const want = process.env.OPS_PASSWORD;
   if (!want) return { ok: false, res: json({ error: "На сервере не задан пароль OPS_PASSWORD" }, 500) };
-  const got = req.headers.get("x-ops-key") || "";
-  if (got !== want) return { ok: false, res: json({ error: "Неверный пароль" }, 401) };
+  let got = req.headers.get("x-ops-key") || "";
+  try { got = decodeURIComponent(got); } catch (e) { /* old clients sent it unencoded */ }
+  const norm = (x) => String(x).trim().normalize("NFC");
+  if (norm(got) !== norm(want)) return { ok: false, res: json({ error: "Неверный пароль" }, 401) };
   return { ok: true };
 }
 
