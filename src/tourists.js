@@ -1,6 +1,7 @@
 // Tourist lists (GENEL GELİŞ / ARAÇ TRANSFER LİSTESİ) as Excel, including PDF→Excel conversions.
 // The sheet is read as one text stream, so it does not matter how the converter split cells and rows.
-const T_STOP=new Set(['TOPLAM','PAX','SAYFA','GRUB','İND','IND','ARA','NO','TER','ICHAT','BUS','MİN','MİNİ','MİDİ','VİTO','DBL','SNG','TRP','TPL','QUAD','QDR','STD','SUP','DLX','FAM','ECO','ROOM','HB','BB','FB','AI','UAI','RO','NOT','GELİŞ','GİDİŞ','DÖNÜŞ','TRANSFER','LİSTESİ','LISTESI','ARAÇ','ARAC','EXTRA','TICKET','YOK','KENDİ','GİDER','HAVALİMANI','HAVAALANI','OTELE','DIŞ','İÇ','HATLAR']);
+const T_STOP=new Set(['AL','TWN','TOPLAM','PAX','SAYFA','GRUB','İND','IND','ARA','NO','TER','ICHAT','BUS','MİN','MİNİ','MİDİ','VİTO','DBL','SNG','TRP','TPL','QUAD','QDR','STD','SUP','DLX','FAM','ECO','ROOM','HB','BB','FB','AI','UAI','RO','NOT','GELİŞ','GİDİŞ','DÖNÜŞ','TRANSFER','LİSTESİ','LISTESI','ARAÇ','ARAC','EXTRA','TICKET','YOK','KENDİ','GİDER','HAVALİMANI','HAVAALANI','OTELE','DIŞ','İÇ','HATLAR']);
+const T_NOTEW=new Set(['GRUBU','GRUP','ERKEN','GEÇ','GİRİŞ','ÇIKIŞ','BEBEK','YATAĞI','İSTEK','KONFERANS','HONEYMOON','BALAYI','DOĞUM','GÜNÜ','VIP','ODA','DENİZ','MANZARA','KAT','YAN','AYNI','ÖZEL','ÜCRETLİ','ÖDEME','KAPIDA','TEKERLEKLİ','SANDALYE','ENGELLİ','BEDAVA','FREE','EXTRA','LATE','EARLY','CHECK','IN','OUT','REQUEST','BABY','COT','SEA','VIEW']);
 const T_CAPS=/^[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜ'\-]*$/;
 function parseTourists(rows){
   const parts=[];
@@ -37,17 +38,35 @@ function parseTourists(rows){
     const g={type:h.type,time:h.time,from:h.from,to:h.to,fl:fm&&!/^[!?]/.test(fm[1])?fm[1].replace(/^([A-Z0-9]{2})\s?0*(\d+)$/,'$1 $2'):'',fFrom:fm?fm[2]:'',fTo:fm?fm[3]:'',hotel:normHotel(hotel),hotelRaw:hotel.trim(),pax,veh:isArac?vehAt(h.start):(vm?(vm[1]+(vm[2]?' '+vm[2]:'')):''),guide,term,op:opm?opm[1]:'',people:[]};
     g.dir=g.fTo==='AYT'?'arr':g.fFrom==='AYT'?'dep':h.type==='ARA'?'h2h':'arr';
     // people
-    const pr=/(\d{1,3})-\s+(Mr|Mrs|Ms|Miss|Chd|Inf)\s*\.?\s+/g;const anchors=[];let p;
+    const pr=/(\d{1,3})-\s+(Mr|Mrs|Ms|Miss|Chd|Inf)\s*\.?\s+(?:\?\s+)?/g;const anchors=[];let p;
     while((p=pr.exec(seg)))anchors.push({start:p.index,end:pr.lastIndex,title:p[2]});
+    let room=null,roomNo=0;
     anchors.forEach((a,j)=>{
-      const toks=seg.slice(a.end,j+1<anchors.length?anchors[j+1].start:seg.length).trim().split(' ');
+      const before=seg.slice(j?anchors[j-1].end:0,a.start);
+      const vm2=before.match(/(?:^|\s)(\d{4})\s*$/);
+      const toks=seg.slice(a.end,j+1<anchors.length?anchors[j+1].start:seg.length).trim().split(' ').filter(Boolean);
       const name=[];let k=0;
       while(k<toks.length&&T_CAPS.test(toks[k])&&!T_STOP.has(toks[k])){name.push(toks[k]);k++}
       let age='';if(/^\d{1,2}$/.test(toks[k]||'')){age=toks[k];k++}
-      // a long name wraps to the next line in the PDF: its tail shows up after the room/board columns
-      const tail=toks.slice(k);let sawRoom=false;
-      for(const t of tail){if(T_STOP.has(t)||/\d/.test(t)){sawRoom=true;continue}if(T_CAPS.test(t)&&t.length>2){name.push(t)}else if(sawRoom&&!T_CAPS.test(t))break}
-      if(name.length)g.people.push([a.title==='Ms'||a.title==='Miss'?'Mrs':a.title,name.join(' '),age]);
+      // name wrapped right after the age (no room columns on this line)
+      while(k<toks.length&&T_CAPS.test(toks[k])&&!T_STOP.has(toks[k])&&!/[ÇĞİÖŞÜ]/.test(toks[k])&&name.length<4){name.push(toks[k]);k++}
+      // room columns: stay dates, room type, category, board, then a free-text note
+      const rest=toks.slice(k).join(' ');
+      const dm=rest.match(/(\d\d)\/(\d\d)\/\d\d\s*~\s*(\d\d)\/(\d\d)\/\d\d/);
+      const rt=rest.match(/\b(SNG|DBL|TRP|TPL|QUAD|QDR|TWN|FAM)\b/);
+      const cat=rest.match(/\b(STD|SUP|DLX|ECO|FAM|SUITE|PROMO)\b/);
+      const bd=rest.match(/\b(UAI|AI|HB|BB|FB|RO|AL)\b/);
+      if(dm||rt){roomNo++;room={no:roomNo,stay:dm?`${dm[1]}.${dm[2]}–${dm[3]}.${dm[4]}`:'',type:[rt&&rt[1],cat&&cat[1]].filter(Boolean).join(' '),board:bd?bd[1]:'',voucher:vm2?vm2[1]:''}}
+      // words after the board column: a wrapped surname/first name, or the operator's note
+      let tailStart=0;const tt=toks.slice(k);
+      tt.forEach((t,i)=>{if(T_STOP.has(t)||/\d/.test(t)||t==='~')tailStart=i+1});
+      const words=tt.slice(tailStart).filter(t=>/^[A-ZÇĞİÖŞÜ0-9'.,\/+\-]+$/.test(t));
+      let note='';
+      if(words.length){
+        const isNote=words.length>2||words.some(w=>/[ÇĞİÖŞÜ]/.test(w))||words.some(w=>T_NOTEW.has(w));
+        if(isNote&&!(name.length===1&&words.length<=2&&!words.some(w=>T_NOTEW.has(w))))note=words.join(' ');else name.push(...words.filter(w=>T_CAPS.test(w)&&w.length>1));
+      }
+      if(name.length)g.people.push([a.title==='Ms'||a.title==='Miss'?'Mrs':a.title,name.join(' '),age,room?{room:room.no,type:room.type,board:room.board,stay:room.stay,voucher:room.voucher,note}:(note?{note}:undefined)].filter((x,i)=>i<3||x));
     });
     groups.push(g);
   });
@@ -65,7 +84,11 @@ function applyTourists(day,parsed){
     if(!cands.length)cands=pool.filter(g=>!used.has(g.id)&&key(g.fl,'')===key(t.fl,'')&&(+g.pax===t.people.length||+g.pax===t.pax));
     if(!cands.length){unmatched.push(t);return}
     const g=cands.find(c=>+c.pax===t.pax)||cands.find(c=>+c.pax===t.people.length)||cands[0];
-    used.add(g.id);g.p=t.people;matched++;people+=t.people.length;
+    used.add(g.id);
+    // two lists for the same group (Araç + Genel): keep ages from one and vouchers/rooms from the other
+    if(g.p&&g.p.length===t.people.length)g.p=t.people.map((p,i)=>{const o=g.p[i]||[];const ex=Object.assign({},o[3]||{},...Object.entries(p[3]||{}).filter(([,v])=>v!==''&&v!=null).map(([k,v])=>({[k]:v})));return [p[0],p[1],p[2]||o[2]||'',...(Object.keys(ex).length?[ex]:[])]});
+    else g.p=t.people;
+    matched++;people+=t.people.length;
     if(parsed.isArac){if(t.veh&&g.v!==t.veh){changed.push(`${g.fl} ${g.h}: ${g.v||'—'} → ${t.veh}`);g.v=t.veh}if(t.guide)g.g=t.guide;if(t.term&&!g.term)g.term=t.term;if(t.op&&(!g.op||g.op==='—'))g.op=t.op}
   });
   // vehicle list: transfers missing from KAPAK are added, so the vehicle plan is complete

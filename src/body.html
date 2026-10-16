@@ -129,6 +129,31 @@
 .gs-ph{font-family:var(--f-mono);user-select:all}
 .gs-veh{font-family:var(--f-mono);font-size:12.5px}
 
+.gmode{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:12px 0 4px;background:var(--surface)}
+.gmode .gm{border:0;background:none;padding:9px 16px;font-size:14px}
+.gmode .gm+.gm{border-left:1px solid var(--line)}
+.gmode .gm[aria-pressed=true]{background:var(--ink);color:var(--bg);font-weight:600}
+.gsum{display:flex;flex-wrap:wrap;gap:6px 16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 14px;margin:10px 0;font-size:13px}
+.gsum b{font-size:15px}
+.gtrip{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin-bottom:10px;overflow:hidden}
+.gtrip-h{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.gtrip-h .tt{font-family:var(--f-display);font-size:26px;font-weight:600;line-height:1}
+.gtrip-h .route{font-size:13px;color:var(--muted)}
+.gtrip-h .route b{color:var(--ink);font-size:15px}
+.ghotel{padding:8px 14px;border-top:1px dashed var(--line)}
+.ghotel:first-of-type{border-top:0}
+.ghotel-h{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;margin-bottom:6px}
+.ghotel-h .to{font-family:var(--f-display);font-size:19px;font-weight:700}
+.rooms{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px}
+.roomc{border:1px solid var(--line);border-radius:6px;padding:7px 9px;background:var(--sunk);font-size:13px;display:grid;gap:3px;min-width:0}
+.roomc .rh{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.roomc .gp{display:flex;gap:6px;align-items:baseline;min-width:0;overflow-wrap:anywhere}
+.roomc .gp small{color:var(--muted)}
+.badge{font-size:10.5px;padding:0 5px;border-radius:3px;background:var(--info-soft);color:var(--info);font-weight:600}
+.badge.inf{background:var(--signal-soft);color:var(--signal-ink)}
+.gnote{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:3px 6px;font-size:12px}
+mark{background:var(--signal-soft);color:inherit}
+
 .chip.gzp{background:var(--warn-soft);color:var(--warn);border-color:transparent}
 .drops{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
 .drop .step{width:26px;height:26px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-weight:600;font-size:13px;justify-self:center}
@@ -259,8 +284,15 @@
   <section id="v-guide" hidden>
     <div class="guide-pick" id="guidePick"></div>
     <div id="guideHead"></div>
-    <div class="gfilters"><label><input type="checkbox" id="hideDone"> скрыть выполненные</label></div>
-    <div class="tasks" id="tasks"></div>
+    <div class="gmode" role="tablist"><button type="button" class="gm" data-gm="tasks" aria-pressed="true">Задания и отметки</button><button type="button" class="gm" data-gm="guests" aria-pressed="false">Мои гости</button></div>
+    <div id="gmTasks">
+      <div class="gfilters"><label><input type="checkbox" id="hideDone"> скрыть выполненные</label></div>
+      <div class="tasks" id="tasks"></div>
+    </div>
+    <div id="gmGuests" hidden>
+      <div class="filters"><input id="gsQ" placeholder="Фамилия, отель, рейс" aria-label="Поиск гостя"><button class="btn" type="button" id="gsCopy">📋 Скопировать список гостей</button></div>
+      <div id="guests"></div>
+    </div>
   </section>
 
   <section id="v-checks" hidden>

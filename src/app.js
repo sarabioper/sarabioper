@@ -376,7 +376,7 @@ function rerenderMarks(){renderGuide();renderOps();renderBoard();renderDep()}
 function renderGuidePick(){
   const gl=guides();if(!curGuide||!gl.includes(curGuide))curGuide=gl[0]||null;
   $('#guidePick').innerHTML=gl.map(g=>`<button type="button" aria-pressed="${g===curGuide}" data-g="${esc(g)}">${esc(g)}</button>`).join('');
-  $('#guidePick').querySelectorAll('button').forEach(b=>b.onclick=()=>{curGuide=b.dataset.g;store.set('guide',curGuide);renderGuidePick();renderGuide()});
+  $('#guidePick').querySelectorAll('button').forEach(b=>b.onclick=()=>{curGuide=b.dataset.g;store.set('guide',curGuide);renderGuidePick();renderGuide();renderGuests()});
 }
 // tasks = one meeting (all groups of one flight for one guide) or one hotel pick-up
 function buildTasks(keep){
@@ -442,6 +442,52 @@ function renderGuide(){
   bindMarks($('#tasks'));
 }
 $('#hideDone').addEventListener('change',renderGuide);
+
+
+/* ---------- guide: reference list of all guests (no check-in buttons) ---------- */
+let guideMode=store.get('gmode','tasks');
+function setGuideMode(m){guideMode=m;store.set('gmode',m);document.querySelectorAll('.gm').forEach(b=>b.setAttribute('aria-pressed',b.dataset.gm===m));$('#gmTasks').hidden=m!=='tasks';$('#gmGuests').hidden=m!=='guests';if(m==='guests')renderGuests()}
+document.querySelectorAll('.gm').forEach(b=>b.onclick=()=>setGuideMode(b.dataset.gm));
+const ex=p=>p[3]||{};
+function roomsOf(g){const m=new Map();(g.p||[]).forEach((p,i)=>{const e=ex(p);const k=e.room?'r'+e.room:'x';if(!m.has(k))m.set(k,{e,people:[]});m.get(k).people.push([p,i])});return [...m.values()]}
+function guestTrips(g){
+  return guideTasks(g).map(t=>{
+    const g0=t.groups[0];const vs=[...new Set(t.groups.map(x=>x.v).filter(Boolean))];
+    const byH=new Map();t.groups.forEach(x=>{if(!byH.has(x.h))byH.set(x.h,[]);byH.get(x.h).push(x)});
+    return {t,g0,vs,hotels:[...byH.entries()]};
+  });
+}
+function renderGuests(){
+  if(!DAY||!$('#guests'))return;
+  const g=curGuide;if(!g){$('#guests').innerHTML='';return}
+  const q=$('#gsQ').value.trim().toUpperCase();
+  const trips=guestTrips(g);
+  const all=trips.flatMap(x=>x.t.groups);
+  const ppl=all.flatMap(x=>x.p||[]);
+  const ad=ppl.filter(p=>!/^(Chd|Inf)$/.test(p[0])).length,ch=ppl.filter(p=>p[0]==='Chd').length,inf=ppl.filter(p=>p[0]==='Inf').length;
+  const hot=new Map();trips.forEach(x=>x.t.kind==='arr'&&x.hotels.forEach(([h,gs])=>hot.set(h,(hot.get(h)||0)+gs.reduce((s,y)=>s+(+y.pax||0),0))));
+  const notes=ppl.filter(p=>ex(p).note);
+  $('#guests').innerHTML=`<div class="gsum"><span><b>${all.reduce((s,x)=>s+(+x.pax||0),0)}</b> гостей</span>${ppl.length?`<span>взрослых <b>${ad}</b>${ch?` · детей <b>${ch}</b>`:''}${inf?` · младенцев <b>${inf}</b>`:''}</span>`:'<span class="hint">имён пока нет: загрузите Araç Listesi или Genel Geliş</span>'}<span>Везёт в: ${[...hot.entries()].map(([h,n])=>`<b>${esc(h)}</b> ${n}`).join(' · ')||'—'}</span>${notes.length?`<span class="gnote">Примечаний: ${notes.length}</span>`:''}</div>`
+  +trips.map(({t,g0,vs,hotels})=>{
+    const hit=x=>!q||(x.p||[]).some(p=>p[1].includes(q))||(x.h||'').toUpperCase().includes(q)||String(x.fl).replace(/\s/g,'').includes(q.replace(/\s/g,''));
+    const hs=hotels.map(([h,gs])=>[h,gs.filter(hit)]).filter(([,gs])=>gs.length);if(!hs.length)return '';
+    const a=vs.map(v=>{const x=assign[v]||{};return esc(v)+(x.plate?' · '+esc(x.plate):'')+(x.phone?' · водитель '+esc(x.phone):'')}).join(', ');
+    const head=t.kind==='arr'
+      ?`<div class="tt num">${fmt(t.time)}</div><div class="route"><b>${esc(t.f?[...t.f.codes].join(' / '):g0.fl)}</b> из ${esc(CITY[g0.org]||g0.org||'?')} · ${g0.to==='GZP'?'Газипаша':termLbl(g0.term)}<br>${a||'без машины'}</div>`
+      :`<div class="tt num">${esc(g0.pu||g0.t)}</div><div class="route"><b>Забор из отеля</b> · ${t.groups.length} рейс(ов) · ${t.groups.reduce((s,x)=>s+(+x.pax||0),0)} чел<br>${a||'без машины'}</div>`;
+    return `<section class="gtrip"><div class="gtrip-h">${head}</div>${hs.map(([h,gs])=>`<div class="ghotel"><div class="ghotel-h"><span class="to">${t.kind==='arr'?'→ '+esc(h):'Из '+esc(h)}</span><span class="hint">${t.kind==='arr'?gs.map(x=>esc(x.op||'')+' · '+x.pax+' чел').join(' · '):gs.reduce((s,x)=>s+(+x.pax||0),0)+' чел'}</span></div>${gs.map(x=>(t.kind==='dep'?`<div class="gp" style="margin:2px 0">→ <b>${esc(/^[!?]/.test(x.fl)?'рейс не указан':normFl(x.fl))}</b> ${esc(x.t)} · ${termLbl(x.term)} · ${esc(x.op||'')} · ${x.pax} чел${x.note?` <span class="gnote">${esc(x.note)}</span>`:''}</div>`:'')+(x.p&&x.p.length?`<div class="rooms">${roomsOf(x).map(r=>`<div class="roomc"><span class="rh">${r.e.room?'Комната '+r.e.room+' · ':''}${esc([r.e.type,r.e.board,r.e.stay].filter(Boolean).join(' · '))}${r.e.voucher?' · ваучер '+esc(r.e.voucher):''}</span>${r.people.map(([p])=>`<span class="gp">${p[0]==='Chd'?'<span class="badge">ребёнок</span>':p[0]==='Inf'?'<span class="badge inf">младенец</span>':''}<span>${q&&p[1].includes(q)?`<mark>${esc(p[0]+' '+p[1])}</mark>`:esc(p[0]+' '+p[1])}</span>${p[2]?`<small>${esc(p[2])} лет</small>`:''}</span>${ex(p).note?`<span class="gnote">${esc(ex(p).note)}</span>`:''}`).join('')}</div>`).join('')}</div>`:(t.kind==='arr'?`<p class="hint">${x.pax} гостей, имён нет.</p>`:''))).join('')}</div>`).join('')}</section>`;
+  }).join('');
+}
+function guestsText(g){
+  const L=[`*${dayKey} · ${g}*`];
+  guestTrips(g).forEach(({t,g0,vs,hotels})=>{
+    L.push('',t.kind==='arr'?`✈ ${fmt(t.time)} ${t.f?[...t.f.codes].join('/'):g0.fl} (${CITY_TR[g0.org]||g0.org||'?'}) · ${termTr(g0.term)} · ${vs.join(', ')}`:`🚌 ${g0.pu||g0.t} ALIM · ${g0.h} · ${vs.join(', ')}`);
+    hotels.forEach(([h,gs])=>{if(t.kind==='arr')L.push(`→ ${h}`);gs.forEach(x=>{if(t.kind==='dep')L.push(`→ ${/^[!?]/.test(x.fl)?'uçuş belirsiz':normFl(x.fl)} ${x.t} · ${x.op||''} · ${x.pax} kişi`);if(!x.p||!x.p.length){if(t.kind==='arr')L.push(`${x.pax} kişi (isimsiz)`);return}let n=0;roomsOf(x).forEach(r=>{L.push(`  ${[r.e.type,r.e.board].filter(Boolean).join(' ')}${r.e.stay?' '+r.e.stay:''}`);r.people.forEach(([p])=>L.push(`  ${++n}. ${p[0]} ${p[1]}${p[2]?' ('+p[2]+')':''}${ex(p).note?' — '+ex(p).note:''}`))})})});
+  });
+  return L.filter((x,i,a)=>!(x===''&&a[i-1]==='')).join('\n');
+}
+$('#gsQ').addEventListener('input',renderGuests);
+$('#gsCopy').onclick=()=>curGuide&&copy(guestsText(curGuide));
 
 /* ---------- control screen for the operations desk ---------- */
 let opsOpen={later:false,done:false,stale:false};
@@ -699,7 +745,7 @@ function renderDayStatus(){
 }
 
 /* ---------- wiring ---------- */
-function renderAll(){if(!DAY)return;$('#nowLbl').textContent=fmt(NOW);$('#slider').value=NOW;renderBoard();renderDep();renderGuidePick();renderGuide();renderWaLate();if(!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#opsGuides')))renderOps();renderLog();if(!$('#v-veh').hidden&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#vgrid')))renderVeh()}
+function renderAll(){if(!DAY)return;$('#nowLbl').textContent=fmt(NOW);$('#slider').value=NOW;renderBoard();renderDep();renderGuidePick();renderGuide();if(guideMode==='guests'&&!$('#v-guide').hidden&&document.activeElement!==$('#gsQ'))renderGuests();renderWaLate();if(!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#opsGuides')))renderOps();renderLog();if(!$('#v-veh').hidden&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#vgrid')))renderVeh()}
 $('#slider').addEventListener('input',e=>{followNow=false;NOW=+e.target.value;store.set('now_'+dayKey,NOW);renderAll()});
 let play=null;
 $('#playBtn').onclick=()=>{if(play){clearInterval(play);play=null;$('#playBtn').textContent='▶ Проиграть день';return}
@@ -713,4 +759,5 @@ $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b)r
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t===b));
   views.forEach(v=>$('#v-'+v).hidden=v!==b.dataset.t);store.set('tab',b.dataset.t)});
 if(SERVER)serverBoot();else loadDay(dayKey);
+setGuideMode(guideMode);
 const lastTab=store.get('tab','board');const tb=document.querySelector(`.tab[data-t="${lastTab}"]`);if(tb)tb.click();
