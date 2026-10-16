@@ -305,6 +305,8 @@ tr.soon td.t{color:var(--signal-ink)}
 
 .wa-box>summary{color:var(--ok)}
 .late-box>summary{color:var(--warn)}
+.bkd{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;margin:4px 0}
+.bk{display:grid;gap:2px;border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--sunk)}
 .daycheck{display:flex;gap:8px;flex-wrap:wrap}
 .daycheck span{font-weight:600;padding:2px 8px;border-radius:4px}
 .daycheck .ok{background:var(--ok-soft);color:var(--ok)}
@@ -889,6 +891,12 @@ function dayFrom14(){
 }
 const SIDE_RU={arr:'Прилёты',dep:'Вылеты',all:'Всего'};
 function checkHtml(d){const c=d.check;if(!c)return '';return `<span class="daycheck">${Object.entries(c).map(([k,v])=>`<span class="${v.expected===v.got?'ok':'bad'}">${SIDE_RU[k]||k}: ${v.got} из ${v.expected} ${v.expected===v.got?'✓':'⚠'}</span>`).join('')}</span>`}
+function breakdownHtml(d){const B=d.breakdown;if(!B)return '';
+  return `<div class="bkd">${Object.entries(B).sort((x,y)=>['arr','dep','all'].indexOf(x[0])-['arr','dep','all'].indexOf(y[0])).map(([sd,b])=>`<div class="bk"><b>${SIDE_RU[sd]||'Весь Капак'}</b>
+    <span>📦 Итог в документе: <b>${b.expected!=null?b.expected:'—'}</b>${b.expected!=null?(b.expected===b.total?' · программа нашла '+b.total+' ✓':' · программа нашла '+b.total+' ⚠'):' · программа нашла '+b.total}</span>
+    <span>✈️ Рейсы из аэропорта${sd==='dep'?' / в аэропорт':''}: <b>${b.flights}</b> (${b.nFl} рейсов)${b.noNum?` + <b>${b.noNum}</b> без номера рейса`:''}</span>
+    <span>🚌 Межотельные (ARA): <b>${b.h2h}</b></span>
+    <span>🚶 Едут сами (KENDİ GİDER): <b>${b.self}</b></span></div>`).join('')}</div>`}
 function dayFromKapak(K,key,title){
   const clean=s=>s&&!/\?/.test(s)?s:'';
   const tm=t=>t==='ICHAT'?'İÇ':t==='TER 2'?'DIŞ':'';
@@ -899,7 +907,7 @@ function dayFromKapak(K,key,title){
     if(r.kind==='arr')arr.push({id:key+'a'+i,t:r.time,fl:r.fl,org:clean(r.from),to:r.to,h:r.hotel,v:r.v,g:r.g,op:r.op||'—',term:tm(r.term),p:[],pax:r.pax,note:r.note});
     else dep.push({id:key+'d'+i,fl:r.fl,dest:clean(r.to),t:r.time,h:r.hotel,pax:r.pax,pu:r.pu,g:r.g,v:r.v,term:tm(r.term),op:r.op||'—',note:r.note});
   });
-  return {key,title,source:'Excel KAPAK',arr,dep,self,h2h,h2hList,check:K.check||null,recon:K.recon,delays:{},extra:[]};
+  return {key,title,source:'Excel KAPAK',arr,dep,self,h2h,h2hList,check:K.check||null,breakdown:K.breakdown||null,recon:K.recon,delays:{},extra:[]};
 }
 const DEMO=typeof ARR!=='undefined';
 if(DEMO){DAYS['14.10']=dayFrom14();
@@ -1369,7 +1377,8 @@ function renderOps(){
   const noShows=[];tasks.forEach(t=>t.groups.forEach(g=>(g.p||[]).forEach((p,i)=>{if(markOf(g.id,i)==='no')noShows.push({t,g,p,i,at:(met[g.id]||{})['@'+i]})})));
   const sum=(arr,f)=>arr.reduce((s,t)=>s+f(t),0);
   const waiting=sum(open,t=>t.total-t.res),out=sum(tasks,t=>t.done);
-  $('#opsSum').innerHTML=[['Ждём',waiting,`гостей в ${open.length} заданиях`],['Вышли',out,'отмечено гидами'],['Не пришли',noShows.length,noShows.length?'нужно разобраться':'пока нет'],['Закрыто',`${done.length}/${tasks.length}`,'заданий выполнено']].map(([k,v,s],i)=>`<div class="stat${i===2&&noShows.length?' alert':''}"><div class="k">${k}</div><div class="v num">${v}</div><div class="s">${s}</div></div>`).join('');
+  const wArr=sum(open.filter(t=>t.kind==='arr'),t=>t.total-t.res),wDep=waiting-wArr;
+  $('#opsSum').innerHTML=[['Ждём',waiting,`встречи ${wArr} · заборы ${wDep}`],['Вышли',out,'отмечено гидами'],['Не пришли',noShows.length,noShows.length?'нужно разобраться':'пока нет'],['Закрыто',`${done.length}/${tasks.length}`,'заданий выполнено']].map(([k,v,s],i)=>`<div class="stat${i===2&&noShows.length?' alert':''}"><div class="k">${k}</div><div class="v num">${v}</div><div class="s">${s}</div></div>`).join('');
   $('#opsWait').innerHTML=now.length?now.map((t,i)=>taskCard(t,'on'+i,{showGuide:true,next:i===0})).join(''):'<p class="hint">Сейчас никого не ждём.</p>';
   $('#opsNo').innerHTML=noShows.length?noShows.map(x=>`<div class="noshow"><div><b>${esc(x.p[0]+' '+x.p[1])}</b><span class="hint">${esc(x.t.kind==='arr'?normFl(x.g.fl)+' → '+x.g.h:x.g.h+' → '+normFl(x.g.fl))} · ${esc(x.g.op||'')}</span><span class="hint">${esc(x.g.g||'')} · ${esc(x.g.v||'')}${x.at!=null?' · отмечен в '+fmt(x.at):''}</span></div><button class="btn" type="button" data-mk="${x.g.id}|${x.i}|no">Вернуть</button></div>`).join(''):'<p class="hint">Все, кого отметили, вышли.</p>';
   $('#opsLaterN').textContent=later.length;$('#opsStaleN').textContent=stale.length;$('#opsStaleBox').hidden=!stale.length;
@@ -1550,7 +1559,10 @@ async function importKapak(rows,file){
   if(/\.pdf$/i.test(file.name)&&ok<K.recon.length*0.9)throw new Error('Капак в PDF читается неточно (сошлось '+ok+' из '+K.recon.length+' рейсов). Загрузите Капак в Excel');
   const total=K.recs.reduce((a,r)=>a+(r.pax||0),0),fileTotal=K.dayTotals.reduce((a,b)=>a+b,0);
   const check=Object.keys(K.dayCheck||{}).length?K.dayCheck:(fileTotal?{all:{expected:fileTotal,got:total}}:null);
-  const pack={recs:K.recs,check,recon:{ok,total:K.recon.length,bad:K.recon.filter(c=>c.expected!==c.got)}};
+  const bk={};const sides=[...new Set(K.recs.map(r=>r.side||''))];
+  sides.forEach(sd=>{const R=K.recs.filter(r=>(r.side||'')===sd);const sum=f=>R.filter(f).reduce((a,r)=>a+(r.pax||0),0);
+    bk[sd||'all']={total:sum(()=>true),expected:check&&check[sd||'all']?check[sd||'all'].expected:null,flights:sum(r=>(r.kind==='arr'||r.kind==='dep')&&!r.unknownFlight),noNum:sum(r=>(r.kind==='arr'||r.kind==='dep')&&r.unknownFlight),h2h:sum(r=>r.kind==='h2h'),self:sum(r=>r.kind==='self'),nFl:new Set(R.filter(r=>(r.kind==='arr'||r.kind==='dep')&&!r.unknownFlight).map(r=>r.fl)).size}});
+  const pack={recs:K.recs,check,breakdown:bk,recon:{ok,total:K.recon.length,bad:K.recon.filter(c=>c.expected!==c.got)}};
   const d=dayFromKapak(pack,key,title);d.source=/\.pdf$/i.test(file.name)?'PDF KAPAK':'Excel KAPAK';
   if(!d.arr.length&&!d.dep.length)throw new Error('в файле не найдено ни одного рейса');
   d.iso=dm?`${dm[3]}-${dm[2]}-${dm[1]}`:'';
@@ -1559,7 +1571,7 @@ async function importKapak(rows,file){
   if(prev&&prev.tourists){d.tourists=prev.tourists;names=applyTourists(d,d.tourists)}
   DAYS[key]=d;
   const srv=await saveDay(key,d);
-  return {key,html:`<b>Капак ${esc(key)} загружен.</b>${checkHtml(d)}<span>${d.arr.length} групп на прилёт, ${d.dep.length} на вылет, ${d.self} гостей едут сами, ${d.h2h} в межотельных переездах.</span>${srv?`<span>Программа следит за ${srv.watched} рейсами из этого Капака${srv.poll&&srv.poll.ok?`, первые данные уже получены (${srv.poll.found})`:''}.</span>`:''}<span>Сверка с итогами файла: ${ok} из ${K.recon.length} рейсов сходятся.${pack.recon.bad.length?' Не сходятся: '+pack.recon.bad.map(b=>esc(b.fl)).join(', ')+'.':''}</span>${names?`<span>Имена туристов из прошлой загрузки сохранены: ${names.people}.</span>`:''}`};
+  return {key,html:`<b>Капак ${esc(key)} загружен.</b>${checkHtml(d)}${breakdownHtml(d)}<span>${d.arr.length} групп на прилёт, ${d.dep.length} на вылет, ${d.self} гостей едут сами, ${d.h2h} в межотельных переездах.</span>${srv?`<span>Программа следит за ${srv.watched} рейсами из этого Капака${srv.poll&&srv.poll.ok?`, первые данные уже получены (${srv.poll.found})`:''}.</span>`:''}<span>Сверка с итогами файла: ${ok} из ${K.recon.length} рейсов сходятся.${pack.recon.bad.length?' Не сходятся: '+pack.recon.bad.map(b=>esc(b.fl)).join(', ')+'.':''}</span>${names?`<span>Имена туристов из прошлой загрузки сохранены: ${names.people}.</span>`:''}`};
 }
 async function importTourists(T,file){
   const key=T.date?T.date.d+'.'+T.date.m:null;
