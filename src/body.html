@@ -109,6 +109,8 @@
 @media (max-width:900px){.ops-grid{grid-template-columns:minmax(0,1fr)}.ops-side{position:static}}
 
 .wa-box>summary{color:var(--ok)}
+.late-box>summary{color:var(--warn)}
+.board-actions{display:flex;justify-content:flex-end;margin:-6px 0 10px}
 .wa-out{display:grid;gap:8px;padding:12px 14px}
 .wa-out .msgbox{max-height:340px}
 .gc-copy{justify-self:start;font-size:12px;padding:3px 8px}
@@ -179,6 +181,7 @@
       <select id="fOp" aria-label="Оператор"><option value="">Все операторы</option></select>
       <input id="fQ" placeholder="Поиск: рейс, гид, фамилия…" aria-label="Поиск">
     </div>
+    <div class="board-actions"><button class="btn" type="button" id="boardLateCopy">✈ Скопировать задержки для WhatsApp</button></div>
     <div class="board" id="board"></div>
   </section>
 
@@ -189,6 +192,19 @@
       <select id="opsKind" aria-label="Тип"><option value="">Встречи и заборы</option><option value="arr">Только встречи</option><option value="dep">Только заборы</option></select>
       <input id="opsQ" placeholder="Гид, фамилия, рейс или отель" aria-label="Поиск">
     </div>
+    <details class="ops-box late-box" id="waLateBox"><summary>✈ Задержки рейсов для WhatsApp <span class="hint" id="waLateCnt"></span></summary>
+      <div class="wa-out">
+        <div class="opts">
+          <label>задержка от <select id="wlMin"><option value="10">10 мин</option><option value="15" selected>15 мин</option><option value="30">30 мин</option><option value="60">1 часа</option></select></label>
+          <label><input type="checkbox" id="wlNew" checked> только новые или изменившиеся</label>
+          <label><input type="checkbox" id="wlGroups" checked> отели, гиды и машины</label>
+          <label><input type="checkbox" id="wlLanded"> вместе с уже севшими</label>
+          <label>язык <select id="wlLang"><option value="tr">Türkçe</option><option value="ru">Русский</option></select></label>
+        </div>
+        <div class="msgbox" id="waLate"></div>
+        <div class="vfoot" style="padding:0"><button class="btn primary" type="button" id="wlCopy">Скопировать и отметить как отправленные</button><button class="btn" type="button" id="wlReset">Сбросить «отправленные»</button></div>
+      </div>
+    </details>
     <details class="ops-box wa-box" id="waOutBox"><summary>📋 Вышедшие гости для WhatsApp <span class="hint" id="waOutCnt"></span></summary>
       <div class="wa-out">
         <div class="opts">

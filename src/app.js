@@ -103,7 +103,7 @@ function loadDay(k){
   if(!k||!DAYS[k]){DAY=null;$('#dateLbl').textContent='Операционный центр · день ещё не загружен';$('#daySel').innerHTML='';$('#board').innerHTML='<p class="hint">Пока нет ни одного дня. Откройте вкладку «Загрузить день» и перетащите Excel KAPAK.</p>';const tb=document.querySelector('.tab[data-t=data]');if(tb)tb.click();renderDayStatus();return}
   dayKey=k;DAY=DAYS[k];store.set('day',k);
   assign=store.get('assign_'+k,k==='15.10'?{"BUS 10":{plate:"35 CVL 346",phone:"0553 573 61 69",driver:""},"BUS 12":{plate:"07 CJD 855",phone:"0554 407 82 82",driver:""},"BUS 13":{plate:"07 GLE 03",phone:"0552 169 14 75",driver:""},"BUS 6":{plate:"07 BJH 898",phone:"0533 680 38 05",driver:""},"MİNİ 4":{plate:"34 BK 1708",phone:"0532 515 44 65",driver:""},"MİNİ 10":{plate:"19 TT 077",phone:"0532 177 87 57",driver:""}}:{});
-  met=store.get('met_'+k,{});contacts=store.get('contacts_'+k,null);SENT=store.get('sent_'+k,{});
+  met=store.get('met_'+k,{});contacts=store.get('contacts_'+k,null);SENT=store.get('sent_'+k,{});SENTD=store.get('sentd_'+k,{});
   if(DAY.assign)assign=Object.assign({},assign,DAY.assign);if(DAY.met)met=Object.assign({},met,DAY.met);
   NOW=SERVER?nowMinutes():store.get('now_'+k,k==='15.10'?nowMinutes():540);followNow=SERVER;
   buildFlights();fillFilters();
@@ -532,6 +532,51 @@ $('#woCopy').onclick=async()=>{const r=exitedText(woTasks,woOpts());if(!r.text)r
 $('#woReset').onclick=()=>{SENT={};store.set('sent_'+dayKey,SENT);renderOps();toast('Все вышедшие снова попадут в сообщение')};
 ['#woNew','#woTime','#woNo','#woLang'].forEach(id=>$(id).addEventListener('change',()=>renderWaOut(woTasks)));
 
+
+/* ---------- delayed flights as a WhatsApp message ---------- */
+let SENTD={};
+const delayKnown=f=>f.live||NOW>=f.delayKnownAt;
+const lateSig=f=>f.live&&['cancelled','diverted'].includes(f.live.status)?f.live.status:fmt(f.eta);
+function lateFlights(o){
+  return flights.filter(f=>{if(f.unknown||!delayKnown(f))return false;const st=fStatus(f,NOW);
+    if(o.onlyNew&&SENTD[f.key]===lateSig(f))return false;
+    if(f.live&&['cancelled','diverted'].includes(f.live.status))return true;
+    if(f.delay<o.min)return false;if(st.k==='land'&&!o.landed)return false;
+    return true});
+}
+function lateText(o){
+  const L=o.lang==='ru'?{title:'ЗАДЕРЖКИ РЕЙСОВ',plan:'По расписанию',eta:'новое время посадки',landed:'сел в',cancel:'РЕЙС ОТМЕНЁН',div:'УШЁЛ НА ЗАПАСНОЙ АЭРОПОРТ',min:'мин',pax:'чел',total:'Задержано рейсов',guests:'гостей',int:'Внешние T2',dom:'Внутренние'}
+    :{title:'RÖTARLI UÇUŞLAR',plan:'Planlanan',eta:'yeni tahmini iniş',landed:'indi',cancel:'UÇUŞ İPTAL',div:'BAŞKA HAVALİMANINA İNDİ',min:'dk',pax:'kişi',total:'Rötarlı uçuş',guests:'misafir',int:'Dış Hatlar T2',dom:'İç Hatlar'};
+  const list=lateFlights(o);if(!list.length)return {text:'',list};
+  let txt=`*${dayKey} · ${L.title}* (${fmt(nowMinutes())})\n`;let guests=0;
+  list.forEach(f=>{
+    const g0=f.groups[0];const term=g0.term==='İÇ'?L.dom:g0.term==='DIŞ'?L.int:'';
+    const city=o.lang==='ru'?(CITY[f.org]||f.org):(CITY_TR[f.org]||f.org);
+    const st=fStatus(f,NOW);const pax=f.groups.reduce((s,g)=>s+(+g.pax||0),0);guests+=pax;
+    txt+=`\n✈ *${[...f.codes].join(' / ')}*${city?' ('+city+')':''}${term?' · '+term:''}\n`;
+    if(f.live&&f.live.status==='cancelled')txt+=`❌ ${L.cancel}\n`;
+    else if(f.live&&f.live.status==='diverted')txt+=`⚠ ${L.div}\n`;
+    else if(st.k==='land')txt+=`${L.plan} ${f.t} → ${L.landed} *${fmt(f.eta)}* (+${f.delay} ${L.min})\n`;
+    else txt+=`${L.plan} ${f.t} → ${L.eta} *${fmt(f.eta)}* (+${f.delay} ${L.min})\n`;
+    if(o.groups)f.groups.forEach(g=>{txt+=`• ${g.h} · ${g.pax} ${L.pax}${g.v?' · '+g.v:''}${g.g?' · '+g.g:''}\n`});
+  });
+  txt+=`\n${L.total}: ${list.length} · ${guests} ${L.guests}`;
+  return {text:txt,list};
+}
+function wlOpts(){return {min:+$('#wlMin').value,onlyNew:$('#wlNew').checked,groups:$('#wlGroups').checked,landed:$('#wlLanded').checked,lang:$('#wlLang').value}}
+function renderWaLate(){
+  if(!DAY)return;const r=lateText(wlOpts());
+  $('#waLate').textContent=r.text||($('#wlNew').checked?'Новых задержек нет: всё уже отправлено.':'Задержанных рейсов нет.');
+  $('#waLateCnt').textContent=r.list.length?`· ${r.list.length} ${$('#wlNew').checked?'новых':''}`:'';
+  $('#wlCopy').disabled=!r.text;
+  const all=lateFlights({...wlOpts(),onlyNew:false,landed:false});$('#boardLateCopy').textContent=all.length?`✈ Скопировать задержки (${all.length})`:'✈ Задержек нет';$('#boardLateCopy').disabled=!all.length;
+}
+async function copyLate(o){const r=lateText(o);if(!r.text)return;await copy(r.text);r.list.forEach(f=>SENTD[f.key]=lateSig(f));store.set('sentd_'+dayKey,SENTD);renderWaLate()}
+$('#wlCopy').onclick=()=>copyLate(wlOpts());
+$('#boardLateCopy').onclick=()=>copyLate({...wlOpts(),onlyNew:false,landed:false});
+$('#wlReset').onclick=()=>{SENTD={};store.set('sentd_'+dayKey,SENTD);renderWaLate();toast('Все задержки снова попадут в сообщение')};
+['#wlMin','#wlNew','#wlGroups','#wlLanded','#wlLang'].forEach(id=>$(id).addEventListener('change',renderWaLate));
+
 /* ---------- live sync of guide marks between phones ---------- */
 let lastLocalMark=0;
 async function pullMarks(){
@@ -654,7 +699,7 @@ function renderDayStatus(){
 }
 
 /* ---------- wiring ---------- */
-function renderAll(){if(!DAY)return;$('#nowLbl').textContent=fmt(NOW);$('#slider').value=NOW;renderBoard();renderDep();renderGuidePick();renderGuide();if(!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#opsGuides')))renderOps();renderLog();if(!$('#v-veh').hidden&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#vgrid')))renderVeh()}
+function renderAll(){if(!DAY)return;$('#nowLbl').textContent=fmt(NOW);$('#slider').value=NOW;renderBoard();renderDep();renderGuidePick();renderGuide();renderWaLate();if(!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#opsGuides')))renderOps();renderLog();if(!$('#v-veh').hidden&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#vgrid')))renderVeh()}
 $('#slider').addEventListener('input',e=>{followNow=false;NOW=+e.target.value;store.set('now_'+dayKey,NOW);renderAll()});
 let play=null;
 $('#playBtn').onclick=()=>{if(play){clearInterval(play);play=null;$('#playBtn').textContent='▶ Проиграть день';return}
