@@ -303,6 +303,10 @@ tr.soon td.t{color:var(--signal-ink)}
 .noshow b{color:var(--crit)}
 @media (max-width:900px){.ops-grid{grid-template-columns:minmax(0,1fr)}.ops-side{position:static}}
 
+.wa-box>summary{color:var(--ok)}
+.wa-out{display:grid;gap:8px;padding:12px 14px}
+.wa-out .msgbox{max-height:340px}
+.gc-copy{justify-self:start;font-size:12px;padding:3px 8px}
 .gcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;padding:10px}
 .gcard{display:grid;gap:4px;border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--surface);font-size:13px;min-width:0}
 .gcard.on{border-color:var(--signal);box-shadow:0 0 0 1px var(--signal)}
@@ -380,6 +384,19 @@ tr.soon td.t{color:var(--signal-ink)}
       <select id="opsKind" aria-label="Тип"><option value="">Встречи и заборы</option><option value="arr">Только встречи</option><option value="dep">Только заборы</option></select>
       <input id="opsQ" placeholder="Гид, фамилия, рейс или отель" aria-label="Поиск">
     </div>
+    <details class="ops-box wa-box" id="waOutBox"><summary>📋 Вышедшие гости для WhatsApp <span class="hint" id="waOutCnt"></span></summary>
+      <div class="wa-out">
+        <div class="opts">
+          <label><input type="checkbox" id="woNew" checked> только новые, ещё не отправленные</label>
+          <label><input type="checkbox" id="woTime" checked> время выхода</label>
+          <label><input type="checkbox" id="woNo" checked> кто не пришёл</label>
+          <label>язык <select id="woLang"><option value="tr">Türkçe</option><option value="ru">Русский</option></select></label>
+        </div>
+        <p class="hint">Берутся гости с учётом фильтров выше: гид, встречи или заборы, поиск.</p>
+        <div class="msgbox" id="waOut"></div>
+        <div class="vfoot" style="padding:0"><button class="btn primary" type="button" id="woCopy">Скопировать и отметить как отправленные</button><button class="btn" type="button" id="woReset">Сбросить «отправленные»</button></div>
+      </div>
+    </details>
     <details class="ops-box" id="opsGuidesBox" open><summary>Гиды дня <span class="hint">· нажмите на имя, чтобы увидеть только его задания</span></summary><div class="gcards" id="opsGuides"></div></details>
     <div class="ops-grid" style="margin-top:14px">
       <div class="ops-main">
@@ -599,7 +616,7 @@ if(typeof module!=='undefined')module.exports={parseKapak,normHotel};
 
 // Tourist lists (GENEL GELİŞ / ARAÇ TRANSFER LİSTESİ) as Excel, including PDF→Excel conversions.
 // The sheet is read as one text stream, so it does not matter how the converter split cells and rows.
-const T_STOP=new Set(['GRUB','İND','IND','ARA','NO','TER','ICHAT','BUS','MİN','MİNİ','MİDİ','VİTO','DBL','SNG','TRP','TPL','QUAD','QDR','STD','SUP','DLX','FAM','ECO','ROOM','HB','BB','FB','AI','UAI','RO','NOT','GELİŞ','GİDİŞ','DÖNÜŞ','TRANSFER','LİSTESİ','LISTESI','ARAÇ','ARAC','EXTRA','TICKET','YOK','KENDİ','GİDER','HAVALİMANI','HAVAALANI','OTELE','DIŞ','İÇ','HATLAR']);
+const T_STOP=new Set(['TOPLAM','PAX','SAYFA','GRUB','İND','IND','ARA','NO','TER','ICHAT','BUS','MİN','MİNİ','MİDİ','VİTO','DBL','SNG','TRP','TPL','QUAD','QDR','STD','SUP','DLX','FAM','ECO','ROOM','HB','BB','FB','AI','UAI','RO','NOT','GELİŞ','GİDİŞ','DÖNÜŞ','TRANSFER','LİSTESİ','LISTESI','ARAÇ','ARAC','EXTRA','TICKET','YOK','KENDİ','GİDER','HAVALİMANI','HAVAALANI','OTELE','DIŞ','İÇ','HATLAR']);
 const T_CAPS=/^[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜ'\-]*$/;
 function parseTourists(rows){
   const parts=[];
@@ -841,7 +858,7 @@ function loadDay(k){
   if(!k||!DAYS[k]){DAY=null;$('#dateLbl').textContent='Операционный центр · день ещё не загружен';$('#daySel').innerHTML='';$('#board').innerHTML='<p class="hint">Пока нет ни одного дня. Откройте вкладку «Загрузить день» и перетащите Excel KAPAK.</p>';const tb=document.querySelector('.tab[data-t=data]');if(tb)tb.click();renderDayStatus();return}
   dayKey=k;DAY=DAYS[k];store.set('day',k);
   assign=store.get('assign_'+k,k==='15.10'?{"BUS 10":{plate:"35 CVL 346",phone:"0553 573 61 69",driver:""},"BUS 12":{plate:"07 CJD 855",phone:"0554 407 82 82",driver:""},"BUS 13":{plate:"07 GLE 03",phone:"0552 169 14 75",driver:""},"BUS 6":{plate:"07 BJH 898",phone:"0533 680 38 05",driver:""},"MİNİ 4":{plate:"34 BK 1708",phone:"0532 515 44 65",driver:""},"MİNİ 10":{plate:"19 TT 077",phone:"0532 177 87 57",driver:""}}:{});
-  met=store.get('met_'+k,{});contacts=store.get('contacts_'+k,null);
+  met=store.get('met_'+k,{});contacts=store.get('contacts_'+k,null);SENT=store.get('sent_'+k,{});
   if(DAY.assign)assign=Object.assign({},assign,DAY.assign);if(DAY.met)met=Object.assign({},met,DAY.met);
   NOW=SERVER?nowMinutes():store.get('now_'+k,k==='15.10'?nowMinutes():540);followNow=SERVER;
   buildFlights();fillFilters();
@@ -1203,6 +1220,7 @@ function renderOps(){
   $('#opsLater').innerHTML=later.map(t=>`<tr><td class="tm num">${fmt(t.time)}</td><td><span class="act ${t.kind}">${t.kind==='arr'?'Встреча':'Забор'}</span> ${esc(t.kind==='arr'?(t.f?[...t.f.codes].join(' / '):t.groups[0].fl):t.groups[0].h)}<br><span class="hint">${esc(t.groups.map(g=>t.kind==='arr'?g.h:normFl(g.fl)+' '+g.t).join(', '))}</span></td><td>${esc(t.guide||'—')}<br><span class="hint">${esc([...new Set(t.groups.map(g=>g.v))].join(', '))}</span></td><td class="n num">${t.total}</td></tr>`).join('');
   $('#opsDone').innerHTML=done.slice().reverse().map((t,i)=>taskCard(t,'od'+i,{showGuide:true})).join('');
   renderOpsGuides(fg);
+  renderWaOut(tasks);
   $('#opsLaterBox').open=opsOpen.later;$('#opsStaleBox').open=opsOpen.stale;$('#opsDoneBox').open=opsOpen.done;
   bindMarks($('#v-ops'));
 }
@@ -1216,13 +1234,58 @@ function renderOpsGuides(sel){
       <input class="gc-ph" id="gp_${esc(g).replace(/\W/g,'_')}" data-gp="${esc(g)}" value="${esc(gPhone(g))}" placeholder="телефон гида" inputmode="tel" aria-label="Телефон ${esc(g)}">
       <span class="gc-veh">${esc(vs.join(', ')||'без машины')}</span>
       <span class="gc-prog"><span class="bar"><i style="width:${tot?Math.round(out/tot*100):0}%"></i></span><span class="num">${out}/${tot}</span>${no?` <span class="nos">✗${no}</span>`:''}${stale?` <span class="chip gzp" title="задания прошли, отметок нет">⚠ ${stale}</span>`:''}</span>
-      <span class="gc-next ${next?'':'hint'}">Дальше: ${esc(nx)}</span></div>`}).join('');
+      <span class="gc-next ${next?'':'hint'}">Дальше: ${esc(nx)}</span>${out?`<button type="button" class="btn gc-copy" data-gcopy="${esc(g)}">📋 Вышедшие (${out})</button>`:''}</div>`}).join('');
   $('#opsGuides').innerHTML=rows;
   $('#opsGuides').querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{const g=b.dataset.pick;$('#opsGuide').value=$('#opsGuide').value===g?'':g;renderOps();$('#opsWait').scrollIntoView?.({behavior:'smooth',block:'start'})});
+  $('#opsGuides').querySelectorAll('[data-gcopy]').forEach(b=>b.onclick=async()=>{const g=b.dataset.gcopy;const r=exitedText(buildTasks(t=>t.g===g),{...woOpts(),onlyNew:false});if(r.text)await copy(r.text)});
   $('#opsGuides').querySelectorAll('[data-gp]').forEach(i=>i.addEventListener('change',e=>{GP[e.target.dataset.gp]=e.target.value.trim();saveGP();renderOps()}));
 }
 ['#opsGuide','#opsKind'].forEach(s=>$(s).addEventListener('change',renderOps));$('#opsQ').addEventListener('input',renderOps);
 $('#opsLaterBox').addEventListener('toggle',e=>opsOpen.later=e.target.open);$('#opsStaleBox').addEventListener('toggle',e=>opsOpen.stale=e.target.open);$('#opsDoneBox').addEventListener('toggle',e=>opsOpen.done=e.target.open);
+
+
+/* ---------- exited guests as a WhatsApp message ---------- */
+let SENT={};
+const sentKey=(gid,i)=>gid+'|'+i;
+function exitedText(tasks,o){
+  const L=o.lang==='ru'?{title:'ВЫШЛИ ГОСТИ',out:'вышли',in:'сели',no:'Не пришли',noname:'чел. без имён',total:'Всего вышло',guide:'Гид'}:{title:'ÇIKAN MİSAFİRLER',out:'çıktı',in:'bindi',no:'Gelmedi',noname:'kişi (isimsiz)',total:'Toplam çıkan',guide:'Rehber'};
+  const byG=new Map();let total=0;const keys=[];
+  tasks.forEach(t=>{
+    const lines=[];let n=0;
+    t.groups.forEach(g=>{
+      const outs=[],nos=[];
+      if(g.p&&g.p.length)g.p.forEach((p,i)=>{const mk=markOf(g.id,i);if(!mk)return;if(o.onlyNew&&SENT[sentKey(g.id,i)])return;const at=(met[g.id]||{})['@'+i];
+        if(mk==='out'){outs.push(`${p[0]} ${p[1]}${o.time&&at!=null?' ('+fmt(at)+')':''}`);keys.push(sentKey(g.id,i))}else if(o.no){nos.push(`${p[0]} ${p[1]}`);keys.push(sentKey(g.id,i))}});
+      else{const m=met[g.id]||{};const cnt=+m.n||0;const sentN=+SENT[sentKey(g.id,'n')]||0;const add=o.onlyNew?cnt-sentN:cnt;if(add>0){outs.push(`${add} ${L.noname}${o.time&&m['@n']!=null?' ('+fmt(m['@n'])+')':''}`);keys.push(sentKey(g.id,'n')+'='+cnt);n+=add}}
+      if(!outs.length&&!nos.length)return;
+      if(g.p&&g.p.length)n+=outs.length;
+      const where=t.kind==='arr'?`${normFl(g.fl)} ${g.t} → ${g.h}`:`${g.h} → ${normFl(g.fl)} ${g.t}`;
+      lines.push(`${where} · ${g.op||''} (${marked(g)}/${groupTotal(g)})`);
+      outs.forEach((x,k)=>lines.push(`${k+1}. ${x}`));
+      if(nos.length)lines.push(`✗ ${L.no}: ${nos.join(', ')}`);
+    });
+    if(!lines.length)return;
+    const gname=t.guide||'—';if(!byG.has(gname))byG.set(gname,{lines:[],n:0,v:new Set()});
+    const G=byG.get(gname);G.lines.push(...lines,'');G.n+=n;t.groups.forEach(g=>g.v&&G.v.add(g.v));total+=n;
+  });
+  if(!byG.size)return {text:'',keys:[],total:0};
+  let txt=`*${dayKey} · ${L.title}* (${fmt(nowMinutes())})\n\n`;
+  byG.forEach((G,name)=>{txt+=`*${name}*${G.v.size?' · '+[...G.v].join(', '):''}${gPhone(name)?' · '+gPhone(name):''}\n${G.lines.join('\n')}\n`});
+  txt+=`${L.total}: ${total}`;
+  return {text:txt.replace(/\n{3,}/g,'\n\n'),keys,total};
+}
+function woOpts(){return {onlyNew:$('#woNew').checked,time:$('#woTime').checked,no:$('#woNo').checked,lang:$('#woLang').value}}
+let woTasks=[];
+function renderWaOut(tasks){
+  woTasks=tasks;const r=exitedText(tasks,woOpts());
+  $('#waOut').textContent=r.text||($('#woNew').checked?'Новых вышедших гостей нет: всё уже отправлено.':'Пока никто не отмечен как вышедший.');
+  $('#waOutCnt').textContent=r.total?`· ${r.total} ${$('#woNew').checked?'новых':'всего'}`:'';
+  $('#woCopy').disabled=!r.text;
+}
+$('#woCopy').onclick=async()=>{const r=exitedText(woTasks,woOpts());if(!r.text)return;await copy(r.text);
+  r.keys.forEach(k=>{const m=k.match(/^(.*\|n)=(\d+)$/);if(m)SENT[m[1]]=+m[2];else SENT[k]=1});store.set('sent_'+dayKey,SENT);renderOps()};
+$('#woReset').onclick=()=>{SENT={};store.set('sent_'+dayKey,SENT);renderOps();toast('Все вышедшие снова попадут в сообщение')};
+['#woNew','#woTime','#woNo','#woLang'].forEach(id=>$(id).addEventListener('change',()=>renderWaOut(woTasks)));
 
 /* ---------- live sync of guide marks between phones ---------- */
 let lastLocalMark=0;
