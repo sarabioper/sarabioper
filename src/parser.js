@@ -32,17 +32,32 @@ function parseKapak(rows){
   }
 
   // 1. rows → strings; collect totals
-  const lines=[];
+  const lines=[];let side='';const daySide={};const hotelRecs=[];
+  const OPSRC='[A-Z]{3,6}\\d{2}|AIR|SKY|SARAB|BINALI|SIBIR|URAN|KAP|MERID';
+  const W="[A-ZÇĞİÖŞÜ&'./\\-]+";
+  // hotel-to-hotel transfers have no flight: "OP  FROM HOTEL  ARA  TO HOTEL  PAX"
+  const hotelRe=new RegExp(`(?:^|[\\s¦])(${OPSRC})[\\s¦]+((?:${W}[\\s¦]+){1,9}?)(ARA|GRUB|İND)[\\s¦]+((?:${W}[\\s¦]+){1,9}?)(\\d{1,3})(?=[\\s¦]|$)`,'g');
   rows.forEach((row,ri)=>{
     if(!row)return;const frags=[];
     row.forEach(c=>{if(c==null||c==='')return;String(c).split('\n').forEach(p=>{p=p.trim();if(p)frags.push(p)})});
     if(!frags.length)return;
     let S=frags.join(' ¦ ');
-    S=S.replace(/(\d\d\/\d\d\/\d{4})\s*Toplam Pax\s*:\s*(\d+)/g,(m,d,n)=>{dayTotals.push(+n);return ' '});
+    if(/^\s*DEPARTURE\s*$/.test(S))side='dep';else if(/^\s*ARRIVAL\s*$/.test(S))side='arr';
+    S=S.replace(/(\d\d\/\d\d\/\d{4})\s*Toplam Pax\s*:\s*(\d+)/g,(m,d,n)=>{dayTotals.push(+n);if(side)daySide[side]=+n;return ' '});
     S=S.replace(/Genel [Tt]oplam \(Pax\):\s*\d+/g,' ');
     S=S.replace(/([A-Z0-9!?]+(?: ?[A-Z0-9]+)?)\s+Toplam Pax\s*:\s*(\d+)/g,(m,k,n)=>{k=normFl(k);(totals[k]=totals[k]||[]).push(+n);return ' '});
     S=S.replace(/Tarih\s*:\s*\d\d\/\d\d\/\d{4}/g,' ').replace(/Operatör.*Not\s*$/,' ');
-    lines.push({row:ri+1,S});
+    S=S.replace(new RegExp(`(?:^|[\\s¦])(${OPSRC})[\\s¦]+(EXTRA[\\s¦]+TICKET|ONLY[\\s¦]+TRANSFER)[\\s¦]+(?!ARA\\b|GRUB\\b)((?:${W}[\\s¦]+){1,9}?)(\\d{1,3})(?=[\\s¦]|$)`,'g'),(m0,op,from,to,pax)=>{
+      hotelRecs.push({row:ri+1,side,op,from:from.replace(/[\s¦]+/g,' '),fromRaw:from,type:'ARA',hotel:to.replace(/¦/g,' ').trim(),pax:+pax,time:'',v:'',g:''});return ' ';
+    });
+    S=S.replace(hotelRe,(m0,op,from,type,to,pax,off)=>{
+      const after=S.slice(off+m0.length,off+m0.length+80).split(new RegExp(`(?:^|\\s)(?:${OPSRC})\\s`))[0];
+      const vm=after.match(/\b(BUS|MİNİ|MİN|MİDİ)\s+(\d+)|\bVİTO\b/);const tm=after.match(/\b(\d\d:\d\d)\b/);
+      const gm=vm?after.slice(0,vm.index).replace(/\d\d:\d\d/g,' ').trim().split(/\s+/).filter(w=>/^[A-ZÇĞİÖŞÜ.]{3,}$/.test(w)).pop():'';
+      hotelRecs.push({row:ri+1,side,op,from:normHotel(from.replace(/¦/g,' ').trim()),fromRaw:from.replace(/¦/g,' ').trim(),type,hotel:to.replace(/¦/g,' ').trim(),pax:+pax,time:tm?tm[1]:'',v:vm?(vm[1]?vm[1]+' '+vm[2]:'VİTO'):'',g:gm||''});
+      return ' ';
+    });
+    lines.push({row:ri+1,S,side});
   });
   // glue a flight code broken across rows ("… 2S" + "248 (KGD-AYT) …")
   for(let i=0;i+1<lines.length;i++){
@@ -51,7 +66,7 @@ function parseKapak(rows){
   }
   // 2. parse rows
   const recs=[];const orphans=[];
-  lines.forEach(({row,S})=>{
+  lines.forEach(({row,S,side})=>{
     const anchors=[];let m;anchorRe.lastIndex=0;
     while((m=anchorRe.exec(S)))anchors.push({start:m.index,end:anchorRe.lastIndex,fl:normFl(m[1].trim()),raw:m[1].trim(),from:m[2],to:m[3]});
     if(!anchors.length){const b=tokenizeBody(S);if((b.pax.length||b.time)&&(!b.type||b.time))orphans.push({row,b});return}
@@ -59,7 +74,7 @@ function parseKapak(rows){
       const prev=S.slice(i?anchors[i-1].end:0,a.start);
       const opm=prev.match(/([A-Z]{3,6}\d{2}|AIR|SKY|SARAB|BINALI|SIBIR|URAN|KAP|MERID)[\s¦]*$/);
       const b=tokenizeBody(S.slice(a.end,i+1<anchors.length?anchors[i+1].start:S.length));
-      return {row,fl:a.fl,raw:a.raw,from:a.from,to:a.to,op:opm?opm[1]:'',b};
+      return {row,side,fl:a.fl,raw:a.raw,from:a.from,to:a.to,op:opm?opm[1]:'',b};
     });
     // drop the op token that belongs to the next record from each body
     rr.forEach((r,i)=>{if(i+1<rr.length&&rr[i+1].op){const j=r.b.op.lastIndexOf(rr[i+1].op);if(j>=0)r.b.op.splice(j,1)}});
@@ -75,7 +90,9 @@ function parseKapak(rows){
   // 3. orphan rows fill records that lack pax or a time (document order)
   const needy=recs.filter(r=>!r.pax||(!r.time&&!r.type));
   orphans.forEach(o=>{
-    const b=o.b;const r=needy.shift();if(!r)return;
+    // continuation rows sit near the record they belong to (PDF→Excel can put them a few rows above or below)
+    if(!needy.length||Math.abs(o.row-needy[0].row)>12)return;
+    const b=o.b;const r=needy.shift();
     if(!r.time&&b.time){r.time=b.time;r.type=r.type||b.type;r.hotel=r.hotel||b.hotel}
     if(!r.pax&&b.pax.length)r.pax=b.pax[0];
     if(!r.g&&b.g.length)r.g=b.g[0];
@@ -96,7 +113,14 @@ function parseKapak(rows){
   });
   const sums={};recs.forEach(r=>{sums[r.fl]=(sums[r.fl]||0)+r.pax});
   const recon=Object.entries(totals).filter(([k])=>/^[A-Z0-9]{2} \d+$/.test(k)).map(([k,v])=>({fl:k,expected:v.reduce((a,b)=>a+b,0),got:sums[k]||0}));
-  return {recs,totals,recon,dayTotals};
+  // the side of the page settles flights with no number ("!!!", "???")
+  recs.forEach(r=>{if(r.unknownFlight&&r.side&&r.kind!=='self'&&r.kind!=='h2h')r.kind=r.side});
+  // hotel-to-hotel transfers
+  hotelRecs.forEach(h=>recs.push({row:h.row,side:h.side,fl:'',raw:'',from:'',to:'',op:h.op,time:h.time,type:h.type,hotel:normHotel(h.hotel),hotelFrom:h.from,pax:h.pax,pu:'',g:h.g,v:h.v,term:'',note:'',kind:'h2h'}));
+  // whole-day check per side against "dd/mm/yyyy Toplam Pax"
+  const sideSum=sd=>recs.filter(r=>r.side===sd).reduce((a,r)=>a+(r.pax||0),0);
+  const dayCheck=Object.fromEntries(Object.entries(daySide).map(([sd,n])=>[sd,{expected:n,got:sideSum(sd)}]));
+  return {recs,totals,recon,dayTotals,dayCheck};
 }
 function normHotel(h){
   const u=h.toUpperCase();

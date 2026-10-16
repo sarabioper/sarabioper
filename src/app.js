@@ -32,17 +32,19 @@ function dayFrom14(){
       ['warn','4 гостя Doğanay без билета','В списке вылетов: ELDR27, гид Dursun, пометка «Bileti yok».']
     ]};
 }
+const SIDE_RU={arr:'Прилёты',dep:'Вылеты',all:'Всего'};
+function checkHtml(d){const c=d.check;if(!c)return '';return `<span class="daycheck">${Object.entries(c).map(([k,v])=>`<span class="${v.expected===v.got?'ok':'bad'}">${SIDE_RU[k]||k}: ${v.got} из ${v.expected} ${v.expected===v.got?'✓':'⚠'}</span>`).join('')}</span>`}
 function dayFromKapak(K,key,title){
   const clean=s=>s&&!/\?/.test(s)?s:'';
   const tm=t=>t==='ICHAT'?'İÇ':t==='TER 2'?'DIŞ':'';
-  const arr=[],dep=[];let self=0,h2h=0;
+  const arr=[],dep=[],h2hList=[];let self=0,h2h=0;
   K.recs.forEach((r,i)=>{
     if(r.kind==='self'){self+=r.pax;return}
-    if(r.kind==='h2h'){h2h+=r.pax;return}
+    if(r.kind==='h2h'){h2h+=r.pax;h2hList.push({id:key+'h'+i,from:r.hotelFrom||'',h:r.hotel,pax:r.pax,op:r.op||'—',side:r.side||'',v:r.v||'',g:r.g||'',t:r.time||'',note:r.note||''});return}
     if(r.kind==='arr')arr.push({id:key+'a'+i,t:r.time,fl:r.fl,org:clean(r.from),to:r.to,h:r.hotel,v:r.v,g:r.g,op:r.op||'—',term:tm(r.term),p:[],pax:r.pax,note:r.note});
     else dep.push({id:key+'d'+i,fl:r.fl,dest:clean(r.to),t:r.time,h:r.hotel,pax:r.pax,pu:r.pu,g:r.g,v:r.v,term:tm(r.term),op:r.op||'—',note:r.note});
   });
-  return {key,title,source:'Excel KAPAK',arr,dep,self,h2h,recon:K.recon,delays:{},extra:[]};
+  return {key,title,source:'Excel KAPAK',arr,dep,self,h2h,h2hList,check:K.check||null,recon:K.recon,delays:{},extra:[]};
 }
 const DEMO=typeof ARR!=='undefined';
 if(DEMO){DAYS['14.10']=dayFrom14();
@@ -199,11 +201,20 @@ function renderBoard(){
     ['В воздухе',air+late,late?`${late} с задержкой`:'без задержек'],
     ['Встречено',paxMet,'отметки гидов'],
     ['Машин',new Set(DAY.arr.map(t=>t.v).filter(Boolean)).size,'на прилёты'],
-    ['Без трансфера',DAY.self+DAY.h2h,`${DAY.self} сами · ${DAY.h2h} межотельные`]
+    ['Межотельные',DAY.h2h,`${(DAY.h2hList||[]).length} переездов · ${DAY.self} едут сами`],
+    ...(DAY.check?[['По Капаку',Object.values(DAY.check).map(v=>v.got).join(' / '),Object.entries(DAY.check).map(([k,v])=>`${SIDE_RU[k]||k} ${v.expected===v.got?'✓':'⚠ из '+v.expected}`).join(' · ')]]:[])
   ].map(([k,v,s])=>`<div class="stat"><div class="k">${k}</div><div class="v num">${v}</div><div class="s">${s}</div></div>`).join('');
 }
 
 /* ---------- departures ---------- */
+function renderH2H(){
+  const el=$('#h2hBox');if(!el)return;const L=(DAY&&DAY.h2hList)||[];
+  el.hidden=!L.length;if(!L.length)return;
+  const sides=[...new Set(L.map(x=>x.side||''))];
+  $('#h2hN').textContent=`${L.length} переездов · ${L.reduce((a,x)=>a+x.pax,0)} чел`;
+  $('#h2hTbl').innerHTML=sides.map(sd=>{const rows=L.filter(x=>(x.side||'')===sd);const byFrom=new Map();rows.forEach(x=>{const k=x.from||'откуда не указано';if(!byFrom.has(k))byFrom.set(k,[]);byFrom.get(k).push(x)});
+    return `<thead><tr><th colspan="6">${sd==='dep'?'В колонке вылетов':sd==='arr'?'В колонке прилётов':'Межотельные переезды'} · ${rows.reduce((a,x)=>a+x.pax,0)} чел</th></tr><tr><th>Откуда</th><th>Куда</th><th class="n">Чел</th><th>Опер.</th><th>Машина · гид</th><th>Время</th></tr></thead><tbody>${[...byFrom.entries()].map(([f,xs])=>xs.map((x,i)=>`<tr><td>${i?'':`<b>${esc(f)}</b>${xs.length>1?`<br><span class="hint">${xs.reduce((a,y)=>a+y.pax,0)} чел всего</span>`:''}`}</td><td>→ ${esc(x.h)}</td><td class="n num">${x.pax}</td><td class="mono hint">${esc(x.op)}</td><td>${x.v||x.g?esc([x.v,x.g].filter(Boolean).join(' · ')):'<span class="chip bad">не назначено</span>'}</td><td class="num">${esc(x.t||'—')}</td></tr>`).join('')).join('')}</tbody>`}).join('');
+}
 function renderDep(){
   const rows=DAY.dep.slice().sort((a,b)=>toMin(a.pu)-toMin(b.pu)||toMin(a.t)-toMin(b.t));
   $('#depTbl').innerHTML=`<thead><tr><th>Выезд</th><th>Отель</th><th class="n">Чел</th><th>Рейс</th><th>Вылет</th><th>Терминал</th><th>Машина</th><th>Гид</th><th>Опер.</th><th>Сели</th><th>Примечание</th></tr></thead><tbody>${rows.map(r=>{
@@ -682,8 +693,10 @@ async function importKapak(rows,file){
   const K=parseKapak(rows);
   const ok=K.recon.filter(c=>c.expected===c.got).length;
   if(/\.pdf$/i.test(file.name)&&ok<K.recon.length*0.9)throw new Error('Капак в PDF читается неточно (сошлось '+ok+' из '+K.recon.length+' рейсов). Загрузите Капак в Excel');
-  const pack={recs:K.recs,recon:{ok,total:K.recon.length,bad:K.recon.filter(c=>c.expected!==c.got)}};
-  const d=dayFromKapak(pack,key,title);
+  const total=K.recs.reduce((a,r)=>a+(r.pax||0),0),fileTotal=K.dayTotals.reduce((a,b)=>a+b,0);
+  const check=Object.keys(K.dayCheck||{}).length?K.dayCheck:(fileTotal?{all:{expected:fileTotal,got:total}}:null);
+  const pack={recs:K.recs,check,recon:{ok,total:K.recon.length,bad:K.recon.filter(c=>c.expected!==c.got)}};
+  const d=dayFromKapak(pack,key,title);d.source=/\.pdf$/i.test(file.name)?'PDF KAPAK':'Excel KAPAK';
   if(!d.arr.length&&!d.dep.length)throw new Error('в файле не найдено ни одного рейса');
   d.iso=dm?`${dm[3]}-${dm[2]}-${dm[1]}`:'';
   const prev=DAYS[key];let names=null;
@@ -691,7 +704,7 @@ async function importKapak(rows,file){
   if(prev&&prev.tourists){d.tourists=prev.tourists;names=applyTourists(d,d.tourists)}
   DAYS[key]=d;
   const srv=await saveDay(key,d);
-  return {key,html:`<b>Капак ${esc(key)} загружен.</b><span>${d.arr.length} групп на прилёт, ${d.dep.length} на вылет, ${d.self} гостей едут сами, ${d.h2h} межотельных.</span>${srv?`<span>Программа следит за ${srv.watched} рейсами из этого Капака${srv.poll&&srv.poll.ok?`, первые данные уже получены (${srv.poll.found})`:''}.</span>`:''}<span>Сверка с итогами файла: ${ok} из ${K.recon.length} рейсов сходятся.${pack.recon.bad.length?' Не сходятся: '+pack.recon.bad.map(b=>esc(b.fl)).join(', ')+'.':''}</span>${names?`<span>Имена туристов из прошлой загрузки сохранены: ${names.people}.</span>`:''}`};
+  return {key,html:`<b>Капак ${esc(key)} загружен.</b>${checkHtml(d)}<span>${d.arr.length} групп на прилёт, ${d.dep.length} на вылет, ${d.self} гостей едут сами, ${d.h2h} в межотельных переездах.</span>${srv?`<span>Программа следит за ${srv.watched} рейсами из этого Капака${srv.poll&&srv.poll.ok?`, первые данные уже получены (${srv.poll.found})`:''}.</span>`:''}<span>Сверка с итогами файла: ${ok} из ${K.recon.length} рейсов сходятся.${pack.recon.bad.length?' Не сходятся: '+pack.recon.bad.map(b=>esc(b.fl)).join(', ')+'.':''}</span>${names?`<span>Имена туристов из прошлой загрузки сохранены: ${names.people}.</span>`:''}`};
 }
 async function importTourists(T,file){
   const key=T.date?T.date.d+'.'+T.date.m:null;
@@ -739,13 +752,13 @@ function renderDayStatus(){
   if(!DAY){el.innerHTML='<span class="chip">День ещё не загружен</span>';return}
   const named=DAY.arr.filter(g=>g.p&&g.p.length),ppl=[...DAY.arr,...DAY.dep].reduce((s,g)=>s+(g.p?g.p.length:0),0);
   const hasK=DAY.source!=='Araç Listesi';
-  el.innerHTML=(hasK?`<span class="chip ok">${esc(DAY.key||dayKey)} · Капак: ${DAY.arr.length} групп на прилёт, ${DAY.dep.length} на вылет</span>`:`<span class="chip bad">${esc(DAY.key||dayKey)} · Капак не загружен (вылетов нет)</span>`)
+  el.innerHTML=(hasK?`<span class="chip ok">${esc(DAY.key||dayKey)} · Капак: ${DAY.arr.length} групп на прилёт, ${DAY.dep.length} на вылет, ${DAY.h2h||0} межотельных</span>${checkHtml(DAY)}`:`<span class="chip bad">${esc(DAY.key||dayKey)} · Капак не загружен (вылетов нет)</span>`)
     +(DAY.aracVehicles?`<span class="chip ok">Машины: ${DAY.aracVehicles.length} из Araç Listesi</span>`:'<span class="chip">Araç Listesi не загружен</span>')
     +(ppl?`<span class="chip ok">Имена: ${ppl} туристов в ${named.length} группах</span>`:'<span class="chip bad">Имена туристов ещё не загружены</span>');
 }
 
 /* ---------- wiring ---------- */
-function renderAll(){if(!DAY)return;$('#nowLbl').textContent=fmt(NOW);$('#slider').value=NOW;renderBoard();renderDep();renderGuidePick();renderGuide();if(guideMode==='guests'&&!$('#v-guide').hidden&&document.activeElement!==$('#gsQ'))renderGuests();renderWaLate();if(!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#opsGuides')))renderOps();renderLog();if(!$('#v-veh').hidden&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#vgrid')))renderVeh()}
+function renderAll(){if(!DAY)return;$('#nowLbl').textContent=fmt(NOW);$('#slider').value=NOW;renderBoard();renderH2H();renderDep();renderGuidePick();renderGuide();if(guideMode==='guests'&&!$('#v-guide').hidden&&document.activeElement!==$('#gsQ'))renderGuests();renderWaLate();if(!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#opsGuides')))renderOps();renderLog();if(!$('#v-veh').hidden&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#vgrid')))renderVeh()}
 $('#slider').addEventListener('input',e=>{followNow=false;NOW=+e.target.value;store.set('now_'+dayKey,NOW);renderAll()});
 let play=null;
 $('#playBtn').onclick=()=>{if(play){clearInterval(play);play=null;$('#playBtn').textContent='▶ Проиграть день';return}

@@ -110,6 +110,10 @@
 
 .wa-box>summary{color:var(--ok)}
 .late-box>summary{color:var(--warn)}
+.daycheck{display:flex;gap:8px;flex-wrap:wrap}
+.daycheck span{font-weight:600;padding:2px 8px;border-radius:4px}
+.daycheck .ok{background:var(--ok-soft);color:var(--ok)}
+.daycheck .bad{background:var(--crit-soft);color:var(--crit)}
 .board-actions{display:flex;justify-content:flex-end;margin:-6px 0 10px}
 .wa-out{display:grid;gap:8px;padding:12px 14px}
 .wa-out .msgbox{max-height:340px}
@@ -208,6 +212,7 @@ mark{background:var(--signal-soft);color:inherit}
     </div>
     <div class="board-actions"><button class="btn" type="button" id="boardLateCopy">✈ Скопировать задержки для WhatsApp</button></div>
     <div class="board" id="board"></div>
+    <details class="ops-box" id="h2hBox" hidden open><summary>🏨 Межотельные переезды (без рейса) · <span id="h2hN"></span></summary><div class="tbl-wrap" style="border:0;border-radius:0"><table id="h2hTbl"></table></div></details>
   </section>
 
   <section id="v-ops" hidden>
