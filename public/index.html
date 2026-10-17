@@ -309,6 +309,10 @@ tr.soon td.t{color:var(--signal-ink)}
 .bk{display:grid;gap:2px;border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--sunk)}
 .lnote{display:block;font-size:11px;color:var(--muted);line-height:1.3}
 .lnote.stale{color:var(--warn)}
+.langsw{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-left:auto}
+.langsw button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:600;padding:4px 9px;cursor:pointer;min-height:28px}
+.langsw button[aria-pressed="true"]{background:var(--ink,#111);color:var(--bg,#fff)}
+.login-card .langsw{align-self:flex-end}
 .daycheck{display:flex;gap:8px;flex-wrap:wrap}
 .daycheck span{font-weight:600;padding:2px 8px;border-radius:4px}
 .daycheck .ok{background:var(--ok-soft);color:var(--ok)}
@@ -418,7 +422,7 @@ mark{background:var(--signal-soft);color:inherit}
     <div class="summary" id="opsSum"></div>
     <div class="filters">
       <select id="opsGuide" aria-label="Гид"><option value="">Все гиды</option></select>
-      <select id="opsKind" aria-label="Тип"><option value="">Встречи и заборы</option><option value="arr">Только встречи</option><option value="dep">Только заборы</option></select>
+      <select id="opsKind" aria-label="Тип"><option value="">Встречи и сборы</option><option value="arr">Только встречи</option><option value="dep">Только сборы</option></select>
       <input id="opsQ" placeholder="Гид, фамилия, рейс или отель" aria-label="Поиск">
     </div>
     <details class="ops-box late-box" id="waLateBox"><summary>✈ Задержки рейсов для WhatsApp <span class="hint" id="waLateCnt"></span></summary>
@@ -442,7 +446,7 @@ mark{background:var(--signal-soft);color:inherit}
           <label><input type="checkbox" id="woNo" checked> кто не пришёл</label>
           <label>язык <select id="woLang"><option value="tr">Türkçe</option><option value="ru">Русский</option></select></label>
         </div>
-        <p class="hint">Берутся гости с учётом фильтров выше: гид, встречи или заборы, поиск.</p>
+        <p class="hint">Берутся гости с учётом фильтров выше: гид, встречи или сборы, поиск.</p>
         <div class="msgbox" id="waOut"></div>
         <div class="vfoot" style="padding:0"><button class="btn primary" type="button" id="woCopy">Скопировать и отметить как отправленные</button><button class="btn" type="button" id="woReset">Сбросить «отправленные»</button></div>
       </div>
@@ -472,7 +476,7 @@ mark{background:var(--signal-soft);color:inherit}
 
   <section id="v-veh" hidden>
     <div class="summary" id="sumVeh"></div>
-    <div class="vt-head"><h2 style="margin:0">День машин</h2><span class="hint">Синие блоки: встреча в аэропорту и дорога в отель. Жёлтые: забор из отеля и дорога в аэропорт. Красная рамка: перегруз.</span></div>
+    <div class="vt-head"><h2 style="margin:0">День машин</h2><span class="hint">Синие блоки: встреча в аэропорту и дорога в отель. Жёлтые: сбор из отеля и дорога в аэропорт. Красная рамка: перегруз.</span></div>
     <div class="gantt-wrap"><div class="gantt" id="gantt"></div></div>
     <div class="split">
       <div class="vlist" id="vgrid"></div>
@@ -558,6 +562,578 @@ mark{background:var(--signal-soft);color:inherit}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
+// Russian / Turkish interface. The program is written in Russian; when Turkish is chosen,
+// every text on screen is translated on the fly (phrases first, longest first).
+const TR_DICT={
+"Программа следит только за рейсами из загруженного Капака на сегодня. Сервер сам спрашивает статусы, пока наши рейсы в пути, и показывает новое время посадки на табло и у гида. Строка вверху страницы показывает, когда было последнее обновление и сколько наших рейсов найдено.":"Program yalnızca bugün yüklenen KAPAK'taki uçuşları takip eder. Uçuşlarımız yoldayken sunucu durumları kendisi sorar ve yeni iniş saatini tabloda ve rehber ekranında gösterir. Sayfanın üstündeki satır son güncellemenin ne zaman yapıldığını ve uçuşlarımızdan kaçının bulunduğunu gösterir.",
+"Нажмите на окно или перетащите в него файлы. Можно перетащить все файлы дня в любое окно сразу: программа сама поймёт, где Капак, где лист машин, а где имена.":"Kutuya tıklayın veya dosyaları içine sürükleyin. Günün tüm dosyalarını aynı anda herhangi bir kutuya bırakabilirsiniz: program KAPAK'ı, araç listesini ve isim listesini kendisi ayırır.",
+"В общем списке прибытий шесть трансферов «отель → отель» стоят с пометкой «Araç Yok». Самый большой: 150 человек из Beach Club Doğanay в Casa Fora.":"Genel geliş listesinde altı «otel → otel» transferi «Araç Yok» notuyla duruyor. En büyüğü: Beach Club Doğanay'dan Casa Fora'ya 150 kişi.",
+"Номер вводится один раз. Дальше программа сама пишет гиду, водителю и операционщику, когда рейс задерживается, садится или меняет терминал.":"Numara bir kez girilir. Sonra uçuş rötar yaptığında, indiğinde veya terminal değiştiğinde program rehbere, şoföre ve operasyoncuya kendisi yazar.",
+"Синие блоки: встреча в аэропорту и дорога в отель. Жёлтые: сбор из отеля и дорога в аэропорт. Красная рамка: перегруз.":"Mavi bloklar: havalimanında karşılama ve otele yol. Sarı: otelden toplama ve havalimanına yol. Kırmızı çerçeve: kapasite aşımı.",
+"Отметки гидов приходят сюда сами каждые 20 секунд. Операционщик тоже может отмечать гостей прямо здесь.":"Rehberlerin işaretleri buraya her 20 saniyede kendiliğinden gelir. Operasyoncu da misafirleri doğrudan buradan işaretleyebilir.",
+"Ключи API рейсов хранятся в настройках Netlify (AVIATIONSTACK_KEY, AIRLABS_KEY), а не в браузере.":"Uçuş API anahtarları tarayıcıda değil, Netlify ayarlarında saklanır (AVIATIONSTACK_KEY, AIRLABS_KEY).",
+"Записаны и в трансфере №3 (до 19.10), и в №4 (до 16.10). Нужно уточнить, какой правильный.":"Hem 3 no'lu transferde (19.10'a kadar) hem 4 no'luda (16.10'a kadar) kayıtlı. Hangisinin doğru olduğunu netleştirin.",
+"В трансфере №9 (Casa Fora) она стоит дважды, позиции 2 и 7, обе SNG STD на 14–16.10.":"9 no'lu transferde (Casa Fora) iki kez geçiyor, 2. ve 7. sırada, ikisi de 14–16.10 SNG STD.",
+"Переезды «отель → отель» без рейса. Для них нужно назначить машины и время отдельно.":"Uçuşsuz «otel → otel» transferleri. Bunlar için araç ve saat ayrıca atanmalı.",
+"Пока нет ни одного дня. Откройте вкладку «Загрузить день» и перетащите Excel KAPAK.":"Henüz hiç gün yok. «Günü yükle» sekmesini açın ve Excel KAPAK dosyasını sürükleyin.",
+"это старый формат Word (.doc). Откройте файл в Word и сохраните как .docx или PDF":"bu eski Word formatı (.doc). Dosyayı Word'de açıp .docx veya PDF olarak kaydedin",
+"Выезды из отелей по времени. Строка подсвечивается, когда до выезда меньше часа.":"Otellerden çıkışlar saate göre. Çıkışa bir saatten az kalınca satır renklenir.",
+"Например «Mrs MAMAEV KUBANYCHBEK». На табличке встречи это выглядит неаккуратно.":"Örneğin «Mrs MAMAEV KUBANYCHBEK». Karşılama tabelasında özensiz görünür.",
+"В части списка указано только имя, и уведомление может уйти не тому человеку.":"Listenin bir kısmında sadece isim var, bildirim yanlış kişiye gidebilir.",
+"Скорее всего это один гид. Программа объединит записи, если вы подтвердите.":"Büyük ihtimalle aynı rehber. Onaylarsanız program kayıtları birleştirir.",
+"Программа сверяет список сама каждый раз, когда загружается новый файл.":"Her yeni dosya yüklendiğinde program listeyi kendisi kontrol eder.",
+"Берутся гости с учётом фильтров выше: гид, встречи или сборы, поиск.":"Yukarıdaki filtrelere göre misafirler alınır: rehber, karşılama veya toplama, arama.",
+"Одно время, один маршрут. Программа объединила их в одну встречу на":"Aynı saat, aynı güzergâh. Program bunları tek karşılamada birleştirdi:",
+"К этому времени уведомлений ещё не было. Сдвиньте время вперёд.":"Bu saate kadar bildirim yoktu. Saati ileri alın.",
+"Гости в двух трансферах: DUANAYEV YERKINBAY и BEIISBEK KALBIBI":"İki transferde görünen misafirler: DUANAYEV YERKINBAY ve BEIISBEK KALBIBI",
+"Нет связи с сервером. Проверьте интернет и обновите страницу.":"Sunucuyla bağlantı yok. İnterneti kontrol edip sayfayı yenileyin.",
+"В списке вылетов: ELDR27, гид Dursun, пометка «Bileti yok».":"Gidiş listesinde: ELDR27, rehber Dursun, not «Bileti yok».",
+"Без номера рейса программа не сможет следить за задержкой.":"Uçuş numarası olmadan program rötarı takip edemez.",
+"Капака на этот день нет, прилёты построены по листу машин.":"Bu gün için KAPAK yok, gelişler araç listesinden oluşturuldu.",
+"Записи с пометкой «Kendi gider». Машина и гид не нужны.":"«Kendi gider» notlu kayıtlar. Araç ve rehber gerekmez.",
+"Источник: PDF-списки, сверка по итогам не проводилась.":"Kaynak: PDF listeleri, toplam kontrolü yapılmadı.",
+"Нет связи с сервером, изменения сохранены только здесь":"Sunucuyla bağlantı yok, değişiklikler sadece bu cihazda kaydedildi",
+"Машины, гиды и терминалы обновлены, имена добавлены в":"Araçlar, rehberler ve terminaller güncellendi, isimler eklendi:",
+"имён пока нет: загрузите Araç Listesi или Genel Geliş":"henüz isim yok: Araç Listesi veya Genel Geliş yükleyin",
+"библиотека Excel не загрузилась, обновите страницу":"Excel kütüphanesi yüklenmedi, sayfayı yenileyin",
+"туристов в межотельных переездах, в Капаке их нет.":"turist oteller arası transferlerde, KAPAK'ta yoklar.",
+"Введите пароль, который выдал операционный отдел.":"Operasyon departmanının verdiği şifreyi girin.",
+"Трансфер стоит в списке, но машина не назначена.":"Transfer listede var ama araç atanmamış.",
+"Что программа отправила бы к выбранному времени.":"Programın seçilen saate kadar göndereceği mesajlar.",
+"нажмите на имя, чтобы увидеть только его задания":"sadece onun görevlerini görmek için isme tıklayın",
+"Добавлено трансферов, которых не было в Капаке":"KAPAK'ta olmayan eklenen transferler",
+"Новых вышедших гостей нет: всё уже отправлено.":"Yeni çıkan misafir yok: hepsi zaten gönderildi.",
+"Межотельные трансферы без машины: 309 человек":"Araçsız oteller arası transferler: 309 kişi",
+"туристов. Теперь у гидов есть кнопки «Вышел».":"turist. Artık rehberlerde «Çıktı» düğmeleri var.",
+"Имена туристов из прошлой загрузки сохранены":"Önceki yüklemedeki turist isimleri korundu",
+"от полутора часов назад до двух часов вперёд":"bir buçuk saat öncesinden iki saat sonrasına",
+"кто в какой машине, гиды, имена с возрастом":"kim hangi araçta, rehberler, yaşlarıyla isimler",
+"сначала загрузите Капак или Araç Listesi на":"önce şu gün için KAPAK veya Araç Listesi yükleyin:",
+"Операционный центр · день ещё не загружен":"Operasyon merkezi · gün henüz yüklenmedi",
+"Машина изменилась по сравнению с Капаком":"Araç KAPAK'a göre değişti",
+"Посадка по расписанию · нет живых данных":"İniş planlanan saatte · canlı veri yok",
+"Машина будет ждать не у того терминала.":"Araç yanlış terminalde bekleyecek.",
+"Новых задержек нет: всё уже отправлено.":"Yeni rötar yok: hepsi zaten gönderildi.",
+"Скопировать и отметить как отправленные":"Kopyala ve gönderildi olarak işaretle",
+"Все вышедшие снова попадут в сообщение":"Tüm çıkanlar tekrar mesaja girecek",
+"Все задержки снова попадут в сообщение":"Tüm rötarlar tekrar mesaja girecek",
+"Двойная запись гостя: MATSHINA ELVIRA":"Misafir iki kez kayıtlı: MATSHINA ELVIRA",
+"рейсов сходятся по количеству гостей":"uçuşun misafir sayısı tutuyor",
+"В воздухе · посадка не подтверждена":"Havada · iniş teyit edilmedi",
+"Возможно, так собрана общая машина.":"Ortak araç bu şekilde oluşturulmuş olabilir.",
+"Выделите текст и скопируйте вручную":"Metni seçip elle kopyalayın",
+"Пока никто не отмечен как вышедший.":"Henüz kimse çıktı olarak işaretlenmedi.",
+"в файле не найдено ни одного рейса":"dosyada hiç uçuş bulunamadı",
+"Обращение не совпадает с фамилией":"Hitap soyadıyla uyuşmuyor",
+"Скопировать задержки для WhatsApp":"Rötarları WhatsApp için kopyala",
+"или Excel · Araç Transfer Listesi":"veya Excel · Araç Transfer Listesi",
+"только новые, ещё не отправленные":"sadece yeni, henüz gönderilmemiş",
+"Межотельные переезды (без рейса)":"Oteller arası transferler (uçuşsuz)",
+"Отмечено, операционщик это видит":"İşaretlendi, operasyoncu görüyor",
+"Живые статусы ещё не подключены":"Canlı durumlar henüz bağlı değil",
+"Имена туристов ещё не загружены":"Turist isimleri henüz yüklenmedi",
+"Капак не загружен (вылетов нет)":"KAPAK yüklenmedi (gidiş yok)",
+"Прилёт в Газипашу, не в Анталью":"Geliş Antalya'ya değil Gazipaşa'ya",
+"На табло будет один код. Всего":"Tabloda tek kod olacak. Toplam",
+"или PDF · Transfer Takip Formu":"veya PDF · Transfer Takip Formu",
+"нет интернета для чтения файла":"dosyayı okumak için internet yok",
+"только новые или изменившиеся":"sadece yeni veya değişenler",
+"Задержки рейсов для WhatsApp":"WhatsApp için uçuş rötarları",
+"Некому получить уведомления.":"Bildirim alacak kimse yok.",
+"Один рейс записан по-разному":"Aynı uçuş farklı yazılmış",
+"Одно имя записано по-разному":"Aynı isim farklı yazılmış",
+"Скопировать задание водителю":"Şoför görevini kopyala",
+"Статусы рейсов в демо-режиме":"Uçuş durumları demo modunda",
+"выезд в аэропорт сдвинуть на":"havalimanına çıkışı şuna kaydır:",
+"Вышедшие гости для WhatsApp":"WhatsApp için çıkan misafirler",
+"Неверный терминал на прилёт":"Gelişte yanlış terminal",
+"Пометки диспетчера в списке":"Listede dispeçer notları",
+"Работа на сегодня закончена":"Bugünkü iş bitti",
+"рейсы, выезды, гиды, машины":"uçuşlar, çıkışlar, rehberler, araçlar",
+"сбор и встреча одновременно":"toplama ve karşılama aynı anda",
+"Все, кого отметили, вышли.":"İşaretlenen herkes çıktı.",
+"Неверный терминал на вылет":"Gidişte yanlış terminal",
+"первые данные уже получены":"ilk veriler alındı",
+"Прошли, но гид не отметил":"Saati geçti ama rehber işaretlemedi",
+"Скопировать список гостей":"Misafir listesini kopyala",
+"Скорее всего один самолёт":"Büyük ihtimalle aynı uçak",
+"гостей ждут встречи позже":"misafir daha sonra karşılanacak",
+"добавлено из Araç Listesi":"Araç Listesi'nden eklendi",
+"и будет в аэропорту около":"ve havalimanına yaklaşık şu saatte varacak:",
+"в межотельных переездах.":"oteller arası transferlerde.",
+"гостя Doğanay без билета":"Doğanay misafiri biletsiz",
+"Введите пароль ещё раз.":"Şifreyi tekrar girin.",
+"Дорога другая и дольше.":"Yol farklı ve daha uzun.",
+"Едут сами (KENDİ GİDER)":"Kendileri gidiyor (KENDİ GİDER)",
+"Задержанных рейсов нет.":"Rötarlı uçuş yok.",
+"Одинаковые номер, время":"Aynı numara, saat",
+"Сбросить «отправленные»":"«Gönderildi» işaretlerini sıfırla",
+"или Excel · Genel Geliş":"veya Excel · Genel Geliş",
+"по трансферам из отелей":"otel transferlerine göre",
+"рейсами из этого Капака":"bu KAPAK'taki uçuşları",
+"Все задания выполнены.":"Tüm görevler tamamlandı.",
+"Вышли, задания закрыты":"Çıktılar, görevler kapandı",
+"Не сел · опаздывает на":"İnmedi · gecikme",
+"Сверка с итогами файла":"Dosya toplamlarıyla kontrol",
+"Сейчас никого не ждём.":"Şu an kimseyi beklemiyoruz.",
+"город вылета не указан":"kalkış şehri belirtilmemiş",
+"не нашёл дату в списке":"listede tarih bulunamadı",
+"телефон гида не указан":"rehber telefonu belirtilmemiş",
+"В воздухе · посадка ~":"Havada · iniş ~",
+"В этом дне нет гидов.":"Bu günde rehber yok.",
+"Межотельные трансферы":"Oteller arası transferler",
+"если Araç Listesi нет":"Araç Listesi yoksa",
+"нет телефона водителя":"şoför telefonu yok",
+"День ещё не загружен":"Gün henüz yüklenmedi",
+"Живые статусы рейсов":"Canlı uçuş durumları",
+"Межотельные переезды":"Oteller arası transferler",
+"Нет данных о посадке":"İniş verisi yok",
+"Скопировать задержки":"Rötarları kopyala",
+"вместе с уже севшими":"inmiş olanlarla birlikte",
+"не удалось прочитать":"okunamadı",
+"отели, гиды и машины":"oteller, rehberler ve araçlar",
+"по расписанию Капака":"KAPAK planına göre",
+"Не нашлись в Капаке":"KAPAK'ta bulunamadı",
+"Программа следит за":"Program takip ediyor:",
+"гостей из аэропорта":"misafir havalimanından",
+"поездок больше мест":"yolculukta kişi koltuktan fazla",
+"В колонке прилётов":"Geliş sütununda",
+"Журнал уведомлений":"Bildirim günlüğü",
+"Ничего не найдено.":"Hiçbir şey bulunamadı.",
+"Операционный отдел":"Operasyon departmanı",
+"Операционный центр":"Operasyon merkezi",
+"Очень ранний выезд":"Çok erken çıkış",
+"Рейсы из аэропорта":"Havalimanı uçuşları",
+"Сообщение в группу":"Gruba mesaj",
+"данные старше часа":"veriler bir saatten eski",
+"мин от расписания)":"dk plandan)",
+"мин, новая посадка":"dk, yeni iniş",
+"нового времени нет":"yeni saat yok",
+"скрыть выполненные":"tamamlananları gizle",
+"Аэропорт Газипаша":"Gazipaşa Havalimanı",
+"В колонке вылетов":"Gidiş sütununda",
+"Задания и отметки":"Görevler ve işaretler",
+"Имена добавлены в":"İsimler eklendi:",
+"Межотельные (ARA)":"Oteller arası (ARA)",
+"Скопировать текст":"Metni kopyala",
+"гостей, имён нет.":"misafir, isim yok.",
+"заданий выполнено":"görev tamamlandı",
+"номер не назначен":"numara atanmadı",
+"нужно разобраться":"incelenmeli",
+"откуда не указано":"nereden belirtilmemiş",
+"Итог в документе":"Belgedeki toplam",
+"Не удалось войти":"Giriş yapılamadı",
+"Неверный пароль.":"Yanlış şifre.",
+"Неверный пароль":"Yanlış şifre",
+"Нет номера рейса":"Uçuş numarası yok",
+"Рейсы: обновлено":"Uçuşlar: güncellendi",
+"Телефон водителя":"Şoför telefonu",
+"Ушёл на запасной":"Yedek havalimanına gitti",
+"без номера рейса":"uçuş numarasız",
+"большая задержка":"büyük rötar",
+"гостей едут сами":"misafir kendisi gidiyor",
+"гостей прилетело":"misafir geldi",
+"должен встречать":"karşılamalı",
+"задерживается на":"rötar:",
+"рейсов сходятся.":"uçuş tutuyor.",
+"чел, в программе":"kişi, programda",
+"Встречи и сборы":"Karşılama ve toplama",
+"Гостей на вылет":"Gidiş misafirleri",
+"Кому уведомлять":"Kime bildirilecek",
+"Пока без данных":"Henüz veri yok",
+"Показать список":"Listeyi göster",
+"Сейчас в работе":"Şu an işte",
+"Следующий выезд":"Sonraki çıkış",
+"без номера тоже":"numarasız da",
+"групп на прилёт":"geliş grubu",
+"забирает гостей":"misafirleri alıyor",
+"из Araç Listesi":"Araç Listesi'nden",
+"мин · посадка ~":"dk · iniş ~",
+"номер не указан":"numara belirtilmemiş",
+"нужно назначить":"atanmalı",
+"отмечено гидами":"rehberlerce işaretlendi",
+"программа нашла":"program buldu",
+"В это же время":"Aynı saatte",
+"Загрузить день":"Günü yükle",
+"Имена туристов":"Turist isimleri",
+"Проиграть день":"Günü oynat",
+"Рейс не указан":"Uçuş belirtilmemiş",
+"Только встречи":"Sadece karşılamalar",
+"Только срочное":"Sadece acil",
+"и город вылета":"ve kalkış şehri",
+"на сегодня всё":"bugünlük bu kadar",
+"рейс не указан":"uçuş belirtilmemiş",
+"Все операторы":"Tüm operatörler",
+"По расписанию":"Planlanan saatte",
+"Сбор из отеля":"Otelden toplama",
+"Скрыть список":"Listeyi gizle",
+"все назначены":"hepsi atandı",
+"гид не указан":"rehber belirtilmemiş",
+"кто не пришёл":"gelmeyenler",
+"мин до вылета":"dk kalkışa",
+"не однозначен":"belirsiz",
+"отметки гидов":"rehber işaretleri",
+"по расписанию":"planlanan saatte",
+"расч. посадка":"tahm. iniş",
+"чел. без имён":"kişi isimsiz",
+"Екатеринбург":"Yekaterinburg",
+"Задержек нет":"Rötar yok",
+"Машина · гид":"Araç · rehber",
+"Операционщик":"Operasyoncu",
+"Рейс отменён":"Uçuş iptal",
+"Только сборы":"Sadece toplamalar",
+"Читаю файлы…":"Dosyalar okunuyor…",
+"а для группы":"; grup",
+"без задержек":"rötarsız",
+"время выхода":"çıkış saati",
+"групп, всего":"grup, toplam",
+"из аэропорта":"havalimanından",
+"наших рейсов":"uçuşumuz",
+"не назначено":"atanmadı",
+"первое время":"ilk saat",
+"ВЫШЛИ ГОСТИ":"ÇIKAN MİSAFİRLER",
+"Всего вышло":"Toplam çıkan",
+"Ждём сейчас":"Şu an bekleniyor",
+"Калининград":"Kaliningrad",
+"Межотельные":"Oteller arası",
+"Не сходятся":"Tutmuyor",
+"Новосибирск":"Novosibirsk",
+"Приземлился":"İndi",
+"Приземлились":"İndi",
+"Свободна до":"Şu saate kadar boş:",
+"Скопировано":"Kopyalandı",
+"Стамбул IST":"İstanbul IST",
+"Стамбул SAW":"İstanbul SAW",
+"Уведомления":"Bildirimler",
+"Уже выехали":"Yola çıktılar",
+"Шереметьево":"Şeremetyevo",
+"всё закрыто":"hepsi kapandı",
+"задержка от":"rötar:",
+"межотельных":"oteller arası",
+"не загружен":"yüklenmedi",
+"не сходятся":"tutmuyor",
+"потом имена":"sonra isimler",
+"приземлился":"indi",
+"прилетает в":"→ iniş terminali:",
+"с задержкой":"rötarlı",
+"Без номера":"Numarasız",
+"Весь Капак":"Tüm KAPAK",
+"Все машины":"Tüm araçlar",
+"День машин":"Araçların günü",
+"Домодедово":"Domodedovo",
+"К сведению":"Bilgi için",
+"Нет машины":"Araç yok",
+"По машинам":"Araçlara göre",
+"Пометка: «":"Not: «",
+"Примечание":"Not",
+"Примечаний":"Not",
+"Уведомлять":"Bildir",
+"без машины":"araçsız",
+"в аэропорт":"havalimanına",
+"ещё не сел":"henüz inmedi",
+"загружены.":"yüklendi.",
+"на прилёты":"gelişler için",
+"нет машины":"araç yok",
+"по вылету)":"kalkışa göre)",
+"терминал ?":"terminal ?",
+"туристов в":"turist:",
+"улетает из":"→ kalkış terminali:",
+"чел, выезд":"kişi, çıkış",
+"Амстердам":"Amsterdam",
+"В воздухе":"Havada",
+"Все вышли":"Herkes çıktı",
+"Все отели":"Tüm oteller",
+"Встречено":"Karşılandı",
+"Краснодар":"Krasnodar",
+"Мин. Воды":"Mineralnye Vody",
+"Мои гости":"Misafirlerim",
+"Не пришли":"Gelmedi",
+"По Капаку":"KAPAK'a göre",
+"Проверить":"Kontrol et",
+"Челябинск":"Çelyabinsk",
+"без рейса":"uçuşsuz",
+"едут сами":"kendileri gidiyor",
+"загружен.":"yüklendi.",
+"из отелей":"otellerden",
+"младенцев":"bebek",
+"на вылеты":"gidişler için",
+"на прилёт":"gelişe",
+"не пришли":"gelmedi",
+"ожидается":"bekleniyor",
+"отмечен в":"işaretlendi:",
+"переездов":"transfer",
+"туристов.":"turist.",
+"чел всего":"kişi toplam",
+"Владелец":"Sahibi",
+"Водитель":"Şoför",
+"Все гиды":"Tüm rehberler",
+"Все сели":"Herkes bindi",
+"Выезд из":"Çıkış:",
+"Вышедшие":"Çıkanlar",
+"Газипаша":"Gazipaşa",
+"Гиды дня":"Günün rehberleri",
+"Задержка":"Rötar",
+"Контроль":"Kontrol",
+"Нет гида":"Rehber yok",
+"Оренбург":"Orenburg",
+"Перегруз":"Kapasite aşımı",
+"Проверка":"Denetim",
+"Работают":"Çalışıyor",
+"Сбросить":"Sıfırla",
+"Терминал":"Terminal",
+"Штутгарт":"Stuttgart",
+"без имён":"isimsiz",
+"взрослых":"yetişkin",
+"водитель":"şoför",
+"загружен":"yüklendi",
+"задержка":"rötar",
+"младенец":"bebek",
+"на вылет":"gidişe",
+"отмечено":"işaretlendi",
+"перегруз":"kapasite aşımı",
+"пока нет":"henüz yok",
+"рейс(ов)":"uçuş",
+"сентября":"Eylül",
+"Везёт в":"Götürüyor:",
+"Вернуть":"Geri al",
+"Вильнюс":"Vilnius",
+"Внуково":"Vnukovo",
+"Встреча":"Karşılama",
+"Закрыто":"Kapandı",
+"Комната":"Oda",
+"Поездка":"Yolculuk",
+"Прилёты":"Gelişler",
+"Пулково":"Pulkovo",
+"Рейс из":"Kalkış:",
+"Русский":"Русский",
+"Тбилиси":"Tiflis",
+"Телефон":"Telefon",
+"Трабзон":"Trabzon",
+"Шымкент":"Çimkent",
+"августа":"Ağustos",
+"в листе":"listede",
+"встреча":"karşılama",
+"встречи":"karşılama",
+"группах":"grupta",
+"декабря":"Aralık",
+"заданий":"görev",
+"найдено":"bulundu",
+"октября":"Ekim",
+"посадка":"iniş",
+"ребёнок":"çocuk",
+"рейсов)":"uçuş)",
+"февраля":"Şubat",
+"чел при":"kişi,",
+"Алматы":"Almatı",
+"Анкара":"Ankara",
+"Астана":"Astana",
+"Берлин":"Berlin",
+"Бишкек":"Bişkek",
+"Вылеты":"Gidişler",
+"Дальше":"Sonra",
+"Казань":"Kazan",
+"Машина":"Araç",
+"Машины":"Araçlar",
+"Москва":"Moskova",
+"Откуда":"Nereden",
+"Пароль":"Şifre",
+"Рейс в":"Varış:",
+"СЕЙЧАС":"ŞİMDİ",
+"Самара":"Samara",
+"Сейчас":"Şimdi",
+"Срочно":"Acil",
+"апреля":"Nisan",
+"ваучер":"voucher",
+"встреч":"karşılama",
+"гостей":"misafir",
+"гостя":"misafir",
+"гость":"misafir",
+"машин.":"araç.",
+"местах":"koltukta",
+"ноября":"Kasım",
+"прилёт":"geliş",
+"сборов":"toplama",
+"сервис":"servis",
+"списки":"listeler",
+"статус":"durum",
+"указан":"için yazılan:",
+"января":"Ocak",
+"Войти":"Giriş",
+"Время":"Saat",
+"Всего":"Toplam",
+"Выезд":"Çıkış",
+"Вылет":"Kalkış",
+"Вышел":"Çıktı",
+"Вышли":"Çıktı",
+"Гид «":"Rehber «",
+"Дубай":"Dubai",
+"Имена":"İsimler",
+"Капак":"KAPAK",
+"Капака":"KAPAK",
+"Капаке":"KAPAK'ta",
+"Кёльн":"Köln",
+"Машин":"Araç",
+"Номер":"Numara",
+"Опер.":"Oper.",
+"Отель":"Otel",
+"Пауза":"Duraklat",
+"Позже":"Daha sonra",
+"а для":"için ise",
+"всего":"toplam",
+"выезд":"çıkış",
+"вылет":"kalkış",
+"вышли":"çıktı",
+"детей":"çocuk",
+"марта":"Mart",
+"новых":"yeni",
+"сборы":"toplama",
+"чел ✓":"kişi ✓",
+"Баку":"Bakü",
+"Ждём":"Bekleniyor",
+"Куда":"Nereye",
+"Мест":"Koltuk",
+"Рейс":"Uçuş",
+"Роль":"Rol",
+"Сбор":"Toplama",
+"Сели":"Bindiler",
+"Сочи":"Soçi",
+"заб.":"top.",
+"июля":"Temmuz",
+"июня":"Haziran",
+"мест":"koltuk",
+"мин)":"dk)",
+"сбор":"toplama",
+"сели":"bindi",
+"часа":"saat",
+"чел.":"kişi",
+"язык":"dil",
+"Гид":"Rehber",
+"Кто":"Kim",
+"Сел":"Bindi",
+"Уфа":"Ufa",
+"Чел":"Kişi",
+"гид":"rehber",
+"лет":"yaş",
+"мая":"Mayıs",
+"мин":"dk",
+"сел":"indi",
+"чел":"kişi",
+"нет живых данных":"canlı veri yok",
+"не подтверждена":"teyit edilmedi",
+"Ждёт":"Bekliyor",
+"Везёт":"Götürüyor",
+"Едет в аэропорт к":"Havalimanına gidiyor, uçuş:",
+"без номера":"numarasız",
+"Имя":"İsim",
+"Поздний выезд:":"Geç çıkış:",
+"до вылета":"kalkışa",
+"мин. На дорогу и регистрацию нужно около":"dk. Yol ve check-in için yaklaşık gerekli:",
+"Нет":"Yok",
+"Минус":"Eksi",
+"Плюс":"Artı",
+"телефон гида":"rehber telefonu",
+"задания прошли, отметок нет":"görev saati geçti, işaret yok",
+"ЗАДЕРЖКИ РЕЙСОВ":"UÇUŞ RÖTARLARI",
+"новое время посадки":"yeni iniş saati",
+"РЕЙС ОТМЕНЁН":"UÇUŞ İPTAL",
+"УШЁЛ НА ЗАПАСНОЙ АЭРОПОРТ":"YEDEK HAVALİMANINA GİTTİ",
+"Задержано рейсов":"Rötarlı uçuş",
+"Внешние T2":"Dış Hatlar T2",
+"Внутренние":"İç Hatlar",
+"Через час выезд:":"Bir saat sonra çıkış:",
+"Капак в PDF читается неточно (сошлось":"PDF KAPAK tam okunamadı (tutan:",
+"рейсов). Загрузите Капак в Excel":"uçuş). KAPAK'ı Excel olarak yükleyin",
+"День":"Gün",
+"Время дня":"Günün saati",
+"Оператор":"Operatör",
+"Поиск: рейс, гид, фамилия…":"Ara: uçuş, rehber, soyadı…",
+"Поиск":"Ara",
+"Тип":"Tür",
+"Гид, фамилия, рейс или отель":"Rehber, soyadı, uçuş veya otel",
+"Фамилия, отель, рейс":"Soyadı, otel, uçuş",
+"Поиск гостя":"Misafir ara",
+"На сервере не задан пароль OPS_PASSWORD":"Sunucuda OPS_PASSWORD şifresi tanımlı değil",
+"Неверная дата":"Geçersiz tarih",
+"Неверный формат дня":"Geçersiz gün formatı",
+"Неверный тип":"Geçersiz tür",
+"Не найдено":"Bulunamadı",
+"Ключ API рейсов не задан на сервере":"Sunucuda uçuş API anahtarı tanımlı değil",
+"Ждём, когда наши рейсы вылетят":"Uçuşlarımızın kalkması bekleniyor",
+"Загрузите Капак на сегодня, чтобы следить за рейсами":"Uçuşları takip etmek için bugünün KAPAK'ını yükleyin",
+"статус:":"durum:",
+"сел в":"indi:",
+"данные от":"veri saati",
+"Фамилия":"Soyadı",
+"фамилия":"soyadı",
+"Тариф":"Tarife",
+"На сегодня Капак не загружен, рейсы не отслеживаются":"Bugün için KAPAK yüklenmedi, uçuşlar takip edilmiyor",
+"Сейчас ни один наш рейс не в пути":"Şu an uçuşlarımızdan hiçbiri yolda değil",
+"Не время для запроса":"Sorgu zamanı değil",
+"Не пришёл":"Gelmedi",
+"не пришёл":"gelmedi",
+"Не сел":"İnmedi",
+"Отмена":"İptal",
+"Из":"",
+"На":"",
+"за":"",
+"из":"",
+"в":"",
+"на":"",
+"и":"ve",
+"ч":"sa"
+};
+// a few Russian words that only appear inside computed text
+const TR_RULES=[
+  [/(?<![А-Яа-яЁё])из (?=\d)/g,'/ '],
+  [/(?<![А-Яа-яЁё])в (?=\d\d?:\d\d)/g,'saat '],
+];
+let LANG=(()=>{try{return localStorage.getItem('sarabi.lang')||'ru'}catch(e){return 'ru'}})();
+const TR_RE=(()=>{const keys=Object.keys(TR_DICT).sort((a,b)=>b.length-a.length).map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
+  return new RegExp('(?<![А-Яа-яЁё])(?:'+keys.join('|')+')(?![А-Яа-яЁё])','g')})();
+const CYR=/[А-Яа-яЁё]/;
+function trText(s){
+  if(LANG!=='tr'||!s||!CYR.test(s))return s;
+  let t=s;for(const [re,to] of TR_RULES)t=t.replace(re,to);
+  t=t.replace(TR_RE,m=>TR_DICT[m]);
+  return t.replace(/ {2,}/g,' ').replace(/ ([,.:;)])/g,'$1');
+}
+const T=trText;
+const I18N_ATTRS=['placeholder','title','aria-label'];
+function trNode(root){
+  if(LANG!=='tr')return;
+  if(root.nodeType===3){if(CYR.test(root.nodeValue)){const v=trText(root.nodeValue);if(v!==root.nodeValue)root.nodeValue=v}return}
+  if(root.nodeType!==1)return;
+  if(root.tagName==='SCRIPT'||root.tagName==='STYLE')return;
+  if(root.closest&&root.closest('[data-noi18n]'))return;
+  for(const a of I18N_ATTRS){const v=root.getAttribute&&root.getAttribute(a);if(v&&CYR.test(v))root.setAttribute(a,trText(v))}
+  if((root.tagName==='TEXTAREA'||root.tagName==='INPUT')&&CYR.test(root.value||''))root.value=trText(root.value);
+  const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT|NodeFilter.SHOW_ELEMENT);let n;
+  while((n=w.nextNode())){
+    if(n.nodeType===3){if(CYR.test(n.nodeValue)){const v=trText(n.nodeValue);if(v!==n.nodeValue)n.nodeValue=v}}
+    else{for(const a of I18N_ATTRS){const v=n.getAttribute(a);if(v&&CYR.test(v))n.setAttribute(a,trText(v))}
+      if((n.tagName==='TEXTAREA')&&CYR.test(n.value||''))n.value=trText(n.value)}
+  }
+}
+let I18N_OBS=null;
+function i18nStart(){
+  
+  if(I18N_OBS)I18N_OBS.disconnect();
+  if(LANG!=='tr')return;
+  trNode(document.body);document.title=trText(document.title);
+  I18N_OBS=new MutationObserver(ms=>{for(const m of ms){
+    if(m.type==='characterData')trNode(m.target);
+    else if(m.type==='attributes')trNode(m.target);
+    else m.addedNodes.forEach(trNode)}});
+  I18N_OBS.observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:I18N_ATTRS});
+}
+function setLang(l){try{localStorage.setItem('sarabi.lang',l)}catch(e){}location.reload()}
+function langSwitch(){
+  const box=document.createElement('span');box.className='langsw';box.setAttribute('data-noi18n','');
+  box.innerHTML=`<button type="button" data-l="ru" aria-pressed="${LANG==='ru'}">RU</button><button type="button" data-l="tr" aria-pressed="${LANG==='tr'}">TR</button>`;
+  box.addEventListener('click',e=>{const b=e.target.closest('button');if(b&&b.dataset.l!==LANG)setLang(b.dataset.l)});
+  return box;
+}
+
 // Parser for "Transfer Takip Formu" (KAPAK) as Excel, including PDF→Excel conversions
 // where records are glued into cells and departure/arrival columns are interleaved.
 function parseKapak(rows){
@@ -866,7 +1442,7 @@ const fmt=m=>{m=((Math.round(m)%1440)+1440)%1440;return String(Math.floor(m/60))
 const normFl=f=>{const m=String(f).replace(/\s+/g,' ').trim().match(/^([A-Z0-9]{2}) ?0*(\d+)$/);return m?m[1]+' '+m[2]:f};
 const store={get(k,d){try{const v=localStorage.getItem('sarabi_'+k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem('sarabi_'+k,JSON.stringify(v))}catch(e){}}};
 function toast(t){const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>el.hidden=true,2200)}
-async function copy(text){try{await navigator.clipboard.writeText(text);toast('Скопировано')}catch(e){toast('Выделите текст и скопируйте вручную')}}
+async function copy(text,raw){if(!raw)text=T(text);try{await navigator.clipboard.writeText(text);toast('Скопировано')}catch(e){toast('Выделите текст и скопируйте вручную')}}
 const termLbl=t=>t==='İÇ'?'İÇ HATLAR':t==='DIŞ'?'DIŞ HATLAR T2':'терминал ?';
 const termTr=t=>t==='İÇ'?'İç Hatlar':t==='DIŞ'?'Dış Hatlar T2':'terminal belirsiz';
 
@@ -1091,7 +1667,7 @@ function renderBoard(){
   const totalPax=flights.reduce((s,f)=>s+f.pax,0);
   $('#sumBoard').innerHTML=[
     ['Прилёты',flights.length,`${totalPax} гостей из аэропорта`],
-    ['Сели',land,`${paxLanded} гостей прилетело`],
+    ['Приземлились',land,`${paxLanded} гостей прилетело`],
     ['В воздухе',air+late,late?`${late} с задержкой`:'без задержек'],
     ['Встречено',paxMet,'отметки гидов'],
     ['Машин',new Set(DAY.arr.map(t=>t.v).filter(Boolean)).size,'на прилёты'],
@@ -1151,7 +1727,7 @@ function vehicleLegs(){
 function vehNow(x){
   const cur=x.legs.find(l=>NOW>=l.start&&NOW<l.end);
   if(cur){if(cur.kind==='arr')return {busy:true,txt:NOW<cur.meet?`Ждёт ${normFl(cur.fl)} в ${cur.t}${cur.late?' (+'+cur.late+')':''}`:`Везёт ${cur.pax} чел в ${cur.h}`};
-    return {busy:true,txt:NOW<cur.start+15?`Забор: ${cur.h}, ${cur.pax} чел`:`Едет в аэропорт к ${normFl(cur.fl)} ${cur.ft}`}}
+    return {busy:true,txt:NOW<cur.start+15?`Сбор: ${cur.h}, ${cur.pax} чел`:`Едет в аэропорт к ${normFl(cur.fl)} ${cur.ft}`}}
   const next=x.legs.find(l=>l.start>=NOW);
   if(next)return {busy:false,txt:`Свободна до ${fmt(next.start)}`};
   return {busy:false,done:true,txt:'Работа на сегодня закончена'};
@@ -1179,7 +1755,7 @@ function renderVeh(){
     if(DAY.aracTotals&&DAY.aracTotals[x.v]!=null){const n=x.legs.filter(l=>l.kind==='arr').reduce((s,l)=>{const g=DAY.arr.find(a=>a.id===l.gid);return s+(g&&g.p&&g.p.length?g.p.filter(p=>p[0]!=='Inf').length:l.pax)},0);warn.push(n===DAY.aracTotals[x.v]?`<span class="chip ok">Araç Listesi: ${n} чел ✓</span>`:`<span class="chip bad">Araç Listesi: ${DAY.aracTotals[x.v]} чел, в программе ${n}</span>`)}
     x.over.forEach(t=>warn.push(`<span class="chip bad">перегруз ${fmt(t.start)}: ${t.pax} чел при ${x.cap} местах</span>`));
     x.legs.filter(l=>l.late).forEach(l=>warn.push(`<span class="chip gzp">${esc(normFl(l.fl))} задерживается на ${l.late} мин</span>`));
-    const rows=x.trips.map((t,ti)=>(x.trips.length>1?`<tr class="trip"><td colspan="4">Поездка ${ti+1} · ${t.kind==='arr'?'из аэропорта':'в аэропорт'} · ${t.pax} из ${x.cap} мест</td></tr>`:'')+t.legs.map(l=>`<tr class="${l.end<NOW?'past':''}"><td class="tm num">${esc(l.t)}</td><td><span class="act ${l.kind}">${l.kind==='arr'?'Встреча':'Забор'}</span><br>${esc(legPlace(l))}${l.note?` <span class="hint">· ${esc(l.note)}</span>`:''}</td><td>${l.kind==='arr'?termLbl(l.term):'вылет '+esc(l.ft)}<br><span class="hint">${esc(l.op||'')}${l.g&&x.gs.size>1?' · '+esc(l.g):''}</span></td><td class="n num">${l.pax}</td></tr>`).join('')).join('');
+    const rows=x.trips.map((t,ti)=>(x.trips.length>1?`<tr class="trip"><td colspan="4">Поездка ${ti+1} · ${t.kind==='arr'?'из аэропорта':'в аэропорт'} · ${t.pax} из ${x.cap} мест</td></tr>`:'')+t.legs.map(l=>`<tr class="${l.end<NOW?'past':''}"><td class="tm num">${esc(l.t)}</td><td><span class="act ${l.kind}">${l.kind==='arr'?'Встреча':'Сбор'}</span><br>${esc(legPlace(l))}${l.note?` <span class="hint">· ${esc(l.note)}</span>`:''}</td><td>${l.kind==='arr'?termLbl(l.term):'вылет '+esc(l.ft)}<br><span class="hint">${esc(l.op||'')}${l.g&&x.gs.size>1?' · '+esc(l.g):''}</span></td><td class="n num">${l.pax}</td></tr>`).join('')).join('');
     return `<article class="vcard2" id="veh_${id}"><div class="vtop"><div><div class="vn">${esc(x.v)}</div><div class="hint">${esc([...x.gs].join(', ')||'гид не указан')} · ${x.legs.length} заб. · ${x.pax} чел</div></div><span class="vnow ${st.busy?'busy':''} ${st.done?'done':''}">${esc(st.txt)}</span></div>
     <div class="vfields"><label>Номер<input id="pl_${id}" data-v="${esc(x.v)}" data-f="plate" value="${esc(a.plate||'')}" placeholder="07 ABC 123"></label><label>Телефон водителя<input id="ph_${id}" data-v="${esc(x.v)}" data-f="phone" value="${esc(a.phone||'')}" placeholder="05xx xxx xx xx" inputmode="tel"></label><label>Водитель<input id="dr_${id}" data-v="${esc(x.v)}" data-f="driver" value="${esc(a.driver||'')}" placeholder="Имя"></label><label>Мест<input id="cp_${id}" data-v="${esc(x.v)}" data-f="cap" value="${esc(a.cap||'')}" placeholder="${CAP(x.v)}" inputmode="numeric"></label></div>
     ${warn.length?`<div class="vwarn">${warn.join('')}</div>`:''}
@@ -1243,7 +1819,7 @@ function runChecks(){
     const g=rs[0].g,v=rs[0].v;const pus=rs.map(r=>toMin(r.pu));const last=rs.reduce((a,b)=>toMin(b.pu)>toMin(a.pu)?b:a);
     const start=Math.min(...pus),atAirport=toMin(last.pu)+TRAVEL(last.h);
     const meets=A.filter(a=>a.g&&gkey(a.g)===gkey(g)&&a.v!==v&&toMin(a.t)>start&&toMin(a.t)<atAirport-10);
-    if(meets.length){const who=[...new Set(meets.map(m=>m.g))].join(' / ');out.push(['warn',`${g}: забор и встреча одновременно`,`На ${v} забирает гостей ${fmt(start)}–${last.pu} и будет в аэропорту около ${fmt(atAirport)}. В это же время ${who} должен встречать ${[...new Set(meets.map(m=>normFl(m.fl)+' в '+m.t))].join(', ')}.`])}
+    if(meets.length){const who=[...new Set(meets.map(m=>m.g))].join(' / ');out.push(['warn',`${g}: сбор и встреча одновременно`,`На ${v} забирает гостей ${fmt(start)}–${last.pu} и будет в аэропорту около ${fmt(atAirport)}. В это же время ${who} должен встречать ${[...new Set(meets.map(m=>normFl(m.fl)+' в '+m.t))].join(', ')}.`])}
   });
   // pickup gaps
   D.forEach(r=>{if(!r.pu||/^[!?]/.test(r.fl))return;let gap=toMin(r.t)-toMin(r.pu);if(gap<0)gap+=1440;const need=TRAVEL(r.h)+(r.term==='İÇ'?60:110);
@@ -1301,7 +1877,7 @@ function taskHead(t,showGuide){
   const g0=t.groups[0];
   if(t.kind==='arr'){const f=t.f,st=f?fStatus(f,NOW):null;const late=f&&f.delay>=15&&(f.live||NOW>=f.delayKnownAt);
     return `<div class="tt ${late?'late':''} num">${late?`<s>${g0.t}</s>`:''}${fmt(t.time)}<small>${st&&st.k==='land'?'сел':'посадка'}</small></div><div><div class="kind arr">Встреча</div><div class="ttl">${esc(f?[...f.codes].join(' / '):g0.fl)}</div><div class="sub">${esc(CITY[g0.org]||g0.org||'')} · ${g0.to==='GZP'?'<b>Газипаша</b>':termLbl(g0.term)} · ${esc(g0.v||'без машины')}</div></div>${st?`<span class="status ${st.k} st"><span class="dot"></span>${st.lbl}</span>`:''}`}
-  return `<div class="tt num">${esc(g0.pu||g0.t)}<small>выезд</small></div><div><div class="kind dep">Забор из отеля</div><div class="ttl">${esc(g0.h)}</div><div class="sub">→ ${/^[!?]/.test(g0.fl)?'рейс не указан':esc(normFl(g0.fl))} в ${esc(g0.t)} · ${termLbl(g0.term)} · ${esc(g0.v||'')}${g0.note?' · '+esc(g0.note):''}</div></div><span class="chip st">${t.groups.reduce((s,x)=>s+(+x.pax||0),0)} чел</span>`;
+  return `<div class="tt num">${esc(g0.pu||g0.t)}<small>выезд</small></div><div><div class="kind dep">Сбор из отеля</div><div class="ttl">${esc(g0.h)}</div><div class="sub">→ ${/^[!?]/.test(g0.fl)?'рейс не указан':esc(normFl(g0.fl))} в ${esc(g0.t)} · ${termLbl(g0.term)} · ${esc(g0.v||'')}${g0.note?' · '+esc(g0.note):''}</div></div><span class="chip st">${t.groups.reduce((s,x)=>s+(+x.pax||0),0)} чел</span>`;
 }
 // passengers still expected first; the ones already marked go into a "Вышли" box with the time
 function paxRows(g,kind){
@@ -1340,7 +1916,7 @@ function renderGuide(){
   const tasks=guideTasks(g);
   const vehs=[...new Set(tasks.flatMap(t=>t.groups.map(x=>x.v)).filter(Boolean))];
   const tot=tasks.reduce((s,t)=>s+t.total,0),done=tasks.reduce((s,t)=>s+t.done,0);
-  $('#guideHead').innerHTML=`<div class="ghead"><div class="gname">${esc(g)}</div><div class="gmeta">${vehs.map(v=>{const a=assign[v]||{};return `<span><b>${esc(v)}</b>${a.plate?' · '+esc(a.plate):''}${a.phone?' · водитель '+esc(a.phone):''}</span>`}).join('')}</div><div class="gmeta"><span><b>${tasks.filter(t=>t.kind==='arr').length}</b> встреч</span><span><b>${tasks.filter(t=>t.kind==='dep').length}</b> заборов</span><span><b>${tot}</b> гостей</span><span>отмечено <b>${done}</b></span></div></div>`;
+  $('#guideHead').innerHTML=`<div class="ghead"><div class="gname">${esc(g)}</div><div class="gmeta">${vehs.map(v=>{const a=assign[v]||{};return `<span><b>${esc(v)}</b>${a.plate?' · '+esc(a.plate):''}${a.phone?' · водитель '+esc(a.phone):''}</span>`}).join('')}</div><div class="gmeta"><span><b>${tasks.filter(t=>t.kind==='arr').length}</b> встреч</span><span><b>${tasks.filter(t=>t.kind==='dep').length}</b> сборов</span><span><b>${tot}</b> гостей</span><span>отмечено <b>${done}</b></span></div></div>`;
   const hide=$('#hideDone').checked;
   const nextIdx=tasks.findIndex(t=>!t.complete&&t.time+60>=NOW);
   $('#tasks').innerHTML=tasks.map((t,ti)=>hide&&t.complete?'':taskCard(t,'g'+ti,{next:ti===nextIdx})).join('')||'<p class="hint">Все задания выполнены.</p>';
@@ -1379,7 +1955,7 @@ function renderGuests(){
     const a=vs.map(v=>{const x=assign[v]||{};return esc(v)+(x.plate?' · '+esc(x.plate):'')+(x.phone?' · водитель '+esc(x.phone):'')}).join(', ');
     const head=t.kind==='arr'
       ?`<div class="tt num">${fmt(t.time)}</div><div class="route"><b>${esc(t.f?[...t.f.codes].join(' / '):g0.fl)}</b> из ${esc(CITY[g0.org]||g0.org||'?')} · ${g0.to==='GZP'?'Газипаша':termLbl(g0.term)}<br>${a||'без машины'}</div>`
-      :`<div class="tt num">${esc(g0.pu||g0.t)}</div><div class="route"><b>Забор из отеля</b> · ${t.groups.length} рейс(ов) · ${t.groups.reduce((s,x)=>s+(+x.pax||0),0)} чел<br>${a||'без машины'}</div>`;
+      :`<div class="tt num">${esc(g0.pu||g0.t)}</div><div class="route"><b>Сбор из отеля</b> · ${t.groups.length} рейс(ов) · ${t.groups.reduce((s,x)=>s+(+x.pax||0),0)} чел<br>${a||'без машины'}</div>`;
     return `<section class="gtrip"><div class="gtrip-h">${head}</div>${hs.map(([h,gs])=>`<div class="ghotel"><div class="ghotel-h"><span class="to">${t.kind==='arr'?'→ '+esc(h):'Из '+esc(h)}</span><span class="hint">${t.kind==='arr'?gs.map(x=>esc(x.op||'')+' · '+x.pax+' чел').join(' · '):gs.reduce((s,x)=>s+(+x.pax||0),0)+' чел'}</span></div>${gs.map(x=>(t.kind==='dep'?`<div class="gp" style="margin:2px 0">→ <b>${esc(/^[!?]/.test(x.fl)?'рейс не указан':normFl(x.fl))}</b> ${esc(x.t)} · ${termLbl(x.term)} · ${esc(x.op||'')} · ${x.pax} чел${x.note?` <span class="gnote">${esc(x.note)}</span>`:''}</div>`:'')+(x.p&&x.p.length?`<div class="rooms">${roomsOf(x).map(r=>`<div class="roomc"><span class="rh">${r.e.room?'Комната '+r.e.room+' · ':''}${esc([r.e.type,r.e.board,r.e.stay].filter(Boolean).join(' · '))}${r.e.voucher?' · ваучер '+esc(r.e.voucher):''}</span>${r.people.map(([p])=>`<span class="gp">${p[0]==='Chd'?'<span class="badge">ребёнок</span>':p[0]==='Inf'?'<span class="badge inf">младенец</span>':''}<span>${q&&p[1].includes(q)?`<mark>${esc(p[0]+' '+p[1])}</mark>`:esc(p[0]+' '+p[1])}</span>${p[2]?`<small>${esc(p[2])} лет</small>`:''}</span>${ex(p).note?`<span class="gnote">${esc(ex(p).note)}</span>`:''}`).join('')}</div>`).join('')}</div>`:(t.kind==='arr'?`<p class="hint">${x.pax} гостей, имён нет.</p>`:''))).join('')}</div>`).join('')}</section>`;
   }).join('');
 }
@@ -1409,12 +1985,12 @@ function renderOps(){
   const sum=(arr,f)=>arr.reduce((s,t)=>s+f(t),0);
   const waiting=sum(open,t=>t.total-t.res),out=sum(tasks,t=>t.done);
   const wArr=sum(open.filter(t=>t.kind==='arr'),t=>t.total-t.res),wDep=waiting-wArr;
-  $('#opsSum').innerHTML=[['Ждём',waiting,`встречи ${wArr} · заборы ${wDep}`],['Вышли',out,'отмечено гидами'],['Не пришли',noShows.length,noShows.length?'нужно разобраться':'пока нет'],['Закрыто',`${done.length}/${tasks.length}`,'заданий выполнено']].map(([k,v,s],i)=>`<div class="stat${i===2&&noShows.length?' alert':''}"><div class="k">${k}</div><div class="v num">${v}</div><div class="s">${s}</div></div>`).join('');
+  $('#opsSum').innerHTML=[['Ждём',waiting,`встречи ${wArr} · сборы ${wDep}`],['Вышли',out,'отмечено гидами'],['Не пришли',noShows.length,noShows.length?'нужно разобраться':'пока нет'],['Закрыто',`${done.length}/${tasks.length}`,'заданий выполнено']].map(([k,v,s],i)=>`<div class="stat${i===2&&noShows.length?' alert':''}"><div class="k">${k}</div><div class="v num">${v}</div><div class="s">${s}</div></div>`).join('');
   $('#opsWait').innerHTML=now.length?now.map((t,i)=>taskCard(t,'on'+i,{showGuide:true,next:i===0})).join(''):'<p class="hint">Сейчас никого не ждём.</p>';
   $('#opsNo').innerHTML=noShows.length?noShows.map(x=>`<div class="noshow"><div><b>${esc(x.p[0]+' '+x.p[1])}</b><span class="hint">${esc(x.t.kind==='arr'?normFl(x.g.fl)+' → '+x.g.h:x.g.h+' → '+normFl(x.g.fl))} · ${esc(x.g.op||'')}</span><span class="hint">${esc(x.g.g||'')} · ${esc(x.g.v||'')}${x.at!=null?' · отмечен в '+fmt(x.at):''}</span></div><button class="btn" type="button" data-mk="${x.g.id}|${x.i}|no">Вернуть</button></div>`).join(''):'<p class="hint">Все, кого отметили, вышли.</p>';
   $('#opsLaterN').textContent=later.length;$('#opsStaleN').textContent=stale.length;$('#opsStaleBox').hidden=!stale.length;
   $('#opsStale').innerHTML=stale.map((t,i)=>taskCard(t,'os'+i,{showGuide:true})).join('');$('#opsDoneN').textContent=done.length;
-  $('#opsLater').innerHTML=later.map(t=>`<tr><td class="tm num">${fmt(t.time)}</td><td><span class="act ${t.kind}">${t.kind==='arr'?'Встреча':'Забор'}</span> ${esc(t.kind==='arr'?(t.f?[...t.f.codes].join(' / '):t.groups[0].fl):t.groups[0].h)}<br><span class="hint">${esc(t.groups.map(g=>t.kind==='arr'?g.h:normFl(g.fl)+' '+g.t).join(', '))}</span></td><td>${esc(t.guide||'—')}<br><span class="hint">${esc([...new Set(t.groups.map(g=>g.v))].join(', '))}</span></td><td class="n num">${t.total}</td></tr>`).join('');
+  $('#opsLater').innerHTML=later.map(t=>`<tr><td class="tm num">${fmt(t.time)}</td><td><span class="act ${t.kind}">${t.kind==='arr'?'Встреча':'Сбор'}</span> ${esc(t.kind==='arr'?(t.f?[...t.f.codes].join(' / '):t.groups[0].fl):t.groups[0].h)}<br><span class="hint">${esc(t.groups.map(g=>t.kind==='arr'?g.h:normFl(g.fl)+' '+g.t).join(', '))}</span></td><td>${esc(t.guide||'—')}<br><span class="hint">${esc([...new Set(t.groups.map(g=>g.v))].join(', '))}</span></td><td class="n num">${t.total}</td></tr>`).join('');
   $('#opsDone').innerHTML=done.slice().reverse().map((t,i)=>taskCard(t,'od'+i,{showGuide:true})).join('');
   renderOpsGuides(fg);
   renderWaOut(tasks);
@@ -1426,7 +2002,7 @@ function renderOpsGuides(sel){
   const rows=guides().map(g=>{const ts=all.filter(t=>t.guide===g);const open=ts.filter(t=>!t.complete);const next=open.find(t=>t.time>=NOW-90)||open[0];
     const out=ts.reduce((s,t)=>s+t.done,0),tot=ts.reduce((s,t)=>s+t.total,0),no=ts.reduce((s,t)=>s+t.no,0),stale=open.filter(t=>t.time<NOW-90).length;
     const vs=[...new Set(ts.flatMap(t=>t.groups.map(x=>x.v)).filter(Boolean))];
-    const nx=next?`${fmt(next.time)} ${next.kind==='arr'?'встреча '+(next.f?[...next.f.codes][0]:normFl(next.groups[0].fl)):'забор '+next.groups[0].h}`:'всё закрыто';
+    const nx=next?`${fmt(next.time)} ${next.kind==='arr'?'встреча '+(next.f?[...next.f.codes][0]:normFl(next.groups[0].fl)):'сбор '+next.groups[0].h}`:'всё закрыто';
     return `<div class="gcard${sel===g?' on':''}"><button type="button" class="gc-name" data-pick="${esc(g)}">${esc(g)}</button>
       <input class="gc-ph" id="gp_${esc(g).replace(/\W/g,'_')}" data-gp="${esc(g)}" value="${esc(gPhone(g))}" placeholder="телефон гида" inputmode="tel" aria-label="Телефон ${esc(g)}">
       <span class="gc-veh">${esc(vs.join(', ')||'без машины')}</span>
@@ -1434,7 +2010,7 @@ function renderOpsGuides(sel){
       <span class="gc-next ${next?'':'hint'}">Дальше: ${esc(nx)}</span>${out?`<button type="button" class="btn gc-copy" data-gcopy="${esc(g)}">📋 Вышедшие (${out})</button>`:''}</div>`}).join('');
   $('#opsGuides').innerHTML=rows;
   $('#opsGuides').querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{const g=b.dataset.pick;$('#opsGuide').value=$('#opsGuide').value===g?'':g;renderOps();$('#opsWait').scrollIntoView?.({behavior:'smooth',block:'start'})});
-  $('#opsGuides').querySelectorAll('[data-gcopy]').forEach(b=>b.onclick=async()=>{const g=b.dataset.gcopy;const r=exitedText(buildTasks(t=>t.g===g),{...woOpts(),onlyNew:false});if(r.text)await copy(r.text)});
+  $('#opsGuides').querySelectorAll('[data-gcopy]').forEach(b=>b.onclick=async()=>{const g=b.dataset.gcopy;const r=exitedText(buildTasks(t=>t.g===g),{...woOpts(),onlyNew:false});if(r.text)await copy(r.text,true)});
   $('#opsGuides').querySelectorAll('[data-gp]').forEach(i=>i.addEventListener('change',e=>{GP[e.target.dataset.gp]=e.target.value.trim();saveGP();renderOps()}));
 }
 ['#opsGuide','#opsKind'].forEach(s=>$(s).addEventListener('change',renderOps));$('#opsQ').addEventListener('input',renderOps);
@@ -1479,7 +2055,7 @@ function renderWaOut(tasks){
   $('#waOutCnt').textContent=r.total?`· ${r.total} ${$('#woNew').checked?'новых':'всего'}`:'';
   $('#woCopy').disabled=!r.text;
 }
-$('#woCopy').onclick=async()=>{const r=exitedText(woTasks,woOpts());if(!r.text)return;await copy(r.text);
+$('#woCopy').onclick=async()=>{const r=exitedText(woTasks,woOpts());if(!r.text)return;await copy(r.text,true);
   r.keys.forEach(k=>{const m=k.match(/^(.*\|n)=(\d+)$/);if(m)SENT[m[1]]=+m[2];else SENT[k]=1});store.set('sent_'+dayKey,SENT);renderOps()};
 $('#woReset').onclick=()=>{SENT={};store.set('sent_'+dayKey,SENT);renderOps();toast('Все вышедшие снова попадут в сообщение')};
 ['#woNew','#woTime','#woNo','#woLang'].forEach(id=>$(id).addEventListener('change',()=>renderWaOut(woTasks)));
@@ -1523,7 +2099,7 @@ function renderWaLate(){
   $('#wlCopy').disabled=!r.text;
   const all=lateFlights({...wlOpts(),onlyNew:false,landed:false});$('#boardLateCopy').textContent=all.length?`✈ Скопировать задержки (${all.length})`:'✈ Задержек нет';$('#boardLateCopy').disabled=!all.length;
 }
-async function copyLate(o){const r=lateText(o);if(!r.text)return;await copy(r.text);r.list.forEach(f=>SENTD[f.key]=lateSig(f));store.set('sentd_'+dayKey,SENTD);renderWaLate()}
+async function copyLate(o){const r=lateText(o);if(!r.text)return;await copy(r.text,true);r.list.forEach(f=>SENTD[f.key]=lateSig(f));store.set('sentd_'+dayKey,SENTD);renderWaLate()}
 $('#wlCopy').onclick=()=>copyLate(wlOpts());
 $('#boardLateCopy').onclick=()=>copyLate({...wlOpts(),onlyNew:false,landed:false});
 $('#wlReset').onclick=()=>{SENTD={};store.set('sentd_'+dayKey,SENTD);renderWaLate();toast('Все задержки снова попадут в сообщение')};
@@ -1669,6 +2245,9 @@ const views=['board','ops','dep','veh','guide','checks','contacts','data'];
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b)return;
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t===b));
   views.forEach(v=>$('#v-'+v).hidden=v!==b.dataset.t);store.set('tab',b.dataset.t)});
+document.querySelector('header .brand').appendChild(langSwitch());$('#loginForm').prepend(langSwitch());
+['#woLang','#wlLang'].forEach(id=>{const el=$(id);if(el)el.value=LANG});
+i18nStart();
 if(SERVER)serverBoot();else loadDay(dayKey);
 setGuideMode(guideMode);
 const lastTab=store.get('tab','board');const tb=document.querySelector(`.tab[data-t="${lastTab}"]`);if(tb)tb.click();

@@ -7,7 +7,7 @@ const fmt=m=>{m=((Math.round(m)%1440)+1440)%1440;return String(Math.floor(m/60))
 const normFl=f=>{const m=String(f).replace(/\s+/g,' ').trim().match(/^([A-Z0-9]{2}) ?0*(\d+)$/);return m?m[1]+' '+m[2]:f};
 const store={get(k,d){try{const v=localStorage.getItem('sarabi_'+k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem('sarabi_'+k,JSON.stringify(v))}catch(e){}}};
 function toast(t){const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>el.hidden=true,2200)}
-async function copy(text){try{await navigator.clipboard.writeText(text);toast('Скопировано')}catch(e){toast('Выделите текст и скопируйте вручную')}}
+async function copy(text,raw){if(!raw)text=T(text);try{await navigator.clipboard.writeText(text);toast('Скопировано')}catch(e){toast('Выделите текст и скопируйте вручную')}}
 const termLbl=t=>t==='İÇ'?'İÇ HATLAR':t==='DIŞ'?'DIŞ HATLAR T2':'терминал ?';
 const termTr=t=>t==='İÇ'?'İç Hatlar':t==='DIŞ'?'Dış Hatlar T2':'terminal belirsiz';
 
@@ -232,7 +232,7 @@ function renderBoard(){
   const totalPax=flights.reduce((s,f)=>s+f.pax,0);
   $('#sumBoard').innerHTML=[
     ['Прилёты',flights.length,`${totalPax} гостей из аэропорта`],
-    ['Сели',land,`${paxLanded} гостей прилетело`],
+    ['Приземлились',land,`${paxLanded} гостей прилетело`],
     ['В воздухе',air+late,late?`${late} с задержкой`:'без задержек'],
     ['Встречено',paxMet,'отметки гидов'],
     ['Машин',new Set(DAY.arr.map(t=>t.v).filter(Boolean)).size,'на прилёты'],
@@ -292,7 +292,7 @@ function vehicleLegs(){
 function vehNow(x){
   const cur=x.legs.find(l=>NOW>=l.start&&NOW<l.end);
   if(cur){if(cur.kind==='arr')return {busy:true,txt:NOW<cur.meet?`Ждёт ${normFl(cur.fl)} в ${cur.t}${cur.late?' (+'+cur.late+')':''}`:`Везёт ${cur.pax} чел в ${cur.h}`};
-    return {busy:true,txt:NOW<cur.start+15?`Забор: ${cur.h}, ${cur.pax} чел`:`Едет в аэропорт к ${normFl(cur.fl)} ${cur.ft}`}}
+    return {busy:true,txt:NOW<cur.start+15?`Сбор: ${cur.h}, ${cur.pax} чел`:`Едет в аэропорт к ${normFl(cur.fl)} ${cur.ft}`}}
   const next=x.legs.find(l=>l.start>=NOW);
   if(next)return {busy:false,txt:`Свободна до ${fmt(next.start)}`};
   return {busy:false,done:true,txt:'Работа на сегодня закончена'};
@@ -320,7 +320,7 @@ function renderVeh(){
     if(DAY.aracTotals&&DAY.aracTotals[x.v]!=null){const n=x.legs.filter(l=>l.kind==='arr').reduce((s,l)=>{const g=DAY.arr.find(a=>a.id===l.gid);return s+(g&&g.p&&g.p.length?g.p.filter(p=>p[0]!=='Inf').length:l.pax)},0);warn.push(n===DAY.aracTotals[x.v]?`<span class="chip ok">Araç Listesi: ${n} чел ✓</span>`:`<span class="chip bad">Araç Listesi: ${DAY.aracTotals[x.v]} чел, в программе ${n}</span>`)}
     x.over.forEach(t=>warn.push(`<span class="chip bad">перегруз ${fmt(t.start)}: ${t.pax} чел при ${x.cap} местах</span>`));
     x.legs.filter(l=>l.late).forEach(l=>warn.push(`<span class="chip gzp">${esc(normFl(l.fl))} задерживается на ${l.late} мин</span>`));
-    const rows=x.trips.map((t,ti)=>(x.trips.length>1?`<tr class="trip"><td colspan="4">Поездка ${ti+1} · ${t.kind==='arr'?'из аэропорта':'в аэропорт'} · ${t.pax} из ${x.cap} мест</td></tr>`:'')+t.legs.map(l=>`<tr class="${l.end<NOW?'past':''}"><td class="tm num">${esc(l.t)}</td><td><span class="act ${l.kind}">${l.kind==='arr'?'Встреча':'Забор'}</span><br>${esc(legPlace(l))}${l.note?` <span class="hint">· ${esc(l.note)}</span>`:''}</td><td>${l.kind==='arr'?termLbl(l.term):'вылет '+esc(l.ft)}<br><span class="hint">${esc(l.op||'')}${l.g&&x.gs.size>1?' · '+esc(l.g):''}</span></td><td class="n num">${l.pax}</td></tr>`).join('')).join('');
+    const rows=x.trips.map((t,ti)=>(x.trips.length>1?`<tr class="trip"><td colspan="4">Поездка ${ti+1} · ${t.kind==='arr'?'из аэропорта':'в аэропорт'} · ${t.pax} из ${x.cap} мест</td></tr>`:'')+t.legs.map(l=>`<tr class="${l.end<NOW?'past':''}"><td class="tm num">${esc(l.t)}</td><td><span class="act ${l.kind}">${l.kind==='arr'?'Встреча':'Сбор'}</span><br>${esc(legPlace(l))}${l.note?` <span class="hint">· ${esc(l.note)}</span>`:''}</td><td>${l.kind==='arr'?termLbl(l.term):'вылет '+esc(l.ft)}<br><span class="hint">${esc(l.op||'')}${l.g&&x.gs.size>1?' · '+esc(l.g):''}</span></td><td class="n num">${l.pax}</td></tr>`).join('')).join('');
     return `<article class="vcard2" id="veh_${id}"><div class="vtop"><div><div class="vn">${esc(x.v)}</div><div class="hint">${esc([...x.gs].join(', ')||'гид не указан')} · ${x.legs.length} заб. · ${x.pax} чел</div></div><span class="vnow ${st.busy?'busy':''} ${st.done?'done':''}">${esc(st.txt)}</span></div>
     <div class="vfields"><label>Номер<input id="pl_${id}" data-v="${esc(x.v)}" data-f="plate" value="${esc(a.plate||'')}" placeholder="07 ABC 123"></label><label>Телефон водителя<input id="ph_${id}" data-v="${esc(x.v)}" data-f="phone" value="${esc(a.phone||'')}" placeholder="05xx xxx xx xx" inputmode="tel"></label><label>Водитель<input id="dr_${id}" data-v="${esc(x.v)}" data-f="driver" value="${esc(a.driver||'')}" placeholder="Имя"></label><label>Мест<input id="cp_${id}" data-v="${esc(x.v)}" data-f="cap" value="${esc(a.cap||'')}" placeholder="${CAP(x.v)}" inputmode="numeric"></label></div>
     ${warn.length?`<div class="vwarn">${warn.join('')}</div>`:''}
@@ -384,7 +384,7 @@ function runChecks(){
     const g=rs[0].g,v=rs[0].v;const pus=rs.map(r=>toMin(r.pu));const last=rs.reduce((a,b)=>toMin(b.pu)>toMin(a.pu)?b:a);
     const start=Math.min(...pus),atAirport=toMin(last.pu)+TRAVEL(last.h);
     const meets=A.filter(a=>a.g&&gkey(a.g)===gkey(g)&&a.v!==v&&toMin(a.t)>start&&toMin(a.t)<atAirport-10);
-    if(meets.length){const who=[...new Set(meets.map(m=>m.g))].join(' / ');out.push(['warn',`${g}: забор и встреча одновременно`,`На ${v} забирает гостей ${fmt(start)}–${last.pu} и будет в аэропорту около ${fmt(atAirport)}. В это же время ${who} должен встречать ${[...new Set(meets.map(m=>normFl(m.fl)+' в '+m.t))].join(', ')}.`])}
+    if(meets.length){const who=[...new Set(meets.map(m=>m.g))].join(' / ');out.push(['warn',`${g}: сбор и встреча одновременно`,`На ${v} забирает гостей ${fmt(start)}–${last.pu} и будет в аэропорту около ${fmt(atAirport)}. В это же время ${who} должен встречать ${[...new Set(meets.map(m=>normFl(m.fl)+' в '+m.t))].join(', ')}.`])}
   });
   // pickup gaps
   D.forEach(r=>{if(!r.pu||/^[!?]/.test(r.fl))return;let gap=toMin(r.t)-toMin(r.pu);if(gap<0)gap+=1440;const need=TRAVEL(r.h)+(r.term==='İÇ'?60:110);
@@ -442,7 +442,7 @@ function taskHead(t,showGuide){
   const g0=t.groups[0];
   if(t.kind==='arr'){const f=t.f,st=f?fStatus(f,NOW):null;const late=f&&f.delay>=15&&(f.live||NOW>=f.delayKnownAt);
     return `<div class="tt ${late?'late':''} num">${late?`<s>${g0.t}</s>`:''}${fmt(t.time)}<small>${st&&st.k==='land'?'сел':'посадка'}</small></div><div><div class="kind arr">Встреча</div><div class="ttl">${esc(f?[...f.codes].join(' / '):g0.fl)}</div><div class="sub">${esc(CITY[g0.org]||g0.org||'')} · ${g0.to==='GZP'?'<b>Газипаша</b>':termLbl(g0.term)} · ${esc(g0.v||'без машины')}</div></div>${st?`<span class="status ${st.k} st"><span class="dot"></span>${st.lbl}</span>`:''}`}
-  return `<div class="tt num">${esc(g0.pu||g0.t)}<small>выезд</small></div><div><div class="kind dep">Забор из отеля</div><div class="ttl">${esc(g0.h)}</div><div class="sub">→ ${/^[!?]/.test(g0.fl)?'рейс не указан':esc(normFl(g0.fl))} в ${esc(g0.t)} · ${termLbl(g0.term)} · ${esc(g0.v||'')}${g0.note?' · '+esc(g0.note):''}</div></div><span class="chip st">${t.groups.reduce((s,x)=>s+(+x.pax||0),0)} чел</span>`;
+  return `<div class="tt num">${esc(g0.pu||g0.t)}<small>выезд</small></div><div><div class="kind dep">Сбор из отеля</div><div class="ttl">${esc(g0.h)}</div><div class="sub">→ ${/^[!?]/.test(g0.fl)?'рейс не указан':esc(normFl(g0.fl))} в ${esc(g0.t)} · ${termLbl(g0.term)} · ${esc(g0.v||'')}${g0.note?' · '+esc(g0.note):''}</div></div><span class="chip st">${t.groups.reduce((s,x)=>s+(+x.pax||0),0)} чел</span>`;
 }
 // passengers still expected first; the ones already marked go into a "Вышли" box with the time
 function paxRows(g,kind){
@@ -481,7 +481,7 @@ function renderGuide(){
   const tasks=guideTasks(g);
   const vehs=[...new Set(tasks.flatMap(t=>t.groups.map(x=>x.v)).filter(Boolean))];
   const tot=tasks.reduce((s,t)=>s+t.total,0),done=tasks.reduce((s,t)=>s+t.done,0);
-  $('#guideHead').innerHTML=`<div class="ghead"><div class="gname">${esc(g)}</div><div class="gmeta">${vehs.map(v=>{const a=assign[v]||{};return `<span><b>${esc(v)}</b>${a.plate?' · '+esc(a.plate):''}${a.phone?' · водитель '+esc(a.phone):''}</span>`}).join('')}</div><div class="gmeta"><span><b>${tasks.filter(t=>t.kind==='arr').length}</b> встреч</span><span><b>${tasks.filter(t=>t.kind==='dep').length}</b> заборов</span><span><b>${tot}</b> гостей</span><span>отмечено <b>${done}</b></span></div></div>`;
+  $('#guideHead').innerHTML=`<div class="ghead"><div class="gname">${esc(g)}</div><div class="gmeta">${vehs.map(v=>{const a=assign[v]||{};return `<span><b>${esc(v)}</b>${a.plate?' · '+esc(a.plate):''}${a.phone?' · водитель '+esc(a.phone):''}</span>`}).join('')}</div><div class="gmeta"><span><b>${tasks.filter(t=>t.kind==='arr').length}</b> встреч</span><span><b>${tasks.filter(t=>t.kind==='dep').length}</b> сборов</span><span><b>${tot}</b> гостей</span><span>отмечено <b>${done}</b></span></div></div>`;
   const hide=$('#hideDone').checked;
   const nextIdx=tasks.findIndex(t=>!t.complete&&t.time+60>=NOW);
   $('#tasks').innerHTML=tasks.map((t,ti)=>hide&&t.complete?'':taskCard(t,'g'+ti,{next:ti===nextIdx})).join('')||'<p class="hint">Все задания выполнены.</p>';
@@ -520,7 +520,7 @@ function renderGuests(){
     const a=vs.map(v=>{const x=assign[v]||{};return esc(v)+(x.plate?' · '+esc(x.plate):'')+(x.phone?' · водитель '+esc(x.phone):'')}).join(', ');
     const head=t.kind==='arr'
       ?`<div class="tt num">${fmt(t.time)}</div><div class="route"><b>${esc(t.f?[...t.f.codes].join(' / '):g0.fl)}</b> из ${esc(CITY[g0.org]||g0.org||'?')} · ${g0.to==='GZP'?'Газипаша':termLbl(g0.term)}<br>${a||'без машины'}</div>`
-      :`<div class="tt num">${esc(g0.pu||g0.t)}</div><div class="route"><b>Забор из отеля</b> · ${t.groups.length} рейс(ов) · ${t.groups.reduce((s,x)=>s+(+x.pax||0),0)} чел<br>${a||'без машины'}</div>`;
+      :`<div class="tt num">${esc(g0.pu||g0.t)}</div><div class="route"><b>Сбор из отеля</b> · ${t.groups.length} рейс(ов) · ${t.groups.reduce((s,x)=>s+(+x.pax||0),0)} чел<br>${a||'без машины'}</div>`;
     return `<section class="gtrip"><div class="gtrip-h">${head}</div>${hs.map(([h,gs])=>`<div class="ghotel"><div class="ghotel-h"><span class="to">${t.kind==='arr'?'→ '+esc(h):'Из '+esc(h)}</span><span class="hint">${t.kind==='arr'?gs.map(x=>esc(x.op||'')+' · '+x.pax+' чел').join(' · '):gs.reduce((s,x)=>s+(+x.pax||0),0)+' чел'}</span></div>${gs.map(x=>(t.kind==='dep'?`<div class="gp" style="margin:2px 0">→ <b>${esc(/^[!?]/.test(x.fl)?'рейс не указан':normFl(x.fl))}</b> ${esc(x.t)} · ${termLbl(x.term)} · ${esc(x.op||'')} · ${x.pax} чел${x.note?` <span class="gnote">${esc(x.note)}</span>`:''}</div>`:'')+(x.p&&x.p.length?`<div class="rooms">${roomsOf(x).map(r=>`<div class="roomc"><span class="rh">${r.e.room?'Комната '+r.e.room+' · ':''}${esc([r.e.type,r.e.board,r.e.stay].filter(Boolean).join(' · '))}${r.e.voucher?' · ваучер '+esc(r.e.voucher):''}</span>${r.people.map(([p])=>`<span class="gp">${p[0]==='Chd'?'<span class="badge">ребёнок</span>':p[0]==='Inf'?'<span class="badge inf">младенец</span>':''}<span>${q&&p[1].includes(q)?`<mark>${esc(p[0]+' '+p[1])}</mark>`:esc(p[0]+' '+p[1])}</span>${p[2]?`<small>${esc(p[2])} лет</small>`:''}</span>${ex(p).note?`<span class="gnote">${esc(ex(p).note)}</span>`:''}`).join('')}</div>`).join('')}</div>`:(t.kind==='arr'?`<p class="hint">${x.pax} гостей, имён нет.</p>`:''))).join('')}</div>`).join('')}</section>`;
   }).join('');
 }
@@ -550,12 +550,12 @@ function renderOps(){
   const sum=(arr,f)=>arr.reduce((s,t)=>s+f(t),0);
   const waiting=sum(open,t=>t.total-t.res),out=sum(tasks,t=>t.done);
   const wArr=sum(open.filter(t=>t.kind==='arr'),t=>t.total-t.res),wDep=waiting-wArr;
-  $('#opsSum').innerHTML=[['Ждём',waiting,`встречи ${wArr} · заборы ${wDep}`],['Вышли',out,'отмечено гидами'],['Не пришли',noShows.length,noShows.length?'нужно разобраться':'пока нет'],['Закрыто',`${done.length}/${tasks.length}`,'заданий выполнено']].map(([k,v,s],i)=>`<div class="stat${i===2&&noShows.length?' alert':''}"><div class="k">${k}</div><div class="v num">${v}</div><div class="s">${s}</div></div>`).join('');
+  $('#opsSum').innerHTML=[['Ждём',waiting,`встречи ${wArr} · сборы ${wDep}`],['Вышли',out,'отмечено гидами'],['Не пришли',noShows.length,noShows.length?'нужно разобраться':'пока нет'],['Закрыто',`${done.length}/${tasks.length}`,'заданий выполнено']].map(([k,v,s],i)=>`<div class="stat${i===2&&noShows.length?' alert':''}"><div class="k">${k}</div><div class="v num">${v}</div><div class="s">${s}</div></div>`).join('');
   $('#opsWait').innerHTML=now.length?now.map((t,i)=>taskCard(t,'on'+i,{showGuide:true,next:i===0})).join(''):'<p class="hint">Сейчас никого не ждём.</p>';
   $('#opsNo').innerHTML=noShows.length?noShows.map(x=>`<div class="noshow"><div><b>${esc(x.p[0]+' '+x.p[1])}</b><span class="hint">${esc(x.t.kind==='arr'?normFl(x.g.fl)+' → '+x.g.h:x.g.h+' → '+normFl(x.g.fl))} · ${esc(x.g.op||'')}</span><span class="hint">${esc(x.g.g||'')} · ${esc(x.g.v||'')}${x.at!=null?' · отмечен в '+fmt(x.at):''}</span></div><button class="btn" type="button" data-mk="${x.g.id}|${x.i}|no">Вернуть</button></div>`).join(''):'<p class="hint">Все, кого отметили, вышли.</p>';
   $('#opsLaterN').textContent=later.length;$('#opsStaleN').textContent=stale.length;$('#opsStaleBox').hidden=!stale.length;
   $('#opsStale').innerHTML=stale.map((t,i)=>taskCard(t,'os'+i,{showGuide:true})).join('');$('#opsDoneN').textContent=done.length;
-  $('#opsLater').innerHTML=later.map(t=>`<tr><td class="tm num">${fmt(t.time)}</td><td><span class="act ${t.kind}">${t.kind==='arr'?'Встреча':'Забор'}</span> ${esc(t.kind==='arr'?(t.f?[...t.f.codes].join(' / '):t.groups[0].fl):t.groups[0].h)}<br><span class="hint">${esc(t.groups.map(g=>t.kind==='arr'?g.h:normFl(g.fl)+' '+g.t).join(', '))}</span></td><td>${esc(t.guide||'—')}<br><span class="hint">${esc([...new Set(t.groups.map(g=>g.v))].join(', '))}</span></td><td class="n num">${t.total}</td></tr>`).join('');
+  $('#opsLater').innerHTML=later.map(t=>`<tr><td class="tm num">${fmt(t.time)}</td><td><span class="act ${t.kind}">${t.kind==='arr'?'Встреча':'Сбор'}</span> ${esc(t.kind==='arr'?(t.f?[...t.f.codes].join(' / '):t.groups[0].fl):t.groups[0].h)}<br><span class="hint">${esc(t.groups.map(g=>t.kind==='arr'?g.h:normFl(g.fl)+' '+g.t).join(', '))}</span></td><td>${esc(t.guide||'—')}<br><span class="hint">${esc([...new Set(t.groups.map(g=>g.v))].join(', '))}</span></td><td class="n num">${t.total}</td></tr>`).join('');
   $('#opsDone').innerHTML=done.slice().reverse().map((t,i)=>taskCard(t,'od'+i,{showGuide:true})).join('');
   renderOpsGuides(fg);
   renderWaOut(tasks);
@@ -567,7 +567,7 @@ function renderOpsGuides(sel){
   const rows=guides().map(g=>{const ts=all.filter(t=>t.guide===g);const open=ts.filter(t=>!t.complete);const next=open.find(t=>t.time>=NOW-90)||open[0];
     const out=ts.reduce((s,t)=>s+t.done,0),tot=ts.reduce((s,t)=>s+t.total,0),no=ts.reduce((s,t)=>s+t.no,0),stale=open.filter(t=>t.time<NOW-90).length;
     const vs=[...new Set(ts.flatMap(t=>t.groups.map(x=>x.v)).filter(Boolean))];
-    const nx=next?`${fmt(next.time)} ${next.kind==='arr'?'встреча '+(next.f?[...next.f.codes][0]:normFl(next.groups[0].fl)):'забор '+next.groups[0].h}`:'всё закрыто';
+    const nx=next?`${fmt(next.time)} ${next.kind==='arr'?'встреча '+(next.f?[...next.f.codes][0]:normFl(next.groups[0].fl)):'сбор '+next.groups[0].h}`:'всё закрыто';
     return `<div class="gcard${sel===g?' on':''}"><button type="button" class="gc-name" data-pick="${esc(g)}">${esc(g)}</button>
       <input class="gc-ph" id="gp_${esc(g).replace(/\W/g,'_')}" data-gp="${esc(g)}" value="${esc(gPhone(g))}" placeholder="телефон гида" inputmode="tel" aria-label="Телефон ${esc(g)}">
       <span class="gc-veh">${esc(vs.join(', ')||'без машины')}</span>
@@ -575,7 +575,7 @@ function renderOpsGuides(sel){
       <span class="gc-next ${next?'':'hint'}">Дальше: ${esc(nx)}</span>${out?`<button type="button" class="btn gc-copy" data-gcopy="${esc(g)}">📋 Вышедшие (${out})</button>`:''}</div>`}).join('');
   $('#opsGuides').innerHTML=rows;
   $('#opsGuides').querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{const g=b.dataset.pick;$('#opsGuide').value=$('#opsGuide').value===g?'':g;renderOps();$('#opsWait').scrollIntoView?.({behavior:'smooth',block:'start'})});
-  $('#opsGuides').querySelectorAll('[data-gcopy]').forEach(b=>b.onclick=async()=>{const g=b.dataset.gcopy;const r=exitedText(buildTasks(t=>t.g===g),{...woOpts(),onlyNew:false});if(r.text)await copy(r.text)});
+  $('#opsGuides').querySelectorAll('[data-gcopy]').forEach(b=>b.onclick=async()=>{const g=b.dataset.gcopy;const r=exitedText(buildTasks(t=>t.g===g),{...woOpts(),onlyNew:false});if(r.text)await copy(r.text,true)});
   $('#opsGuides').querySelectorAll('[data-gp]').forEach(i=>i.addEventListener('change',e=>{GP[e.target.dataset.gp]=e.target.value.trim();saveGP();renderOps()}));
 }
 ['#opsGuide','#opsKind'].forEach(s=>$(s).addEventListener('change',renderOps));$('#opsQ').addEventListener('input',renderOps);
@@ -620,7 +620,7 @@ function renderWaOut(tasks){
   $('#waOutCnt').textContent=r.total?`· ${r.total} ${$('#woNew').checked?'новых':'всего'}`:'';
   $('#woCopy').disabled=!r.text;
 }
-$('#woCopy').onclick=async()=>{const r=exitedText(woTasks,woOpts());if(!r.text)return;await copy(r.text);
+$('#woCopy').onclick=async()=>{const r=exitedText(woTasks,woOpts());if(!r.text)return;await copy(r.text,true);
   r.keys.forEach(k=>{const m=k.match(/^(.*\|n)=(\d+)$/);if(m)SENT[m[1]]=+m[2];else SENT[k]=1});store.set('sent_'+dayKey,SENT);renderOps()};
 $('#woReset').onclick=()=>{SENT={};store.set('sent_'+dayKey,SENT);renderOps();toast('Все вышедшие снова попадут в сообщение')};
 ['#woNew','#woTime','#woNo','#woLang'].forEach(id=>$(id).addEventListener('change',()=>renderWaOut(woTasks)));
@@ -664,7 +664,7 @@ function renderWaLate(){
   $('#wlCopy').disabled=!r.text;
   const all=lateFlights({...wlOpts(),onlyNew:false,landed:false});$('#boardLateCopy').textContent=all.length?`✈ Скопировать задержки (${all.length})`:'✈ Задержек нет';$('#boardLateCopy').disabled=!all.length;
 }
-async function copyLate(o){const r=lateText(o);if(!r.text)return;await copy(r.text);r.list.forEach(f=>SENTD[f.key]=lateSig(f));store.set('sentd_'+dayKey,SENTD);renderWaLate()}
+async function copyLate(o){const r=lateText(o);if(!r.text)return;await copy(r.text,true);r.list.forEach(f=>SENTD[f.key]=lateSig(f));store.set('sentd_'+dayKey,SENTD);renderWaLate()}
 $('#wlCopy').onclick=()=>copyLate(wlOpts());
 $('#boardLateCopy').onclick=()=>copyLate({...wlOpts(),onlyNew:false,landed:false});
 $('#wlReset').onclick=()=>{SENTD={};store.set('sentd_'+dayKey,SENTD);renderWaLate();toast('Все задержки снова попадут в сообщение')};
@@ -810,6 +810,9 @@ const views=['board','ops','dep','veh','guide','checks','contacts','data'];
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b)return;
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t===b));
   views.forEach(v=>$('#v-'+v).hidden=v!==b.dataset.t);store.set('tab',b.dataset.t)});
+document.querySelector('header .brand').appendChild(langSwitch());$('#loginForm').prepend(langSwitch());
+['#woLang','#wlLang'].forEach(id=>{const el=$(id);if(el)el.value=LANG});
+i18nStart();
 if(SERVER)serverBoot();else loadDay(dayKey);
 setGuideMode(guideMode);
 const lastTab=store.get('tab','board');const tb=document.querySelector(`.tab[data-t="${lastTab}"]`);if(tb)tb.click();

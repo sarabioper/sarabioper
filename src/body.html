@@ -114,6 +114,10 @@
 .bk{display:grid;gap:2px;border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--sunk)}
 .lnote{display:block;font-size:11px;color:var(--muted);line-height:1.3}
 .lnote.stale{color:var(--warn)}
+.langsw{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-left:auto}
+.langsw button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:600;padding:4px 9px;cursor:pointer;min-height:28px}
+.langsw button[aria-pressed="true"]{background:var(--ink,#111);color:var(--bg,#fff)}
+.login-card .langsw{align-self:flex-end}
 .daycheck{display:flex;gap:8px;flex-wrap:wrap}
 .daycheck span{font-weight:600;padding:2px 8px;border-radius:4px}
 .daycheck .ok{background:var(--ok-soft);color:var(--ok)}
@@ -223,7 +227,7 @@ mark{background:var(--signal-soft);color:inherit}
     <div class="summary" id="opsSum"></div>
     <div class="filters">
       <select id="opsGuide" aria-label="Гид"><option value="">Все гиды</option></select>
-      <select id="opsKind" aria-label="Тип"><option value="">Встречи и заборы</option><option value="arr">Только встречи</option><option value="dep">Только заборы</option></select>
+      <select id="opsKind" aria-label="Тип"><option value="">Встречи и сборы</option><option value="arr">Только встречи</option><option value="dep">Только сборы</option></select>
       <input id="opsQ" placeholder="Гид, фамилия, рейс или отель" aria-label="Поиск">
     </div>
     <details class="ops-box late-box" id="waLateBox"><summary>✈ Задержки рейсов для WhatsApp <span class="hint" id="waLateCnt"></span></summary>
@@ -247,7 +251,7 @@ mark{background:var(--signal-soft);color:inherit}
           <label><input type="checkbox" id="woNo" checked> кто не пришёл</label>
           <label>язык <select id="woLang"><option value="tr">Türkçe</option><option value="ru">Русский</option></select></label>
         </div>
-        <p class="hint">Берутся гости с учётом фильтров выше: гид, встречи или заборы, поиск.</p>
+        <p class="hint">Берутся гости с учётом фильтров выше: гид, встречи или сборы, поиск.</p>
         <div class="msgbox" id="waOut"></div>
         <div class="vfoot" style="padding:0"><button class="btn primary" type="button" id="woCopy">Скопировать и отметить как отправленные</button><button class="btn" type="button" id="woReset">Сбросить «отправленные»</button></div>
       </div>
@@ -277,7 +281,7 @@ mark{background:var(--signal-soft);color:inherit}
 
   <section id="v-veh" hidden>
     <div class="summary" id="sumVeh"></div>
-    <div class="vt-head"><h2 style="margin:0">День машин</h2><span class="hint">Синие блоки: встреча в аэропорту и дорога в отель. Жёлтые: забор из отеля и дорога в аэропорт. Красная рамка: перегруз.</span></div>
+    <div class="vt-head"><h2 style="margin:0">День машин</h2><span class="hint">Синие блоки: встреча в аэропорту и дорога в отель. Жёлтые: сбор из отеля и дорога в аэропорт. Красная рамка: перегруз.</span></div>
     <div class="gantt-wrap"><div class="gantt" id="gantt"></div></div>
     <div class="split">
       <div class="vlist" id="vgrid"></div>
