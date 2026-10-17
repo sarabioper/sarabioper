@@ -996,7 +996,10 @@ function buildFlights(){
     f.delay=dl;f.eta=f.sched+dl;f.dur=DUR[f.org]||150;f.dep=f.sched-f.dur;
     f.delayKnownAt=f.dep+Math.min(30,f.dur/3);
     f.live=liveFor(f);
-    if(f.live){const L=f.live;const e=L.act||L.est;f.eta=e?toMin(e):f.sched;f.delay=Math.max(0,f.eta-f.sched);
+    if(f.live){const L=f.live;const e=L.act||L.est;
+      // no new landing time from the service: shift by the departure delay if we know it
+      f.estFrom=L.act?'act':L.est?'est':(L.depDelay>0?'dep':'');
+      f.eta=e?toMin(e):(L.depDelay>0?f.sched+(+L.depDelay):f.sched);f.delay=Math.max(0,f.eta-f.sched);
       if(L.depAct)f.dep=toMin(L.depAct);else if(L.depEst)f.dep=toMin(L.depEst);
       if(f.eta<f.dep)f.dep-=1440;f.delayKnownAt=Math.max(0,Math.min(f.dep,f.sched-60));}
     f.pax=f.groups.reduce((s,g)=>s+g.pax,0);
@@ -1007,9 +1010,18 @@ function fStatus(f,now){
   if(f.live){const L=f.live,d=f.delay;
     if(L.status==='cancelled')return {k:'late',lbl:'Рейс отменён',eta:f.eta};
     if(L.status==='diverted')return {k:'late',lbl:'Ушёл на запасной',eta:f.eta};
-    if(L.act||L.status==='landed')return {k:'land',lbl:'Приземлился '+fmt(f.eta),eta:f.eta};
-    if(L.status==='active'||L.status==='en-route'){const p=Math.max(0,Math.min(1,(now-f.dep)/Math.max(1,f.eta-f.dep)));return {k:d>=15?'late':'air',lbl:d>=15?'В воздухе, +'+d+' мин':'В воздухе',eta:f.eta,p}}
-    return {k:d>=15?'late':'sched',lbl:d>=15?'Задержка +'+d+' мин':'По расписанию',eta:f.eta};
+    if(L.act||L.status==='landed')return {k:'land',lbl:'Приземлился '+fmt(L.act?toMin(L.act):f.eta),eta:L.act?toMin(L.act):f.eta};
+    const over=now-f.eta; // minutes past the expected landing with no landing reported
+    if(L.status==='active'||L.status==='en-route'){const p=Math.max(0,Math.min(1,(now-f.dep)/Math.max(1,f.eta-f.dep)));
+      if(over>10)return {k:'late',lbl:`В воздухе · посадка не подтверждена (+${now-f.sched} мин от расписания)`,eta:now,p:1};
+      return {k:d>=15?'late':'air',lbl:d>=15?`В воздухе · посадка ~${fmt(f.eta)} (+${d} мин)`:`В воздухе · посадка ~${fmt(f.eta)}`,eta:f.eta,p}}
+    if(over>10)return {k:'late',lbl:`Не сел · опаздывает на ${now-f.sched} мин${f.estFrom?'':', нового времени нет'}`,eta:now};
+    if(d>=15)return {k:'late',lbl:`Задержка +${d} мин · посадка ~${fmt(f.eta)}${f.estFrom==='dep'?' (по вылету)':''}`,eta:f.eta};
+    return {k:'sched',lbl:'По расписанию',eta:f.eta};
+  }
+  if(SERVER&&LIVE&&LIVE.date===DAY.iso){
+    if(now<f.sched-10)return {k:'sched',lbl:'По расписанию · нет живых данных',eta:f.sched};
+    return {k:'sched',lbl:now>f.sched+10?'Нет данных о посадке':'Посадка по расписанию · нет живых данных',eta:f.sched};
   }
   const vis=now>=f.delayKnownAt;const eta=vis?f.eta:f.sched;
   if(now<f.dep)return {k:'sched',lbl:'По расписанию',eta};
@@ -1038,8 +1050,11 @@ function renderBoard(){
     const expected=DOMESTIC.has(f.org)?'İÇ':'DIŞ';
     const terms=[...new Set(f.groups.map(g=>g.term))];
     const vehs=[...new Set(gs.map(g=>g.v||'—'))];
-    const timeCol=st.k!=='sched'&&f.delay&&NOW>=f.delayKnownAt
-      ?`<span class="sch struck num">${f.t}</span><span class="eta num">${fmt(f.eta)}</span><span class="hint" style="font-size:11px">расч. посадка</span>`
+    const overdue=/Не сел|не подтверждена/.test(st.lbl);
+    const showEta=f.live?(f.delay>0&&!overdue):(st.k!=='sched'&&f.delay&&NOW>=f.delayKnownAt);
+    const timeCol=showEta
+      ?`<span class="sch struck num">${f.t}</span><span class="eta num">${fmt(st.k==='land'?st.eta:f.eta)}</span><span class="hint" style="font-size:11px">${st.k==='land'?'сел':'расч. посадка'}</span>`
+      :overdue?`<span class="sch num" style="color:var(--warn)">${f.t}</span><span class="hint" style="font-size:11px;color:var(--warn)">ещё не сел</span>`
       :`<span class="sch num">${f.t}</span><span class="hint" style="font-size:11px">${st.k==='land'?'сел':'посадка'}</span>`;
     html+=`<article class="flight">
       <div class="time">${timeCol}</div>
