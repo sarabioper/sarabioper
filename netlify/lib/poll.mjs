@@ -1,5 +1,5 @@
 import { store, istanbulNow } from "./common.mjs";
-import { airLabsAirport, airLabsFlight, aviationstackAirport } from "./providers.mjs";
+import { airLabsAirport, airLabsFlight, aviationstackAirport, aviationstackFlight } from "./providers.mjs";
 import { activeFlights, missingSoon, toMin } from "./watch.mjs";
 
 // The flight list comes from the uploaded KAPAK. No KAPAK for today -> no requests at all.
@@ -39,7 +39,7 @@ export async function poll({ force = false } = {}) {
   // 1) AirLabs
   if (airlabsKey && (force || minsSince("AirLabs") >= Number(process.env.AIRLABS_EVERY_MIN || 20) - 1)) {
     try {
-      const r = await airLabsAirport(airlabsKey, watch, Number(process.env.AIRLABS_PAGES || 1));
+      const r = await airLabsAirport(airlabsKey, watch, Number(process.env.AIRLABS_PAGES || 1), now.date);
       count("AirLabs", r.requests); meta.lastAirLabs = new Date().toISOString();
       Object.assign(found, r.flights); provider = "AirLabs";
       // single-flight requests for ours that the airport list missed
@@ -58,17 +58,27 @@ export async function poll({ force = false } = {}) {
   if (avsWanted) {
     const left = Number(process.env.AVS_MONTHLY_LIMIT || 100) - (meta.used.Aviationstack || 0);
     const leftToday = Number(process.env.AVS_PER_DAY || 3) - (meta.today.Aviationstack || 0);
+    // our flights landing within 90 minutes, or already late and still not landed
     const soon = active.filter((w) => {
       const l = snap.flights[w.code];
       const eta = toMin((l && l.est) || w.sch);
-      return eta - nowMin <= 90 && eta - nowMin >= -20;
+      return eta - nowMin <= 90;
     });
-    const due = soon.length > 0 && minsSince("Aviationstack") >= 120;
+    const every = Number(process.env.AVS_EVERY_MIN || 120);
+    const due = soon.length > 0 && minsSince("Aviationstack") >= every - 1;
     if (left > 0 && (force || (due && leftToday > 0))) {
       try {
-        const r = await aviationstackAirport(avsKey, watch, 1);
+        const r = await aviationstackAirport(avsKey, watch, Number(process.env.AVS_PAGES || 1), now.date);
         count("Aviationstack", r.requests); meta.lastAviationstack = new Date().toISOString();
         Object.assign(found, r.flights); provider = provider || "Aviationstack";
+        // paid plans: ask by flight number for the ones that matter right now
+        const single = Number(process.env.AVS_SINGLE_PER_POLL || 0);
+        const need = soon.filter((w) => { const l = found[w.code] || snap.flights[w.code]; return !l || !(l.est || l.act); }).slice(0, single);
+        for (const w of need) {
+          if (Number(process.env.AVS_MONTHLY_LIMIT || 100) - (meta.used.Aviationstack || 0) <= 0) break;
+          const rec = await aviationstackFlight(avsKey, w.code, now.date); count("Aviationstack", 1);
+          if (rec) found[w.code] = rec;
+        }
       } catch (e) { errors.push(String(e.message || e)); }
     }
   }
@@ -77,7 +87,8 @@ export async function poll({ force = false } = {}) {
     if (errors.length) { meta.lastError = errors.join(" / "); await s.setJSON("live/meta", meta); return { error: meta.lastError }; }
     return { skipped: "Не время для запроса", active: active.length, used: meta.used };
   }
-  for (const [k, v] of Object.entries(found)) { if (!v.date || v.date === now.date) snap.flights[k] = v; }
+  const stamp = new Date().toISOString();
+  for (const [k, v] of Object.entries(found)) { if (!v.date || v.date === now.date) snap.flights[k] = { ...v, at: stamp, src: provider }; }
   snap.updated = new Date().toISOString();
   snap.provider = provider;
   await s.setJSON(snapKey, snap);

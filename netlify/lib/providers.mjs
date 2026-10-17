@@ -32,15 +32,16 @@ const fromAvsRow = (x) => {
     depDelay: d.delay ?? null,
     from: d.iata || "",
     term: a.terminal || "",
-    date: x.flight_date || String(a.scheduled || "").slice(0, 10),
+    date: String(a.scheduled || "").slice(0, 10) || x.flight_date,
   };
 };
 
 // Keep only the flights we watch (from KAPAK). Codeshares are matched too.
-function collect(rows, toRec, codeOf, csOf, watch) {
+function collect(rows, toRec, codeOf, csOf, watch, today) {
   const out = {};
   for (const x of rows) {
     const rec = toRec(x);
+    if (today && rec.date && rec.date !== today) continue;
     for (const c of [codeOf(x), csOf(x)].filter(Boolean)) {
       const k = flKey(c);
       if (!watch || watch[k]) out[k] = rec;
@@ -50,7 +51,7 @@ function collect(rows, toRec, codeOf, csOf, watch) {
 }
 
 // One request = every arrival into AYT. Cheapest way to cover many flights.
-export async function airLabsAirport(key, watch, pages = 1) {
+export async function airLabsAirport(key, watch, pages = 1, today) {
   let flights = {}, requests = 0;
   for (let page = 0; page < pages; page++) {
     const r = await fetch(`https://airlabs.co/api/v9/schedules?arr_iata=${AIRPORT}&limit=50&offset=${page * 50}&api_key=${encodeURIComponent(key)}`);
@@ -58,7 +59,7 @@ export async function airLabsAirport(key, watch, pages = 1) {
     const body = await r.json();
     if (body.error) throw new Error("AirLabs: " + (body.error.message || JSON.stringify(body.error)));
     const rows = body.response || [];
-    Object.assign(flights, collect(rows, fromAirLabsRow, (x) => x.flight_iata, (x) => x.cs_flight_iata, watch));
+    Object.assign(flights, collect(rows, fromAirLabsRow, (x) => x.flight_iata, (x) => x.cs_flight_iata, watch, today));
     if (rows.length < 50) break;
   }
   return { provider: "AirLabs", flights, requests };
@@ -74,7 +75,7 @@ export async function airLabsFlight(key, code) {
   return fromAirLabsRow(x);
 }
 
-export async function aviationstackAirport(key, watch, pages = 1) {
+export async function aviationstackAirport(key, watch, pages = 1, today) {
   let flights = {}, requests = 0;
   for (let page = 0; page < pages; page++) {
     const r = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${encodeURIComponent(key)}&arr_iata=${AIRPORT}&limit=100&offset=${page * 100}`);
@@ -82,9 +83,18 @@ export async function aviationstackAirport(key, watch, pages = 1) {
     const body = await r.json();
     if (body.error) throw new Error("Aviationstack: " + (body.error.message || body.error.code));
     const rows = body.data || [];
-    Object.assign(flights, collect(rows, fromAvsRow, (x) => x.flight && x.flight.iata, (x) => x.flight && x.flight.codeshared && x.flight.codeshared.flight_iata, watch));
+    Object.assign(flights, collect(rows, fromAvsRow, (x) => x.flight && x.flight.iata, (x) => x.flight && x.flight.codeshared && x.flight.codeshared.flight_iata, watch, today));
     const total = body.pagination ? body.pagination.total : rows.length;
     if ((page + 1) * 100 >= total) break;
   }
   return { provider: "Aviationstack", flights, requests };
+}
+
+// One request = one flight, only today's instance into AYT.
+export async function aviationstackFlight(key, code, today) {
+  const r = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${encodeURIComponent(key)}&flight_iata=${encodeURIComponent(code)}&arr_iata=${AIRPORT}`);
+  const body = await r.json();
+  if (body.error) throw new Error("Aviationstack: " + (body.error.message || body.error.code));
+  const recs = (body.data || []).map(fromAvsRow).filter((x) => !today || x.date === today);
+  return recs[0] || null;
 }

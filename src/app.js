@@ -139,7 +139,7 @@ function buildFlights(){
     f.delay=dl;f.eta=f.sched+dl;f.dur=DUR[f.org]||150;f.dep=f.sched-f.dur;
     f.delayKnownAt=f.dep+Math.min(30,f.dur/3);
     f.live=liveFor(f);
-    if(f.live){const L=f.live;const e=L.act||L.est;
+    if(f.live){const L=f.live=sanitizeLive(f.live,f.sched);const e=L.act||L.est;
       // no new landing time from the service: shift by the departure delay if we know it
       f.estFrom=L.act?'act':L.est?'est':(L.depDelay>0?'dep':'');
       f.eta=e?toMin(e):(L.depDelay>0?f.sched+(+L.depDelay):f.sched);f.delay=Math.max(0,f.eta-f.sched);
@@ -148,6 +148,19 @@ function buildFlights(){
     f.pax=f.groups.reduce((s,g)=>s+g.pax,0);
   });
 }
+// drop data that cannot be true for today's flight (yesterday's landing, a landing in the future)
+function sanitizeLive(L,sched){
+  const x={...L};const now=nowMinutes();
+  if(x.act&&(toMin(x.act)>now+5||toMin(x.act)<sched-180))x.act=null;
+  if(x.status==='landed'&&!x.act&&now<sched-30)x.status='scheduled';
+  if(x.est&&toMin(x.est)<sched-180)x.est=null;
+  return x;
+}
+const liveAge=L=>L&&L.at?Math.round((Date.now()-Date.parse(L.at))/60000):null;
+function liveNote(f){const L=f.live;if(!L)return '';const age=liveAge(L);
+  const parts=[`${L.src||(LIVE&&LIVE.provider)||'сервис'}${L.at?' · '+new Date(L.at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}):''}`,`статус: ${L.status||'—'}`,`по расписанию ${L.sch||f.t}`];
+  if(L.est)parts.push(`ожидается ${L.est}`);if(L.act)parts.push(`сел ${L.act}`);if(L.depDelay>0)parts.push(`вылет +${L.depDelay} мин`);
+  return `<small class="lnote${age!=null&&age>60&&!L.act?' stale':''}">${age!=null&&age>60&&!L.act?'⚠ данные старше часа · ':''}${esc(parts.join(' · '))}</small>`}
 function fStatus(f,now){
   if(f.unknown)return {k:'sched',lbl:'Рейс не указан',eta:f.sched};
   if(f.live){const L=f.live,d=f.delay;
@@ -194,9 +207,10 @@ function renderBoard(){
     const terms=[...new Set(f.groups.map(g=>g.term))];
     const vehs=[...new Set(gs.map(g=>g.v||'—'))];
     const overdue=/Не сел|не подтверждена/.test(st.lbl);
-    const showEta=f.live?(f.delay>0&&!overdue):(st.k!=='sched'&&f.delay&&NOW>=f.delayKnownAt);
+    const etaShown=st.k==='land'?st.eta:f.eta;
+    const showEta=f.live?(etaShown!==f.sched&&!overdue):(st.k!=='sched'&&f.delay&&NOW>=f.delayKnownAt);
     const timeCol=showEta
-      ?`<span class="sch struck num">${f.t}</span><span class="eta num">${fmt(st.k==='land'?st.eta:f.eta)}</span><span class="hint" style="font-size:11px">${st.k==='land'?'сел':'расч. посадка'}</span>`
+      ?`<span class="sch struck num">${f.t}</span><span class="eta num">${fmt(etaShown)}</span><span class="hint" style="font-size:11px">${st.k==='land'?'сел':'расч. посадка'}</span>`
       :overdue?`<span class="sch num" style="color:var(--warn)">${f.t}</span><span class="hint" style="font-size:11px;color:var(--warn)">ещё не сел</span>`
       :`<span class="sch num">${f.t}</span><span class="hint" style="font-size:11px">${st.k==='land'?'сел':'посадка'}</span>`;
     html+=`<article class="flight">
@@ -207,7 +221,7 @@ function renderBoard(){
         ${gs.map(g=>{const mc=metCount(g);return `<div class="grp"><span class="h">${esc(g.h)} <span class="op">${esc(g.op)}</span>${mc?` <span class="met">вышли ${mc}/${groupTotal(g)}</span>`:''}${g.note?` <span class="op">· ${esc(g.note)}</span>`:''}</span><span class="chip">${esc(g.v||'нет машины')}</span><span class="px">${g.pax} чел</span></div>`}).join('')}
       </div>
       <div class="side">
-        <span class="status ${st.k}"><span class="dot"></span>${st.lbl}</span>
+        <span class="status ${st.k}"><span class="dot"></span>${st.lbl}</span>${liveNote(f)}
         ${st.p!=null?`<div class="prog" aria-hidden="true"><i style="width:${Math.round(st.p*100)}%"></i></div>`:''}
         ${vehs.map(v=>{const a=assign[v]||{};const g=(gs.find(x=>(x.v||'—')===v)||{}).g;return `<div class="veh">${esc(v)} · ${esc(a.plate||'номер не назначен')}<small>${esc(g||'гид не указан')}</small></div>`}).join('')}
       </div>
