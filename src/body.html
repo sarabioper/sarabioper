@@ -174,6 +174,27 @@ a.tel{color:inherit;text-decoration:none;border-bottom:1px dotted currentColor;w
 .gp-tbl td{padding:7px 8px;border-top:1px solid var(--line)}
 .gp-tbl td.ph{font-variant-numeric:tabular-nums;white-space:nowrap}
 .gp-tbl td.act{white-space:nowrap;text-align:right}
+.scan-fab{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:40;border:0;border-radius:999px;padding:12px 18px;font:inherit;font-weight:700;font-size:15px;background:var(--ink,#111);color:var(--bg,#fff);box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer}
+.scan-sheet{position:fixed;inset:0;z-index:60;background:var(--bg);overflow-y:auto;padding:calc(10px + env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:10px}
+body.sc-open{overflow:hidden}
+body.sc-open .scan-fab{display:none}
+.sc-top{display:flex;justify-content:space-between;align-items:center;font-size:17px}
+.sc-cam{position:relative;border-radius:12px;overflow:hidden;background:#000;max-height:46vh;display:flex;justify-content:center}
+.sc-cam video{width:100%;max-height:46vh;object-fit:cover;display:block}
+.sc-frame{position:absolute;left:4%;right:4%;top:50%;transform:translateY(-50%);aspect-ratio:2.6/1;max-height:50%;border:3px solid #ffd54a;border-radius:10px;box-shadow:0 0 0 100vmax rgba(0,0,0,.35)}
+.sc-status{margin:0;font-weight:600;font-size:14px}
+.sc-tools{display:flex;flex-wrap:wrap;gap:8px}
+.sc-tools input[type=search]{flex:1 1 180px;min-width:0;font:inherit;font-size:16px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg)}
+.sc-priv{margin:0;font-size:12px}
+.sc-res{display:grid;gap:10px}
+.sc-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:8px}
+.sc-name{font-size:18px}
+.sc-route{font-size:14px;display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.sc-dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0;font-size:14px}
+.sc-dl dt{color:var(--muted)} .sc-dl dd{margin:0}
+.sc-act{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.sc-act .btn{min-height:42px;font-size:15px}
+@media (max-width:520px){.scan-fab span{display:none}}
 .daycheck{display:flex;gap:8px;flex-wrap:wrap}
 .daycheck span{font-weight:600;padding:2px 8px;border-radius:4px}
 .daycheck .ok{background:var(--ok-soft);color:var(--ok)}
@@ -430,5 +451,18 @@ mark{background:var(--signal-soft);color:inherit}
     <button class="btn primary" type="submit">Войти</button>
     <span class="hint" id="loginErr" role="alert"></span>
   </form>
+</div>
+<button type="button" class="scan-fab" id="scanBtn" aria-label="Найти гостя">📷 <span>Найти гостя</span></button>
+<div class="scan-sheet" id="scanSheet" hidden role="dialog" aria-modal="true" aria-label="Найти гостя">
+  <div class="sc-top"><b>📷 Найти гостя</b><button type="button" class="btn" id="scClose">Закрыть</button></div>
+  <div class="sc-cam" id="scCam" hidden><video id="scVideo" playsinline muted></video><div class="sc-frame" aria-hidden="true"></div></div>
+  <p class="sc-status" id="scStatus"></p>
+  <div class="sc-tools">
+    <label class="btn" for="scPhoto">📸 Сфотографировать</label><input type="file" id="scPhoto" accept="image/*" capture="environment" hidden>
+    <input type="search" id="scQ" placeholder="или фамилия: 3–4 буквы" aria-label="Фамилия гостя" autocomplete="off">
+    <button type="button" class="btn primary" id="scNext" hidden>Сканировать дальше</button>
+  </div>
+  <p class="hint sc-priv">Фото не сохраняется и никуда не отправляется: текст читается прямо на телефоне.</p>
+  <div id="scRes" class="sc-res"></div>
 </div>
 <div class="toast" id="toast" hidden></div>
