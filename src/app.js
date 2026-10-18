@@ -69,7 +69,7 @@ async function api(method,path,body){
 }
 let saveT={};
 function saveRemote(kind,data){if(!SERVER)return;clearTimeout(saveT[kind]);const k=dayKey;saveT[kind]=setTimeout(()=>api('PUT','/api/state?d='+encodeURIComponent(k)+'&kind='+kind,data).catch(()=>toast('Нет связи с сервером, изменения сохранены только здесь')),600)}
-function saveAssign(){store.set('assign_'+dayKey,assign);saveRemote('assign',assign)}
+let lastAssignSave=0;function saveAssign(){lastAssignSave=Date.now();store.set('assign_'+dayKey,assign);saveRemote('assign',assign)}
 function saveMet(){lastLocalMark=Date.now();store.set('met_'+dayKey,met);saveRemote('met',met)}
 function showLogin(err){$('#login').hidden=false;$('#loginErr').textContent=err||'';$('#loginPass').focus()}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();store.set('pass',$('#loginPass').value.trim().normalize('NFC'));$('#login').hidden=true;await serverBoot()});
@@ -325,8 +325,86 @@ function vehNow(x){
   return {busy:false,done:true,txt:'Работа на сегодня закончена'};
 }
 const legPlace=l=>l.kind==='arr'?`${/^[!?]/.test(l.fl)?'рейс не указан':normFl(l.fl)} · ${CITY[l.org]||l.org||''} → ${l.h}`:`${l.h} → ${/^[!?]/.test(l.fl)?'рейс не указан':normFl(l.fl)} ${l.ft}`;
+
+// ---- vehicles pasted from the WhatsApp group ("18.10.2026 - ARRİVAL / BUS 1 - 34 BTP 967 / 0542 763 1487")
+const TRUP=s=>String(s||'').replace(/i/g,'İ').replace(/ı/g,'I').toUpperCase();
+const vKey=s=>TRUP(s).replace(/İ/g,'I').replace(/Ç/g,'C').replace(/Ğ/g,'G').replace(/Ö/g,'O').replace(/Ş/g,'S').replace(/Ü/g,'U').replace(/[^A-Z0-9]/g,'')
+  .replace(/^(MINI|MIN)(?=\d|$)/,'MIN').replace(/^(MIDI|MID)(?=\d|$)/,'MIDI').replace(/^OTOBUS/,'BUS').replace(/^VITO/,'VITO');
+const V_LINE=/^(BUS|OTOB[ÜU]S|M[İI]N[İI]?|M[İI]D[İI]|V[İI]TO|VAN|SPR[İI]NTER|KAMYONET|MERCEDES)\s*\.?\s*(\d{0,3})\s*[-–—:]\s*(.+)$/;
+const fmtPhone=p=>{const d=p.replace(/\D/g,'').replace(/^90(?=5)/,'').replace(/^(?=5)/,'0');return d.length===11?`${d.slice(0,4)} ${d.slice(4,7)} ${d.slice(7,9)} ${d.slice(9)}`:p.trim()};
+function parseVehMsg(text){
+  const out={date:null,items:[],skipped:0};let side=null;
+  for(const raw of String(text).split(/\r?\n/)){
+    const line=raw.replace(/[‎‏‪-‮*_~]/g,'').replace(/^\[[^\]]*\]\s*[^:]*:\s*/,'').trim();if(!line)continue;
+    const up=TRUP(line);
+    const vm=up.match(V_LINE);
+    if(!vm){
+      const dm=line.match(/(\d{1,2})[./](\d{1,2})[./](\d{2,4})/);
+      if(/ARR[İI]VAL|ARR[İI]V|GEL[İI][SŞ]/.test(up))side='arr';
+      else if(/DEPAR|D[ÖO]N[ÜU][SŞ]|G[İI]D[İI][SŞ]/.test(up))side='dep';
+      else if(/\bTUR\b|TURU/.test(up))side='tour';
+      else{if(side==='tour'||/\d{2}\s*[A-ZÇĞİÖŞÜ]{1,3}\s*\d{2,4}/.test(up))out.skipped++;continue}
+      if(dm)out.date=String(dm[1]).padStart(2,'0')+'.'+String(dm[2]).padStart(2,'0');
+      continue;
+    }
+    if(side==='tour'){out.skipped++;continue}
+    const name=(vm[1].replace(/^OTOB[ÜU]S$/,'BUS')+(vm[2]?' '+vm[2]:'')).trim();
+    const plates=[],phones=[];
+    for(const part of vm[3].split(/\s\+\s*|\s*\+\s(?=\d)/)){
+      const pm=part.match(/(\d{2})\s*([A-ZÇĞİÖŞÜ]{1,3})\s*(\d{2,4})/);
+      let rest=part;if(pm){plates.push(`${pm[1]} ${pm[2]} ${pm[3]}`);rest=part.replace(pm[0],' ')}
+      const ph=rest.match(/(?:\+?90[\s-]*)?0?\s*5\d{2}[\s.-]*\d{3}[\s.-]*\d{2}[\s.-]*\d{2}/);if(ph)phones.push(fmtPhone(ph[0]));
+    }
+    if(!plates.length&&!phones.length)continue;
+    out.items.push({name,key:vKey(name),side,plate:plates.join(' + '),phone:phones.join(' / ')});
+  }
+  // a later message for the same vehicle wins
+  const seen=new Map();out.items.forEach(x=>seen.set(x.key,x));out.items=[...seen.values()];
+  return out;
+}
+let WP=null;
+function dayVehMap(){const m=new Map();if(!DAY)return m;[...DAY.arr,...DAY.dep,...(DAY.h2hList||[])].forEach(r=>{if(r&&r.v)m.set(vKey(r.v),r.v)});return m}
+function wpDiff(parsed){
+  const dm=dayVehMap();
+  return parsed.items.map(x=>{const v=dm.get(x.key)||x.name;const old=assign[v]||{};
+    const st=(old.plate||'')===x.plate&&(old.phone||'')===x.phone?'same':!dm.has(x.key)?'out':!old.plate&&!old.phone?'new':'chg';
+    return {...x,v,old,st}});
+}
+function renderWpPreview(){
+  const box=$('#wpPreview');
+  if(!WP){box.innerHTML='';$('#wpApply').hidden=true;return}
+  if(!WP.rows.length){box.innerHTML='<p class="hint">Не нашёл ни одной машины. Нужны строки вида «MİNİ 3 - 07 AHY 03 / 0535 307 7700».</p>';$('#wpApply').hidden=true;return}
+  const lbl={new:'новая',chg:'изменилась',same:'без изменений',out:'нет в дне'};
+  const n=k=>WP.rows.filter(r=>r.st===k).length;
+  const dateWarn=WP.date&&WP.date!==dayKey?`<p class="hint" style="color:var(--warn)">⚠ Сообщение за ${WP.date}, открыт день ${dayKey||'—'}.${DAYS[WP.date]?' При применении программа переключится на '+WP.date+'.':' Такого дня в программе нет, номера запишутся в открытый день.'}</p>`:'';
+  box.innerHTML=dateWarn+`<p class="hint">Найдено машин: <b>${WP.rows.length}</b> · новых ${n('new')} · изменилось ${n('chg')} · без изменений ${n('same')}${n('out')?` · <span style="color:var(--bad,#c62828)">нет в дне ${n('out')}</span>`:''}${WP.skipped?` · строки туров пропущены: ${WP.skipped}`:''}</p>
+  <table class="wp-tbl"><thead><tr><th>Машина</th><th></th><th>Номер</th><th>Водитель</th></tr></thead><tbody>${WP.rows.map(r=>`<tr><td><b>${esc(r.v)}</b>${r.side?`<small class="hint"> ${r.side==='arr'?'прилёт':'вылет'}</small>`:''}</td><td><span class="wp-st ${r.st}">${lbl[r.st]}</span></td>
+  <td>${r.st==='chg'&&r.old.plate&&r.old.plate!==r.plate?`<span class="old">${esc(r.old.plate)}</span>`:''}${esc(r.plate||'—')}</td><td>${r.st==='chg'&&r.old.phone&&r.old.phone!==r.phone?`<span class="old">${esc(r.old.phone)}</span>`:''}${esc(r.phone||'—')}</td></tr>`).join('')}</tbody></table>
+  ${n('out')?'<p class="hint">«Нет в дне» — такой машины нет в Капаке или листе машин этого дня. Номер всё равно сохранится, вдруг машину добавят позже.</p>':''}`;
+  $('#wpApply').hidden=!WP.rows.some(r=>r.st!=='same');
+}
+function wpParse(){const p=parseVehMsg($('#wpText').value);
+  WP={date:p.date,skipped:p.skipped,items:p.items,rows:wpDiff(p)};renderWpPreview()}
+function wpApply(){
+  if(!WP)return;
+  if(WP.date&&WP.date!==dayKey&&DAYS[WP.date]){loadDay(WP.date);WP.rows=wpDiff(WP)}
+  const ch=WP.rows.filter(r=>r.st!=='same');
+  ch.forEach(r=>{assign[r.v]=Object.assign({},assign[r.v]||{},{plate:r.plate,phone:r.phone})});
+  const log=(assign['~log']||[]).slice(-19);log.push({at:new Date().toISOString(),n:WP.rows.length,chg:ch.filter(r=>r.st==='chg').map(r=>r.v),add:ch.filter(r=>r.st!=='chg').map(r=>r.v)});assign['~log']=log;
+  saveAssign();
+  toast(`Машины обновлены: ${ch.length}`);
+  WP=null;$('#wpText').value='';renderWpPreview();renderAll();
+}
+function renderWpLog(){
+  const log=(assign['~log']||[]);const last=log[log.length-1];
+  $('#wpLast').textContent=last?`· обновлено ${hm(last.at)}`:'· ещё не вставляли';
+  $('#wpLog').innerHTML=log.length?`<div class="wp-log"><b>История обновлений:</b><br>${log.slice().reverse().map(l=>`${hm(l.at)} — машин в сообщении ${l.n}${l.add.length?', новые: '+esc(l.add.join(', ')):''}${l.chg.length?', изменились: '+esc(l.chg.join(', ')):''}`).join('<br>')}</div>`:'';
+}
+$('#wpParse').onclick=wpParse;$('#wpApply').onclick=wpApply;$('#wpClear').onclick=()=>{$('#wpText').value='';WP=null;renderWpPreview()};
+$('#wpText').addEventListener('paste',()=>setTimeout(wpParse,0));
 function renderVeh(){
   if(!DAY)return;
+  renderWpLog();
   const vs=vehicleLegs();
   // summary
   const noPlate=vs.filter(x=>!(assign[x.v]||{}).plate).length;
@@ -707,7 +785,15 @@ async function pullMarks(){
     if(JSON.stringify(met)!==before){store.set('met_'+dayKey,met);rerenderMarks()}
   }catch(e){}
 }
-setInterval(pullMarks,20000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)pullMarks()});
+let lastAssignPull=0;
+async function pullAssign(){
+  if(!SERVER||!DAY||document.hidden||Date.now()-lastAssignPull<55000)return;lastAssignPull=Date.now();
+  try{const k=dayKey;const r=await api('GET','/api/state?d='+encodeURIComponent(k)+'&kind=assign');const srv=r.data;
+    if(!srv||!Object.keys(srv).length||Date.now()-lastAssignSave<15000||k!==dayKey||document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#vgrid'))return;
+    if(JSON.stringify(srv)!==JSON.stringify(assign)){assign=srv;store.set('assign_'+dayKey,assign);renderAll()}
+  }catch(e){}
+}
+setInterval(pullMarks,20000);setInterval(pullAssign,60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)pullMarks()});
 
 
 /* ---------- contacts & log ---------- */

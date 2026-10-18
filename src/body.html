@@ -122,6 +122,19 @@
 .livectl .btn.sm{padding:4px 10px;font-size:12px;min-height:28px}
 .livectl .btn[disabled]{opacity:.55;cursor:not-allowed}
 .livectl small.low{color:var(--warn);font-weight:600}
+.wapaste{margin-bottom:16px;padding:12px 14px}
+.wapaste summary{cursor:pointer;list-style:revert}
+.wapaste textarea{width:100%;box-sizing:border-box;font:13px/1.4 ui-monospace,Menlo,monospace;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:inherit;margin-top:8px}
+.wp-btns{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.wp-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.wp-tbl td,.wp-tbl th{padding:6px 8px;border-top:1px solid var(--line);text-align:left;vertical-align:top}
+.wp-tbl .old{text-decoration:line-through;color:var(--muted);display:block;font-size:12px}
+.wp-st{font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px;white-space:nowrap}
+.wp-st.new{background:color-mix(in srgb,var(--ok,#2e7d32) 15%,transparent);color:var(--ok,#2e7d32)}
+.wp-st.chg{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.wp-st.same{color:var(--muted)}
+.wp-st.out{background:color-mix(in srgb,var(--bad,#c62828) 12%,transparent);color:var(--bad,#c62828)}
+.wp-log{font-size:12px;color:var(--muted);margin-top:8px}
 .daycheck{display:flex;gap:8px;flex-wrap:wrap}
 .daycheck span{font-weight:600;padding:2px 8px;border-radius:4px}
 .daycheck .ok{background:var(--ok-soft);color:var(--ok)}
@@ -285,6 +298,14 @@ mark{background:var(--signal-soft);color:inherit}
   </section>
 
   <section id="v-veh" hidden>
+    <details class="panel wapaste" id="wpBox">
+      <summary><b>📲 Машины из WhatsApp</b> <span class="hint" id="wpLast"></span></summary>
+      <p class="hint">Скопируйте сообщение с машинами из группы (ARRİVAL / DEPAR) и вставьте сюда. Можно вставить сразу несколько сообщений. Программа сама разложит номера и телефоны водителей по машинам. Пришло обновление — просто вставьте новое сообщение, программа покажет, что поменялось.</p>
+      <textarea id="wpText" rows="7" placeholder="18.10.2026 - ARRİVAL&#10;BUS 1 - 34 BTP 967 / 0542 763 1487&#10;MİNİ 3 - 07 AHY 03 / 0535 307 7700"></textarea>
+      <div class="wp-btns"><button class="btn" type="button" id="wpParse">Разобрать</button><button class="btn primary" type="button" id="wpApply" hidden>Применить</button><button class="btn" type="button" id="wpClear">Очистить</button></div>
+      <div id="wpPreview"></div>
+      <div id="wpLog"></div>
+    </details>
     <div class="summary" id="sumVeh"></div>
     <div class="vt-head"><h2 style="margin:0">День машин</h2><span class="hint">Синие блоки: встреча в аэропорту и дорога в отель. Жёлтые: сбор из отеля и дорога в аэропорт. Красная рамка: перегруз.</span></div>
     <div class="gantt-wrap"><div class="gantt" id="gantt"></div></div>
