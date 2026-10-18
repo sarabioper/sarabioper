@@ -135,6 +135,14 @@
 .wp-st.same{color:var(--muted)}
 .wp-st.out{background:color-mix(in srgb,var(--bad,#c62828) 12%,transparent);color:var(--bad,#c62828)}
 .wp-log{font-size:12px;color:var(--muted);margin-top:8px}
+.vsec{display:flex;flex-wrap:wrap;margin:0 0 14px;border-radius:8px}
+.vsec button{padding:8px 14px;font-size:14px}
+.vsec .cnt{font-size:11px;opacity:.75;margin-left:4px}
+.vsec-h{margin:18px 0 8px;font-size:18px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.vsec-h:first-child{margin-top:0}
+.vtbl{width:100%}
+.vtbl a{color:inherit}
+.vtbl th{text-align:left;padding:8px 10px;font-size:12px;color:var(--muted);font-weight:600}
 .daycheck{display:flex;gap:8px;flex-wrap:wrap}
 .daycheck span{font-weight:600;padding:2px 8px;border-radius:4px}
 .daycheck .ok{background:var(--ok-soft);color:var(--ok)}
@@ -306,6 +314,9 @@ mark{background:var(--signal-soft);color:inherit}
       <div id="wpPreview"></div>
       <div id="wpLog"></div>
     </details>
+    <div class="daysel vsec" id="vSec" role="group" aria-label="Раздел"></div>
+    <div id="vExtra"></div>
+    <div id="vehMain">
     <div class="summary" id="sumVeh"></div>
     <div class="vt-head"><h2 style="margin:0">День машин</h2><span class="hint">Синие блоки: встреча в аэропорту и дорога в отель. Жёлтые: сбор из отеля и дорога в аэропорт. Красная рамка: перегруз.</span></div>
     <div class="gantt-wrap"><div class="gantt" id="gantt"></div></div>
@@ -318,6 +329,7 @@ mark{background:var(--signal-soft);color:inherit}
         <button class="btn primary" id="copyWa" type="button">Скопировать текст</button>
       </div>
     </div>
+  </div>
   </section>
 
   <section id="v-guide" hidden>

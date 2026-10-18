@@ -330,6 +330,14 @@ tr.soon td.t{color:var(--signal-ink)}
 .wp-st.same{color:var(--muted)}
 .wp-st.out{background:color-mix(in srgb,var(--bad,#c62828) 12%,transparent);color:var(--bad,#c62828)}
 .wp-log{font-size:12px;color:var(--muted);margin-top:8px}
+.vsec{display:flex;flex-wrap:wrap;margin:0 0 14px;border-radius:8px}
+.vsec button{padding:8px 14px;font-size:14px}
+.vsec .cnt{font-size:11px;opacity:.75;margin-left:4px}
+.vsec-h{margin:18px 0 8px;font-size:18px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.vsec-h:first-child{margin-top:0}
+.vtbl{width:100%}
+.vtbl a{color:inherit}
+.vtbl th{text-align:left;padding:8px 10px;font-size:12px;color:var(--muted);font-weight:600}
 .daycheck{display:flex;gap:8px;flex-wrap:wrap}
 .daycheck span{font-weight:600;padding:2px 8px;border-radius:4px}
 .daycheck .ok{background:var(--ok-soft);color:var(--ok)}
@@ -501,6 +509,9 @@ mark{background:var(--signal-soft);color:inherit}
       <div id="wpPreview"></div>
       <div id="wpLog"></div>
     </details>
+    <div class="daysel vsec" id="vSec" role="group" aria-label="Раздел"></div>
+    <div id="vExtra"></div>
+    <div id="vehMain">
     <div class="summary" id="sumVeh"></div>
     <div class="vt-head"><h2 style="margin:0">День машин</h2><span class="hint">Синие блоки: встреча в аэропорту и дорога в отель. Жёлтые: сбор из отеля и дорога в аэропорт. Красная рамка: перегруз.</span></div>
     <div class="gantt-wrap"><div class="gantt" id="gantt"></div></div>
@@ -513,6 +524,7 @@ mark{background:var(--signal-soft);color:inherit}
         <button class="btn primary" id="copyWa" type="button">Скопировать текст</button>
       </div>
     </div>
+  </div>
   </section>
 
   <section id="v-guide" hidden>
@@ -1142,6 +1154,21 @@ const TR_DICT={
 "машин в сообщении":"mesajdaki araç",
 "новые:":"yeni:",
 "изменились:":"değişen:",
+"ARRIVAL · встречи":"ARRIVAL · karşılamalar",
+"DEPAR · сборы в аэропорт":"DEPAR · havalimanına toplama",
+"Между отелями":"Oteller arası",
+"Туры":"Turlar",
+"Тур":"Tur",
+"Все":"Tümü",
+"Раздел":"Bölüm",
+"Межотельных переездов в этом дне нет.":"Bu günde oteller arası transfer yok.",
+"Откуда → Куда":"Nereden → Nereye",
+"Туров пока нет. Вставьте сообщение «ДАТА - TUR» из группы в блок «Машины из WhatsApp» выше.":"Henüz tur yok. Gruptaki «TARİH - TUR» mesajını yukarıdaki «WhatsApp'tan araçlar» bölümüne yapıştırın.",
+"также на вылете":"gidişte de",
+"также на прилёте":"gelişte de",
+"машин":"araç",
+"Нет машин.":"Araç yok.",
+"машин на турах":"turlardaki araç",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",
@@ -1844,21 +1871,26 @@ const vKey=s=>TRUP(s).replace(/İ/g,'I').replace(/Ç/g,'C').replace(/Ğ/g,'G').r
 const V_LINE=/^(BUS|OTOB[ÜU]S|M[İI]N[İI]?|M[İI]D[İI]|V[İI]TO|VAN|SPR[İI]NTER|KAMYONET|MERCEDES)\s*\.?\s*(\d{0,3})\s*[-–—:]\s*(.+)$/;
 const fmtPhone=p=>{const d=p.replace(/\D/g,'').replace(/^90(?=5)/,'').replace(/^(?=5)/,'0');return d.length===11?`${d.slice(0,4)} ${d.slice(4,7)} ${d.slice(7,9)} ${d.slice(9)}`:p.trim()};
 function parseVehMsg(text){
-  const out={date:null,items:[],skipped:0};let side=null;
+  const out={date:null,items:[],skipped:0,tours:[]};let side=null,curTour='';
   for(const raw of String(text).split(/\r?\n/)){
     const line=raw.replace(/[‎‏‪-‮*_~]/g,'').replace(/^\[[^\]]*\]\s*[^:]*:\s*/,'').trim();if(!line)continue;
     const up=TRUP(line);
     const vm=up.match(V_LINE);
-    if(!vm){
-      const dm=line.match(/(\d{1,2})[./](\d{1,2})[./](\d{2,4})/);
+    const dm=line.match(/(\d{1,2})[./](\d{1,2})[./](\d{2,4})/);
+    const hasPlate=/\d{2}\s*[A-ZÇĞİÖŞÜ]{1,3}\s*\d{2,4}/.test(up.replace(/\d{1,2}[./]\d{1,2}[./]\d{2,4}/,''));
+    if(!hasPlate){
       if(/ARR[İI]VAL|ARR[İI]V|GEL[İI][SŞ]/.test(up))side='arr';
       else if(/DEPAR|D[ÖO]N[ÜU][SŞ]|G[İI]D[İI][SŞ]/.test(up))side='dep';
-      else if(/\bTUR\b|TURU/.test(up))side='tour';
-      else{if(side==='tour'||/\d{2}\s*[A-ZÇĞİÖŞÜ]{1,3}\s*\d{2,4}/.test(up))out.skipped++;continue}
+      else if(dm&&/\bTUR\b|TURU|TOUR|EKSKURS/.test(up)){side='tour';curTour=''}
+      else if(side==='tour'||/TURU|TOUR/.test(up)){side='tour';curTour=line.replace(/[-–—:\s]+$/,'')}
       if(dm)out.date=String(dm[1]).padStart(2,'0')+'.'+String(dm[2]).padStart(2,'0');
       continue;
     }
-    if(side==='tour'){out.skipped++;continue}
+    if(side==='tour'){
+      const pm=up.match(/(\d{2})\s*([A-ZÇĞİÖŞÜ]{1,3})\s*(\d{2,4})/);const who=line.slice(0,pm.index).replace(/[-–—:/\s]+$/,'').trim();
+      const rest=up.slice(pm.index+pm[0].length);const ph=rest.match(/(?:\+?90[\s-]*)?0?\s*5\d{2}[\s.-]*\d{3}[\s.-]*\d{2}[\s.-]*\d{2}/);
+      out.tours.push({tour:curTour||'Тур',who,plate:`${pm[1]} ${pm[2]} ${pm[3]}`,phone:ph?fmtPhone(ph[0]):''});continue}
+    if(!vm){out.skipped++;continue}
     const name=(vm[1].replace(/^OTOB[ÜU]S$/,'BUS')+(vm[2]?' '+vm[2]:'')).trim();
     const plates=[],phones=[];
     for(const part of vm[3].split(/\s\+\s*|\s*\+\s(?=\d)/)){
@@ -1884,23 +1916,24 @@ function wpDiff(parsed){
 function renderWpPreview(){
   const box=$('#wpPreview');
   if(!WP){box.innerHTML='';$('#wpApply').hidden=true;return}
-  if(!WP.rows.length){box.innerHTML='<p class="hint">Не нашёл ни одной машины. Нужны строки вида «MİNİ 3 - 07 AHY 03 / 0535 307 7700».</p>';$('#wpApply').hidden=true;return}
+  if(!WP.rows.length&&!WP.tours.length){box.innerHTML='<p class="hint">Не нашёл ни одной машины. Нужны строки вида «MİNİ 3 - 07 AHY 03 / 0535 307 7700».</p>';$('#wpApply').hidden=true;return}
   const lbl={new:'новая',chg:'изменилась',same:'без изменений',out:'нет в дне'};
   const n=k=>WP.rows.filter(r=>r.st===k).length;
   const dateWarn=WP.date&&WP.date!==dayKey?`<p class="hint" style="color:var(--warn)">⚠ Сообщение за ${WP.date}, открыт день ${dayKey||'—'}.${DAYS[WP.date]?' При применении программа переключится на '+WP.date+'.':' Такого дня в программе нет, номера запишутся в открытый день.'}</p>`:'';
-  box.innerHTML=dateWarn+`<p class="hint">Найдено машин: <b>${WP.rows.length}</b> · новых ${n('new')} · изменилось ${n('chg')} · без изменений ${n('same')}${n('out')?` · <span style="color:var(--bad,#c62828)">нет в дне ${n('out')}</span>`:''}${WP.skipped?` · строки туров пропущены: ${WP.skipped}`:''}</p>
+  box.innerHTML=dateWarn+`<p class="hint">Найдено машин: <b>${WP.rows.length}</b> · новых ${n('new')} · изменилось ${n('chg')} · без изменений ${n('same')}${n('out')?` · <span style="color:var(--bad,#c62828)">нет в дне ${n('out')}</span>`:''}${WP.tours.length?` · машин на турах: ${WP.tours.length}`:''}</p>
   <table class="wp-tbl"><thead><tr><th>Машина</th><th></th><th>Номер</th><th>Водитель</th></tr></thead><tbody>${WP.rows.map(r=>`<tr><td><b>${esc(r.v)}</b>${r.side?`<small class="hint"> ${r.side==='arr'?'прилёт':'вылет'}</small>`:''}</td><td><span class="wp-st ${r.st}">${lbl[r.st]}</span></td>
   <td>${r.st==='chg'&&r.old.plate&&r.old.plate!==r.plate?`<span class="old">${esc(r.old.plate)}</span>`:''}${esc(r.plate||'—')}</td><td>${r.st==='chg'&&r.old.phone&&r.old.phone!==r.phone?`<span class="old">${esc(r.old.phone)}</span>`:''}${esc(r.phone||'—')}</td></tr>`).join('')}</tbody></table>
   ${n('out')?'<p class="hint">«Нет в дне» — такой машины нет в Капаке или листе машин этого дня. Номер всё равно сохранится, вдруг машину добавят позже.</p>':''}`;
-  $('#wpApply').hidden=!WP.rows.some(r=>r.st!=='same');
+  $('#wpApply').hidden=!WP.rows.some(r=>r.st!=='same')&&!(WP.tours.length&&JSON.stringify(WP.tours)!==JSON.stringify(assign['~tours']||[]));
 }
 function wpParse(){const p=parseVehMsg($('#wpText').value);
-  WP={date:p.date,skipped:p.skipped,items:p.items,rows:wpDiff(p)};renderWpPreview()}
+  WP={date:p.date,skipped:p.skipped,items:p.items,tours:p.tours,rows:wpDiff(p)};renderWpPreview()}
 function wpApply(){
   if(!WP)return;
   if(WP.date&&WP.date!==dayKey&&DAYS[WP.date]){loadDay(WP.date);WP.rows=wpDiff(WP)}
   const ch=WP.rows.filter(r=>r.st!=='same');
-  ch.forEach(r=>{assign[r.v]=Object.assign({},assign[r.v]||{},{plate:r.plate,phone:r.phone})});
+  ch.forEach(r=>{assign[r.v]=Object.assign({},assign[r.v]||{},{plate:r.plate,phone:r.phone},r.side?{side:r.side}:{})});
+  if(WP.tours&&WP.tours.length)assign['~tours']=WP.tours;
   const log=(assign['~log']||[]).slice(-19);log.push({at:new Date().toISOString(),n:WP.rows.length,chg:ch.filter(r=>r.st==='chg').map(r=>r.v),add:ch.filter(r=>r.st!=='chg').map(r=>r.v)});assign['~log']=log;
   saveAssign();
   toast(`Машины обновлены: ${ch.length}`);
@@ -1913,10 +1946,28 @@ function renderWpLog(){
 }
 $('#wpParse').onclick=wpParse;$('#wpApply').onclick=wpApply;$('#wpClear').onclick=()=>{$('#wpText').value='';WP=null;renderWpPreview()};
 $('#wpText').addEventListener('paste',()=>setTimeout(wpParse,0));
+let vehSec=store.get('vehSec','all');
+const VSEC={arr:'✈️ ARRIVAL · встречи',dep:'🛫 DEPAR · сборы в аэропорт',h2h:'🏨 Между отелями',tour:'🚌 Туры'};
+function h2hVehHtml(){const L=(DAY.h2hList||[]).slice().sort((a,b)=>toMin(a.t)-toMin(b.t));
+  if(!L.length)return '<p class="hint">Межотельных переездов в этом дне нет.</p>';
+  return `<div class="panel" style="padding:0;overflow-x:auto"><table class="legs vtbl"><thead><tr><th>Время</th><th>Откуда → Куда</th><th class="n">Чел</th><th>Машина</th><th>Гид</th><th>Опер.</th></tr></thead><tbody>${L.map(x=>{const a=assign[x.v]||{};
+    return `<tr><td class="tm num">${esc(x.t||'—')}</td><td>${esc(x.from||'откуда не указано')} → <b>${esc(x.h||'')}</b>${x.note?`<br><span class="hint">${esc(x.note)}</span>`:''}</td><td class="n num">${x.pax}</td><td>${x.v?`<b>${esc(x.v)}</b>${a.plate?'<br><span class="hint">'+esc(a.plate)+(a.phone?' · '+esc(a.phone):'')+'</span>':''}`:'<span class="chip bad">нет машины</span>'}</td><td>${esc(x.g||'—')}</td><td>${esc(x.op||'')}</td></tr>`}).join('')}</tbody></table></div>`}
+function toursHtml(){const T=assign['~tours']||[];
+  if(!T.length)return '<p class="hint">Туров пока нет. Вставьте сообщение «ДАТА - TUR» из группы в блок «Машины из WhatsApp» выше.</p>';
+  const by=new Map();T.forEach(x=>{if(!by.has(x.tour))by.set(x.tour,[]);by.get(x.tour).push(x)});
+  return [...by].map(([t,L])=>`<div class="panel" style="padding:0;overflow-x:auto;margin-bottom:10px"><table class="legs vtbl"><thead><tr><th colspan="3">${esc(t)} · ${L.length}</th></tr></thead><tbody>${L.map(x=>`<tr><td><b>${esc(x.who)}</b></td><td class="num">${esc(x.plate)}</td><td class="num">${x.phone?`<a href="tel:${esc(x.phone.replace(/\s/g,''))}">${esc(x.phone)}</a>`:'—'}</td></tr>`).join('')}</tbody></table></div>`).join('')}
 function renderVeh(){
   if(!DAY)return;
   renderWpLog();
-  const vs=vehicleLegs();
+  const vsAll=vehicleLegs();
+  const cnt={arr:vsAll.filter(x=>x.kind.includes('arr')).length,dep:vsAll.filter(x=>x.kind.includes('dep')).length,h2h:(DAY.h2hList||[]).length,tour:(assign['~tours']||[]).length};
+  $('#vSec').innerHTML=[['all','Все'],['arr','✈️ Arrival'],['dep','🛫 Depar'],['h2h','🏨 Между отелями'],['tour','🚌 Туры']].map(([k,l])=>`<button type="button" data-s="${k}" aria-pressed="${vehSec===k}">${l}${k!=='all'?` <span class="cnt">${cnt[k]}</span>`:''}</button>`).join('');
+  $('#vSec').querySelectorAll('button').forEach(b=>b.onclick=()=>{vehSec=b.dataset.s;store.set('vehSec',vehSec);renderVeh()});
+  const onlyExtra=vehSec==='h2h'||vehSec==='tour';
+  $('#vehMain').hidden=onlyExtra;
+  const vs=vehSec==='arr'||vehSec==='dep'?vsAll.filter(x=>x.kind.includes(vehSec)):vsAll;
+  $('#vExtra').innerHTML=vehSec==='h2h'?`<h2 class="vsec-h">${VSEC.h2h}</h2>`+h2hVehHtml():vehSec==='tour'?`<h2 class="vsec-h">${VSEC.tour}</h2>`+toursHtml():'';
+  if(onlyExtra)return;
   // summary
   const noPlate=vs.filter(x=>!(assign[x.v]||{}).plate).length;
   const busy=vs.filter(x=>vehNow(x).busy).length;
@@ -1928,20 +1979,24 @@ function renderVeh(){
   $('#gantt').innerHTML=`<div class="g-ticks"><div></div><div class="t">${ticks}</div></div>`+vs.map(x=>{const a=assign[x.v]||{};
     return `<div class="g-row"><div class="g-lbl" data-jump="${esc(x.v)}">${esc(x.v)}<small>${esc(a.plate||'без номера')}</small></div><div class="g-track">${x.legs.map(l=>`<div class="g-blk ${l.kind}${l.over?' over':''}${l.end<NOW?' past':''}" style="left:${pos(l.start)};width:${w(l.start,l.end)}" title="${esc(fmt(l.start)+' '+legPlace(l)+' · '+l.pax+' чел')}">${esc(l.t)} ${l.pax}</div>`).join('')}${NOW>=lo&&NOW<=hi?`<div class="g-now" style="left:${pos(NOW)}"></div>`:''}</div></div>`}).join('');
   {const gw=$('.gantt-wrap');if(gw&&gw.scrollWidth>gw.clientWidth&&NOW>=lo&&NOW<=hi)gw.scrollLeft=Math.max(0,(NOW-lo)/(hi-lo)*($('#gantt').scrollWidth-92)-gw.clientWidth/3)}
-  $('#gantt').querySelectorAll('[data-jump]').forEach(el=>el.onclick=()=>{const c=document.getElementById('veh_'+el.dataset.jump.replace(/\W/g,'_'));if(c)c.scrollIntoView({behavior:'smooth'})});
+  $('#gantt').querySelectorAll('[data-jump]').forEach(el=>el.onclick=()=>{const c=document.querySelector('[data-vid="'+el.dataset.jump.replace(/\W/g,'_')+'"]');if(c)c.scrollIntoView({behavior:'smooth'})});
   // cards
   const active=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#vgrid')?document.activeElement.id:null;
-  $('#vgrid').innerHTML=vs.map(x=>{const a=assign[x.v]||{};const id=x.v.replace(/\W/g,'_');const st=vehNow(x);
+  const card=(x0,sec)=>{const x=sec?{...x0,legs:x0.legs.filter(l=>l.kind===sec),trips:x0.trips.filter(t=>t.kind===sec)}:x0;if(sec)x.pax=x.legs.reduce((s,l)=>s+l.pax,0);
+    const a=assign[x.v]||{};const vid=x.v.replace(/\W/g,'_');const id=(sec||'all')+'_'+vid;const st=vehNow(x0);const also=sec&&x0.kind.length>1?`<span class="chip">также ${sec==='arr'?'на вылете':'на прилёте'}</span>`:'';
     const warn=[];if(!a.plate)warn.push('<span class="chip bad">номер не назначен</span>');if(!a.phone)warn.push('<span class="chip">нет телефона водителя</span>');
     if(DAY.aracTotals&&DAY.aracTotals[x.v]!=null){const n=x.legs.filter(l=>l.kind==='arr').reduce((s,l)=>{const g=DAY.arr.find(a=>a.id===l.gid);return s+(g&&g.p&&g.p.length?g.p.filter(p=>p[0]!=='Inf').length:l.pax)},0);warn.push(n===DAY.aracTotals[x.v]?`<span class="chip ok">Araç Listesi: ${n} чел ✓</span>`:`<span class="chip bad">Araç Listesi: ${DAY.aracTotals[x.v]} чел, в программе ${n}</span>`)}
     x.over.forEach(t=>warn.push(`<span class="chip bad">перегруз ${fmt(t.start)}: ${t.pax} чел при ${x.cap} местах</span>`));
     x.legs.filter(l=>l.late).forEach(l=>warn.push(`<span class="chip gzp">${esc(normFl(l.fl))} задерживается на ${l.late} мин</span>`));
     const rows=x.trips.map((t,ti)=>(x.trips.length>1?`<tr class="trip"><td colspan="4">Поездка ${ti+1} · ${t.kind==='arr'?'из аэропорта':'в аэропорт'} · ${t.pax} из ${x.cap} мест</td></tr>`:'')+t.legs.map(l=>`<tr class="${l.end<NOW?'past':''}"><td class="tm num">${esc(l.t)}</td><td><span class="act ${l.kind}">${l.kind==='arr'?'Встреча':'Сбор'}</span><br>${esc(legPlace(l))}${l.note?` <span class="hint">· ${esc(l.note)}</span>`:''}</td><td>${l.kind==='arr'?termLbl(l.term):'вылет '+esc(l.ft)}<br><span class="hint">${esc(l.op||'')}${l.g&&x.gs.size>1?' · '+esc(l.g):''}</span></td><td class="n num">${l.pax}</td></tr>`).join('')).join('');
-    return `<article class="vcard2" id="veh_${id}"><div class="vtop"><div><div class="vn">${esc(x.v)}</div><div class="hint">${esc([...x.gs].join(', ')||'гид не указан')} · ${x.legs.length} заб. · ${x.pax} чел</div></div><span class="vnow ${st.busy?'busy':''} ${st.done?'done':''}">${esc(st.txt)}</span></div>
+    return `<article class="vcard2" id="veh_${id}" data-vid="${vid}"><div class="vtop"><div><div class="vn">${esc(x.v)}</div><div class="hint">${esc([...x.gs].join(', ')||'гид не указан')} · ${x.legs.length} заб. · ${x.pax} чел</div></div><span class="vnow ${st.busy?'busy':''} ${st.done?'done':''}">${esc(st.txt)}</span></div>
     <div class="vfields"><label>Номер<input id="pl_${id}" data-v="${esc(x.v)}" data-f="plate" value="${esc(a.plate||'')}" placeholder="07 ABC 123"></label><label>Телефон водителя<input id="ph_${id}" data-v="${esc(x.v)}" data-f="phone" value="${esc(a.phone||'')}" placeholder="05xx xxx xx xx" inputmode="tel"></label><label>Водитель<input id="dr_${id}" data-v="${esc(x.v)}" data-f="driver" value="${esc(a.driver||'')}" placeholder="Имя"></label><label>Мест<input id="cp_${id}" data-v="${esc(x.v)}" data-f="cap" value="${esc(a.cap||'')}" placeholder="${CAP(x.v)}" inputmode="numeric"></label></div>
-    ${warn.length?`<div class="vwarn">${warn.join('')}</div>`:''}
+    ${warn.length||also?`<div class="vwarn">${also}${warn.join('')}</div>`:''}
     <div style="overflow-x:auto"><table class="legs">${rows}</table></div>
-    <div class="vfoot"><button class="btn" type="button" data-drv="${esc(x.v)}">Скопировать задание водителю</button></div></article>`}).join('');
+    <div class="vfoot"><button class="btn" type="button" data-drv="${esc(x.v)}">Скопировать задание водителю</button></div></article>`};
+  const secs=vehSec==='all'?['arr','dep']:[vehSec];
+  $('#vgrid').innerHTML=secs.map(sec=>{const L=vs.filter(x=>x.kind.includes(sec));return `<h2 class="vsec-h">${VSEC[sec]} <span class="hint">${L.length} машин · ${L.reduce((s,x)=>s+x.legs.filter(l=>l.kind===sec).reduce((a,l)=>a+l.pax,0),0)} чел</span></h2>`+(L.length?L.map(x=>card(x,sec)).join(''):'<p class="hint">Нет машин.</p>')}).join('')
+    +(vehSec==='all'?`<h2 class="vsec-h">${VSEC.h2h}</h2>${h2hVehHtml()}<h2 class="vsec-h">${VSEC.tour}</h2>${toursHtml()}`:'');
   $('#vgrid').querySelectorAll('input').forEach(i=>i.addEventListener('change',e=>{const v=e.target.dataset.v,f=e.target.dataset.f;assign[v]=assign[v]||{};assign[v][f]=e.target.value.trim();saveAssign();renderVeh();renderBoard()}));
   $('#vgrid').querySelectorAll('input').forEach(i=>i.addEventListener('input',e=>{const v=e.target.dataset.v,f=e.target.dataset.f;assign[v]=assign[v]||{};assign[v][f]=e.target.value;renderWa()}));
   $('#vgrid').querySelectorAll('[data-drv]').forEach(b=>b.onclick=()=>copy(driverText(vs.find(x=>x.v===b.dataset.drv))));
