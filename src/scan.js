@@ -132,7 +132,7 @@ async function openScan(){
   }catch(e){$('#scCam').hidden=true;scanStatus(T('Камера недоступна. Нажмите «Сфотографировать» или введите фамилию.'))}
 }
 function closeScan(){clearInterval(scanTimer);scanTimer=null;if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null}$('#scanSheet').hidden=true;document.body.classList.remove('sc-open')}
-$('#scanBtn').onclick=openScan;$('#scClose').onclick=closeScan;
+$('#scanBtn').onclick=openScan;{const b=document.querySelector('.tab[aria-selected="true"]');$('#scanBtn').hidden=!b||b.dataset.t!=='ops'}$('#scClose').onclick=closeScan;
 $('#scNext').onclick=()=>{scanPaused=false;$('#scNext').hidden=true;$('#scRes').innerHTML='';scanStatus(T('Наведите на нижние строки паспорта (с <<<) или на имя'))};
 $('#scPhoto').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
   scanPaused=true;scanStatus(T('Читаю фото…'));

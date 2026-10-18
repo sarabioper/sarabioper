@@ -655,7 +655,7 @@ mark{background:var(--signal-soft);color:inherit}
     <span class="hint" id="loginErr" role="alert"></span>
   </form>
 </div>
-<button type="button" class="scan-fab" id="scanBtn" aria-label="Найти гостя">📷 <span>Найти гостя</span></button>
+<button type="button" class="scan-fab" id="scanBtn" aria-label="Найти гостя" hidden>📷 <span>Найти гостя</span></button>
 <div class="scan-sheet" id="scanSheet" hidden role="dialog" aria-modal="true" aria-label="Найти гостя">
   <div class="sc-top"><b>📷 Найти гостя</b><button type="button" class="btn" id="scClose">Закрыть</button></div>
   <div class="sc-cam" id="scCam" hidden><video id="scVideo" playsinline muted></video><div class="sc-frame" aria-hidden="true"></div></div>
@@ -2755,7 +2755,7 @@ $('#copyWa').onclick=()=>copy($('#waMsg').textContent);
 const views=['board','ops','dep','veh','guide','checks','contacts','data'];
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b)return;
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t===b));
-  views.forEach(v=>$('#v-'+v).hidden=v!==b.dataset.t);store.set('tab',b.dataset.t)});
+  views.forEach(v=>$('#v-'+v).hidden=v!==b.dataset.t);store.set('tab',b.dataset.t);$('#scanBtn').hidden=b.dataset.t!=='ops'});
 document.querySelector('header .brand').appendChild(langSwitch());$('#loginForm').prepend(langSwitch());
 ['#woLang','#wlLang'].forEach(id=>{const el=$(id);if(el)el.value=LANG});
 i18nStart();
@@ -2897,7 +2897,7 @@ async function openScan(){
   }catch(e){$('#scCam').hidden=true;scanStatus(T('Камера недоступна. Нажмите «Сфотографировать» или введите фамилию.'))}
 }
 function closeScan(){clearInterval(scanTimer);scanTimer=null;if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null}$('#scanSheet').hidden=true;document.body.classList.remove('sc-open')}
-$('#scanBtn').onclick=openScan;$('#scClose').onclick=closeScan;
+$('#scanBtn').onclick=openScan;{const b=document.querySelector('.tab[aria-selected="true"]');$('#scanBtn').hidden=!b||b.dataset.t!=='ops'}$('#scClose').onclick=closeScan;
 $('#scNext').onclick=()=>{scanPaused=false;$('#scNext').hidden=true;$('#scRes').innerHTML='';scanStatus(T('Наведите на нижние строки паспорта (с <<<) или на имя'))};
 $('#scPhoto').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
   scanPaused=true;scanStatus(T('Читаю фото…'));

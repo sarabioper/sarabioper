@@ -1038,7 +1038,7 @@ $('#copyWa').onclick=()=>copy($('#waMsg').textContent);
 const views=['board','ops','dep','veh','guide','checks','contacts','data'];
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b)return;
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t===b));
-  views.forEach(v=>$('#v-'+v).hidden=v!==b.dataset.t);store.set('tab',b.dataset.t)});
+  views.forEach(v=>$('#v-'+v).hidden=v!==b.dataset.t);store.set('tab',b.dataset.t);$('#scanBtn').hidden=b.dataset.t!=='ops'});
 document.querySelector('header .brand').appendChild(langSwitch());$('#loginForm').prepend(langSwitch());
 ['#woLang','#wlLang'].forEach(id=>{const el=$(id);if(el)el.value=LANG});
 i18nStart();
