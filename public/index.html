@@ -347,7 +347,22 @@ tr.soon td.t{color:var(--signal-ink)}
 .eta-btns{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
 .eta-btns .btn.sm{padding:3px 9px;font-size:12px;min-height:28px}
 .lnote.man{color:var(--info);font-weight:600}
-.gpbox{display:grid;gap:12px;padding:14px;margin-bottom:16px}
+.nt-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:860px){.nt-grid{grid-template-columns:1fr}}
+.nt-log{display:grid;gap:8px;min-width:0}
+.gpbox{display:grid;gap:10px;padding:12px;min-width:0}
+.gpbox h2{font-size:17px}
+.gp-btns{display:flex;gap:6px}
+.gp-form label{flex:1 1 150px!important}
+.gp-form input{padding:7px 9px!important;font-size:14px!important}
+.gp-tbl{font-size:13px}
+.gp-tbl td{padding:6px 6px!important}
+.gp-tbl tr.off td{color:var(--muted)}
+.gp-tbl tr.nophone td{color:var(--muted)}
+.gp-tbl .sw{display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;white-space:nowrap}
+.gp-tbl .today{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--info);margin-left:6px}
+.log .e.off{opacity:.45}
+a.tel{color:inherit;text-decoration:none;border-bottom:1px dotted currentColor;white-space:nowrap}
 .gp-form{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
 .gp-form label{display:grid;gap:4px;font-size:12px;color:var(--muted);flex:1 1 200px;min-width:0}
 .gp-form input{font:inherit;font-size:15px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg)}
@@ -564,25 +579,19 @@ mark{background:var(--signal-soft);color:inherit}
   </section>
 
   <section id="v-contacts" hidden>
-    <div class="panel gpbox" id="gpBox">
-      <h2 style="margin:0">📇 Телефоны гидов</h2>
-      <form class="gp-form" id="gpForm" autocomplete="off">
-        <label>Имя и фамилия<input id="gpName" required placeholder="YASİN ALİGİL"></label>
-        <label>Телефон<input id="gpPhone" required inputmode="tel" placeholder="0532 123 45 67"></label>
-        <button class="btn primary" type="submit" id="gpAdd">Добавить</button>
-        <button class="btn" type="button" id="gpCancel" hidden>Отмена</button>
-      </form>
-      <div id="gpList"></div>
-    </div>
-    <div class="split">
-      <div style="display:grid;gap:10px;min-width:0">
-        <h2 style="margin:0">Кому уведомлять</h2>
-        <p class="hint">Номер вводится один раз. Дальше программа сама пишет гиду, водителю и операционщику, когда рейс задерживается, садится или меняет терминал.</p>
-        <div class="tbl-wrap"><table class="ctable" id="ctable"></table></div>
+    <div class="nt-grid">
+      <div class="panel gpbox" id="gpBox">
+        <h2 style="margin:0">📇 Телефоны гидов</h2>
+        <form class="gp-form" id="gpForm" autocomplete="off">
+          <label>Имя и фамилия<input id="gpName" required placeholder="YASİN ALİGİL"></label>
+          <label>Телефон<input id="gpPhone" required inputmode="tel" placeholder="0532 123 45 67"></label>
+          <div class="gp-btns"><button class="btn primary" type="submit" id="gpAdd">Добавить</button><button class="btn" type="button" id="gpCancel" hidden>Отмена</button></div>
+        </form>
+        <div id="gpList"></div>
       </div>
-      <div style="display:grid;gap:10px;min-width:0">
-        <h2 style="margin:0">Журнал уведомлений</h2>
-        <p class="hint">Что программа отправила бы к выбранному времени.</p>
+      <div class="nt-log">
+        <h2 style="margin:0">🔔 Уведомления</h2>
+        <p class="hint">Что программа отправила бы к выбранному времени. Кому уведомления выключены, видно серым.</p>
         <div class="log" id="log"></div>
       </div>
     </div>
@@ -1241,6 +1250,16 @@ const TR_DICT={
 "Добавить":"Ekle",
 "Сохранено":"Kaydedildi",
 "Введите имя и номер телефона":"Ad ve telefon numarası girin",
+"Что программа отправила бы к выбранному времени. Кому уведомления выключены, видно серым.":"Programın seçilen saate kadar göndereceği mesajlar. Bildirimi kapalı olanlar gri görünür.",
+"В книге":"Rehberde",
+"гидов сегодня":"bugünkü rehber",
+"с телефоном":"telefonlu",
+"сегодня":"bugün",
+"Присылать уведомления":"Bildirim gönder",
+"Изменить":"Düzenle",
+"нет номера":"numara yok",
+"+ номер":"+ numara",
+"уведомления выключены":"bildirimler kapalı",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",
@@ -1780,32 +1799,50 @@ function saveGP(){store.set('guidePhones',GP);if(SERVER)api('PUT','/api/state?d=
 // guide phones: exact name, otherwise the KAPAK short name ("ABUTAL", "RAFİK") against the full one ("ABUTALİP ALİYEV")
 const CYR2LAT={а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'yo',ж:'j',з:'z',и:'i',й:'y',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'h',ц:'ts',ч:'c',ш:'s',щ:'s',ъ:'',ы:'i',ь:'',э:'e',ю:'yu',я:'ya'};
 const gKey=n=>String(n||'').replace(/[А-Яа-яЁё]/g,c=>{const l=CYR2LAT[c.toLowerCase()];return l==null?c:l}).replace(/i/g,'İ').replace(/ı/g,'I').toUpperCase().replace(/İ/g,'I').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
-function gPhone(n){if(!n)return '';if(GP[n])return GP[n];const k=gKey(n);if(!k)return '';
-  const ks=Object.keys(GP).filter(x=>GP[x]);let m=ks.filter(x=>gKey(x)===k);if(!m.length)m=ks.filter(x=>gKey(x).replace(/ /g,'')===k.replace(/ /g,''));if(m.length)return GP[m[0]];
+const gpKeys=()=>Object.keys(GP).filter(k=>k[0]!=='~'&&GP[k]);
+function gPhone(n){const k=gMatch(n);return k?GP[k]:''}
+// the phone-book name that belongs to a guide name from KAPAK ("ABUTAL" -> "ABUTALİP ALİYEV")
+function gMatch(n){if(!n)return '';if(n[0]!=='~'&&GP[n])return n;const k=gKey(n);if(!k)return '';
+  const ks=gpKeys();let m=ks.filter(x=>gKey(x)===k);if(!m.length)m=ks.filter(x=>gKey(x).replace(/ /g,'')===k.replace(/ /g,''));if(m.length)return m[0];
   const first=k.split(' ')[0];
   m=ks.filter(x=>{const g=gKey(x),gf=g.split(' ')[0];return g.startsWith(k+' ')||(k.indexOf(' ')<0&&gf.startsWith(k)&&k.length>=4)||(gf===first&&g.indexOf(' ')<0)});
-  return m.length===1?GP[m[0]]:''}
+  return m.length===1?m[0]:''}
+// notifications on/off per person (phone-book name), shared like the phones
+const gpOff=()=>GP['~off']||(GP['~off']={});
+function notifyOn(n){const k=gMatch(n)||n;return !gpOff()[k]}
+// guide name with a tappable phone, for every place a guide is shown
+function gTag(g){if(!g)return '';const ph=gPhone(g);return esc(g)+(ph?` · <a class="tel" href="tel:${esc(ph.replace(/\s/g,''))}">${esc(ph)}</a>`:'')}
 // guide phone book: type a name and a number, edit or delete; saved on the server for everyone
 let gpEdit=null;
 const normPh=p=>/^\s*(\+?\s*90|0?\s*5)/.test(p)&&p.replace(/\D/g,'').replace(/^90(?=5)/,'').replace(/^(?=5)/,'0').length===11?fmtPhone(p):p.trim().replace(/\s+/g,' ');
 function renderGpImport(){
   const el=$('#gpList');if(!el)return;
-  const today=new Set([...(DAY?DAY.arr:[]),...(DAY?DAY.dep:[])].map(x=>x.g).filter(Boolean));
-  const miss=[...today].filter(g=>!gPhone(g)).sort();
-  const all=Object.keys(GP).filter(k=>GP[k]).sort((a,b)=>a.localeCompare(b,'tr'));
-  el.innerHTML=`<p class="hint">Сохранено: <b>${all.length}</b>${miss.length?` · <span style="color:var(--warn)">сегодня без телефона: ${miss.map(g=>`<a href="#" data-gpfill="${esc(g)}" style="color:inherit">${esc(g)}</a>`).join(', ')}</span>`:today.size?' · у всех гидов дня есть телефон ✓':''}</p>`+
-    (all.length?`<div class="tbl-wrap"><table class="gp-tbl" style="width:100%;border-collapse:collapse"><tbody>${all.map(k=>`<tr><td><b>${esc(k)}</b></td><td class="ph">${esc(GP[k])}</td><td class="act"><button type="button" class="btn sm" data-gped="${esc(k)}">✎</button> <button type="button" class="btn sm" data-gpdel="${esc(k)}" title="Удалить">✕</button></td></tr>`).join('')}</tbody></table></div>`:'');
-  el.querySelectorAll('[data-gpdel]').forEach(b=>b.onclick=()=>{if(!confirm(T('Удалить телефон гида')+' '+b.dataset.gpdel+'?'))return;delete GP[b.dataset.gpdel];saveGP();renderGpImport();renderOps();if(DAY){renderContacts();renderLog()}});
+  const today=[...new Set([...(DAY?DAY.arr:[]),...(DAY?DAY.dep:[])].map(x=>x.g).filter(Boolean))];
+  const todayKeys=new Set(today.map(g=>gMatch(g)).filter(Boolean));
+  const miss=today.filter(g=>!gPhone(g)).sort();
+  const all=gpKeys().sort((a,b)=>(todayKeys.has(b)-todayKeys.has(a))||a.localeCompare(b,'tr'));
+  const off=gpOff();
+  el.innerHTML=`<p class="hint" style="margin:0">В книге: <b>${all.length}</b>${today.length?` · гидов сегодня: ${todayKeys.size+miss.length}, с телефоном ${todayKeys.size}`:''}</p>
+  <div class="tbl-wrap"><table class="gp-tbl" style="width:100%;border-collapse:collapse"><tbody>
+  ${all.map(k=>`<tr class="${off[k]?'off':''}"><td><b>${esc(k)}</b>${todayKeys.has(k)?'<span class="today">сегодня</span>':''}</td><td class="ph"><a class="tel" href="tel:${esc(GP[k].replace(/\s/g,''))}">${esc(GP[k])}</a></td>
+    <td><label class="sw" title="Присылать уведомления"><input type="checkbox" data-gpon="${esc(k)}" ${off[k]?'':'checked'}> 🔔</label></td>
+    <td class="act"><button type="button" class="btn sm" data-gped="${esc(k)}" title="Изменить">✎</button> <button type="button" class="btn sm" data-gpdel="${esc(k)}" title="Удалить">✕</button></td></tr>`).join('')}
+  ${miss.map(g=>`<tr class="nophone"><td><b>${esc(g)}</b><span class="today">сегодня</span></td><td class="ph">нет номера</td><td></td><td class="act"><button type="button" class="btn sm" data-gpfill="${esc(g)}">+ номер</button></td></tr>`).join('')}
+  </tbody></table></div>`;
+  el.querySelectorAll('[data-gpdel]').forEach(b=>b.onclick=()=>{if(!confirm(T('Удалить телефон гида')+' '+b.dataset.gpdel+'?'))return;delete GP[b.dataset.gpdel];delete gpOff()[b.dataset.gpdel];saveGP();gpChanged()});
   el.querySelectorAll('[data-gped]').forEach(b=>b.onclick=()=>{gpEdit=b.dataset.gped;$('#gpName').value=gpEdit;$('#gpPhone').value=GP[gpEdit];$('#gpAdd').textContent=T('Сохранить');$('#gpCancel').hidden=false;$('#gpPhone').focus()});
-  el.querySelectorAll('[data-gpfill]').forEach(a=>a.onclick=e=>{e.preventDefault();$('#gpName').value=a.dataset.gpfill;$('#gpPhone').focus()});
+  el.querySelectorAll('[data-gpfill]').forEach(b=>b.onclick=()=>{$('#gpName').value=b.dataset.gpfill;$('#gpPhone').focus();$('#gpBox').scrollIntoView?.({block:'nearest'})});
+  el.querySelectorAll('[data-gpon]').forEach(c=>c.onchange=()=>{const k=c.dataset.gpon;if(c.checked)delete gpOff()[k];else gpOff()[k]=true;saveGP();gpChanged()});
 }
+function gpChanged(){renderGpImport();if(DAY){renderOps();renderGuide();renderBoard();renderDep();renderLog();if(!$('#v-veh').hidden)renderVeh()}}
 function gpReset(){gpEdit=null;$('#gpForm').reset();$('#gpAdd').textContent=T('Добавить');$('#gpCancel').hidden=true}
 $('#gpForm').addEventListener('submit',e=>{e.preventDefault();
   const name=$('#gpName').value.trim().replace(/\s+/g,' ').replace(/i/g,'İ').replace(/ı/g,'I').toUpperCase();const ph=normPh($('#gpPhone').value);
   if(!name||ph.replace(/\D/g,'').length<7){toast('Введите имя и номер телефона');return}
   if(gpEdit&&gpEdit!==name)delete GP[gpEdit];
   const same=Object.keys(GP).find(k=>k!==gpEdit&&gKey(k)===gKey(name));if(same&&same!==name)delete GP[same];
-  GP[name]=ph;saveGP();toast(`Сохранено: ${name}`);gpReset();renderGpImport();renderOps();renderGuide();if(DAY){renderContacts();renderLog()}});
+  if(gpEdit&&gpEdit!==name&&gpOff()[gpEdit]){gpOff()[name]=true;delete gpOff()[gpEdit]}
+  GP[name]=ph;saveGP();toast(`Сохранено: ${name}`);gpReset();gpChanged()});
 $('#gpCancel').onclick=gpReset;
 
 function loadDay(k){
@@ -1929,7 +1966,7 @@ function renderBoard(){
         <span class="status ${st.k}"><span class="dot"></span>${st.lbl}</span>${liveNote(f)}
         ${f.unknown?'':`<div class="eta-btns"><button type="button" class="btn sm" data-eta="${esc(f.key)}">✎ Время THM</button>${st.k!=='land'||(f.live&&f.live.manual)?`<button type="button" class="btn sm" data-landed="${esc(f.key)}">✓ Сел</button>`:''}${ETA[f.key]?`<button type="button" class="btn sm" data-etaclr="${esc(f.key)}" title="Убрать ручное время">✕</button>`:''}</div>`}
         ${st.p!=null?`<div class="prog" aria-hidden="true"><i style="width:${Math.round(st.p*100)}%"></i></div>`:''}
-        ${vehs.map(v=>{const a=assign[v]||{};const g=(gs.find(x=>(x.v||'—')===v)||{}).g;return `<div class="veh">${esc(v)} · ${esc(a.plate||'номер не назначен')}<small>${esc(g||'гид не указан')}</small></div>`}).join('')}
+        ${vehs.map(v=>{const a=assign[v]||{};const g=(gs.find(x=>(x.v||'—')===v)||{}).g;return `<div class="veh">${esc(v)} · ${esc(a.plate||'номер не назначен')}<small>${g?gTag(g):'гид не указан'}</small></div>`}).join('')}
       </div>
     </article>`;
   });
@@ -1963,7 +2000,7 @@ function renderDep(){
   $('#depTbl').innerHTML=`<thead><tr><th>Выезд</th><th>Отель</th><th class="n">Чел</th><th>Рейс</th><th>Вылет</th><th>Терминал</th><th>Машина</th><th>Гид</th><th>Опер.</th><th>Сели</th><th>Примечание</th></tr></thead><tbody>${rows.map(r=>{
     const pu=toMin(r.pu),cls=r.pu&&pu<NOW?'past':(r.pu&&pu-NOW<=60&&pu>=NOW?'soon':'');
     const a=assign[r.v]||{};const unk=/^[!?]/.test(r.fl);
-    return `<tr class="${cls}"><td class="t num">${r.pu||'—'}</td><td>${esc(r.h)}</td><td class="n">${r.pax}</td><td class="mono">${unk?'<span class="chip bad">рейс не указан</span>':esc(r.fl)} <span class="hint">${esc(CITY[r.dest]||r.dest)}</span></td><td class="num">${r.t}</td><td><span class="chip term">${r.term==='İÇ'?'İÇ HATLAR':r.term==='DIŞ'?'T2':'?'}</span></td><td class="mono">${esc(r.v||'—')}${a.plate?'<br><span class="hint">'+esc(a.plate)+'</span>':''}</td><td>${esc(r.g||'—')}</td><td class="mono hint">${esc(r.op)}</td><td class="num">${marked(r)?`<span class="met">${marked(r)}/${groupTotal(r)}</span>`:'—'}</td><td>${r.note?`<span class="chip">${esc(r.note)}</span>`:''}</td></tr>`}).join('')}</tbody>`;
+    return `<tr class="${cls}"><td class="t num">${r.pu||'—'}</td><td>${esc(r.h)}</td><td class="n">${r.pax}</td><td class="mono">${unk?'<span class="chip bad">рейс не указан</span>':esc(r.fl)} <span class="hint">${esc(CITY[r.dest]||r.dest)}</span></td><td class="num">${r.t}</td><td><span class="chip term">${r.term==='İÇ'?'İÇ HATLAR':r.term==='DIŞ'?'T2':'?'}</span></td><td class="mono">${esc(r.v||'—')}${a.plate?'<br><span class="hint">'+esc(a.plate)+'</span>':''}</td><td>${r.g?gTag(r.g):'—'}</td><td class="mono hint">${esc(r.op)}</td><td class="num">${marked(r)?`<span class="met">${marked(r)}/${groupTotal(r)}</span>`:'—'}</td><td>${r.note?`<span class="chip">${esc(r.note)}</span>`:''}</td></tr>`}).join('')}</tbody>`;
   const tot=rows.reduce((s,r)=>s+r.pax,0),done=rows.filter(r=>r.pu&&toMin(r.pu)<NOW).reduce((s,r)=>s+r.pax,0);
   const next=rows.find(r=>r.pu&&toMin(r.pu)>=NOW);
   $('#sumDep').innerHTML=[
@@ -2094,7 +2131,7 @@ const VSEC={arr:'✈️ ARRIVAL · встречи',dep:'🛫 DEPAR · сборы
 function h2hVehHtml(){const L=(DAY.h2hList||[]).slice().sort((a,b)=>toMin(a.t)-toMin(b.t));
   if(!L.length)return '<p class="hint">Межотельных переездов в этом дне нет.</p>';
   return `<div class="panel" style="padding:0;overflow-x:auto"><table class="legs vtbl"><thead><tr><th>Время</th><th>Откуда → Куда</th><th class="n">Чел</th><th>Машина</th><th>Гид</th><th>Опер.</th></tr></thead><tbody>${L.map(x=>{const a=assign[x.v]||{};
-    return `<tr><td class="tm num">${esc(x.t||'—')}</td><td>${esc(x.from||'откуда не указано')} → <b>${esc(x.h||'')}</b>${x.note?`<br><span class="hint">${esc(x.note)}</span>`:''}${x.p&&x.p.length?`<details class="h2h-names"><summary>👥 ${x.p.length} имён</summary><ol>${x.p.map(p=>`<li>${esc(p[0])} ${esc(p[1])}${p[3]&&p[3].room?` <span class="hint">· комн. ${esc(p[3].room)} ${esc(p[3].type||'')} ${esc(p[3].board||'')}</span>`:''}</li>`).join('')}</ol></details>`:''}</td><td class="n num">${x.pax}</td><td>${x.v?`<b>${esc(x.v)}</b>${a.plate?'<br><span class="hint">'+esc(a.plate)+(a.phone?' · '+esc(a.phone):'')+'</span>':''}`:'<span class="chip bad">нет машины</span>'}</td><td>${esc(x.g||'—')}</td><td>${esc(x.op||'')}</td></tr>`}).join('')}</tbody></table></div>`}
+    return `<tr><td class="tm num">${esc(x.t||'—')}</td><td>${esc(x.from||'откуда не указано')} → <b>${esc(x.h||'')}</b>${x.note?`<br><span class="hint">${esc(x.note)}</span>`:''}${x.p&&x.p.length?`<details class="h2h-names"><summary>👥 ${x.p.length} имён</summary><ol>${x.p.map(p=>`<li>${esc(p[0])} ${esc(p[1])}${p[3]&&p[3].room?` <span class="hint">· комн. ${esc(p[3].room)} ${esc(p[3].type||'')} ${esc(p[3].board||'')}</span>`:''}</li>`).join('')}</ol></details>`:''}</td><td class="n num">${x.pax}</td><td>${x.v?`<b>${esc(x.v)}</b>${a.plate?'<br><span class="hint">'+esc(a.plate)+(a.phone?' · '+esc(a.phone):'')+'</span>':''}`:'<span class="chip bad">нет машины</span>'}</td><td>${x.g?gTag(x.g):'—'}</td><td>${esc(x.op||'')}</td></tr>`}).join('')}</tbody></table></div>`}
 function toursHtml(){const T=assign['~tours']||[];
   if(!T.length)return '<p class="hint">Туров пока нет. Вставьте сообщение «ДАТА - TUR» из группы в блок «Машины из WhatsApp» выше.</p>';
   const by=new Map();T.forEach(x=>{if(!by.has(x.tour))by.set(x.tour,[]);by.get(x.tour).push(x)});
@@ -2132,7 +2169,7 @@ function renderVeh(){
     x.over.forEach(t=>warn.push(`<span class="chip bad">перегруз ${fmt(t.start)}: ${t.pax} чел при ${x.cap} местах</span>`));
     x.legs.filter(l=>l.late).forEach(l=>warn.push(`<span class="chip gzp">${esc(normFl(l.fl))} задерживается на ${l.late} мин</span>`));
     const rows=x.trips.map((t,ti)=>(x.trips.length>1?`<tr class="trip"><td colspan="4">Поездка ${ti+1} · ${t.kind==='arr'?'из аэропорта':'в аэропорт'} · ${t.pax} из ${x.cap} мест</td></tr>`:'')+t.legs.map(l=>`<tr class="${l.end<NOW?'past':''}"><td class="tm num">${esc(l.t)}</td><td><span class="act ${l.kind}">${l.kind==='arr'?'Встреча':'Сбор'}</span><br>${esc(legPlace(l))}${l.note?` <span class="hint">· ${esc(l.note)}</span>`:''}</td><td>${l.kind==='arr'?termLbl(l.term):'вылет '+esc(l.ft)}<br><span class="hint">${esc(l.op||'')}${l.g&&x.gs.size>1?' · '+esc(l.g):''}</span></td><td class="n num">${l.pax}</td></tr>`).join('')).join('');
-    return `<article class="vcard2" id="veh_${id}" data-vid="${vid}"><div class="vtop"><div><div class="vn">${esc(x.v)}</div><div class="hint">${esc([...x.gs].join(', ')||'гид не указан')} · ${x.legs.length} заб. · ${x.pax} чел</div></div><span class="vnow ${st.busy?'busy':''} ${st.done?'done':''}">${esc(st.txt)}</span></div>
+    return `<article class="vcard2" id="veh_${id}" data-vid="${vid}"><div class="vtop"><div><div class="vn">${esc(x.v)}</div><div class="hint">${[...x.gs].map(gTag).join(', ')||'гид не указан'} · ${x.legs.length} заб. · ${x.pax} чел</div></div><span class="vnow ${st.busy?'busy':''} ${st.done?'done':''}">${esc(st.txt)}</span></div>
     <div class="vfields"><label>Номер<input id="pl_${id}" data-v="${esc(x.v)}" data-f="plate" value="${esc(a.plate||'')}" placeholder="07 ABC 123"></label><label>Телефон водителя<input id="ph_${id}" data-v="${esc(x.v)}" data-f="phone" value="${esc(a.phone||'')}" placeholder="05xx xxx xx xx" inputmode="tel"></label><label>Водитель<input id="dr_${id}" data-v="${esc(x.v)}" data-f="driver" value="${esc(a.driver||'')}" placeholder="Имя"></label><label>Мест<input id="cp_${id}" data-v="${esc(x.v)}" data-f="cap" value="${esc(a.cap||'')}" placeholder="${CAP(x.v)}" inputmode="numeric"></label></div>
     ${warn.length||also?`<div class="vwarn">${also}${warn.join('')}</div>`:''}
     <div style="overflow-x:auto"><table class="legs">${rows}</table></div>
@@ -2151,7 +2188,7 @@ function driverText(x){
   const lines=x.legs.map(l=>l.kind==='arr'
     ?`${l.t} KARŞILAMA ${/^[!?]/.test(l.fl)?'uçuş belirsiz':normFl(l.fl)}${l.org?' ('+(CITY_TR[l.org]||l.org)+')':''} · ${termTr(l.term)} → ${l.h} · ${l.pax} kişi`
     :`${l.t} ALIM ${l.h} · ${l.pax} kişi → ${/^[!?]/.test(l.fl)?'uçuş belirsiz':normFl(l.fl)} ${l.ft} · ${termTr(l.term)}`);
-  return `*${x.v} · ${dayKey}*\n${a.plate?'Plaka: '+a.plate+'\n':''}Rehber: ${[...x.gs].join(', ')||'-'}\n\n${lines.join('\n')}\n\nToplam ${x.pax} kişi`;
+  return `*${x.v} · ${dayKey}*\n${a.plate?'Plaka: '+a.plate+'\n':''}Rehber: ${[...x.gs].map(g=>g+(gPhone(g)?' ('+gPhone(g)+')':'')).join(', ')||'-'}\n\n${lines.join('\n')}\n\nToplam ${x.pax} kişi`;
 }
 function renderWa(){
   if(!DAY)return;
@@ -2274,7 +2311,7 @@ function paxRows(g,kind){
 function grpHtml(t){return t.groups.map(x=>{const d=marked(x),n=groupTotal(x);return `<div class="tgrp"><div class="gh"><span><b>${esc(t.kind==='arr'?x.h:normFl(x.fl)+' '+x.t)}</b> <span class="hint">${esc(x.op||'')} · ${x.pax} чел</span></span><span style="display:flex;gap:8px;align-items:center"><span class="bar"><i style="width:${n?Math.round(d/n*100):0}%"></i></span><span class="num">${d}/${n}</span></span></div>${paxRows(x,t.kind)}</div>`}).join('')}
 function guideStrip(t){
   const vs=[...new Set(t.groups.map(g=>g.v).filter(Boolean))];
-  return `<div class="gstrip"><span class="gs-name">${esc(t.guide||'гид не указан')}</span><span class="gs-ph">${gPhone(t.guide)?esc(gPhone(t.guide)):'<span class="hint">телефон гида не указан</span>'}</span>${vs.map(v=>{const a=assign[v]||{};return `<span class="gs-veh"><b>${esc(v)}</b>${a.plate?' · '+esc(a.plate):''}${a.phone?' · водитель '+esc(a.phone):''}${a.driver?' ('+esc(a.driver)+')':''}</span>`}).join('')}</div>`;
+  return `<div class="gstrip"><span class="gs-name">${esc(t.guide||'гид не указан')}</span><span class="gs-ph">${gPhone(t.guide)?`<a class="tel" href="tel:${esc(gPhone(t.guide).replace(/\s/g,''))}">${esc(gPhone(t.guide))}</a>`:'<span class="hint">телефон гида не указан</span>'}</span>${vs.map(v=>{const a=assign[v]||{};return `<span class="gs-veh"><b>${esc(v)}</b>${a.plate?' · '+esc(a.plate):''}${a.phone?' · водитель '+esc(a.phone):''}${a.driver?' ('+esc(a.driver)+')':''}</span>`}).join('')}</div>`;
 }
 function taskCard(t,key,o={}){
   const cls=['task',t.complete?'done':'',o.next?'next':''].join(' ');
@@ -2296,7 +2333,7 @@ function renderGuide(){
   const tasks=guideTasks(g);
   const vehs=[...new Set(tasks.flatMap(t=>t.groups.map(x=>x.v)).filter(Boolean))];
   const tot=tasks.reduce((s,t)=>s+t.total,0),done=tasks.reduce((s,t)=>s+t.done,0);
-  $('#guideHead').innerHTML=`<div class="ghead"><div class="gname">${esc(g)}</div><div class="gmeta">${vehs.map(v=>{const a=assign[v]||{};return `<span><b>${esc(v)}</b>${a.plate?' · '+esc(a.plate):''}${a.phone?' · водитель '+esc(a.phone):''}</span>`}).join('')}</div><div class="gmeta"><span><b>${tasks.filter(t=>t.kind==='arr').length}</b> встреч</span><span><b>${tasks.filter(t=>t.kind==='dep').length}</b> сборов</span><span><b>${tot}</b> гостей</span><span>отмечено <b>${done}</b></span></div></div>`;
+  $('#guideHead').innerHTML=`<div class="ghead"><div class="gname">${esc(g)}${gPhone(g)?` <a class="tel" style="font-size:.6em" href="tel:${esc(gPhone(g).replace(/\s/g,''))}">${esc(gPhone(g))}</a>`:''}</div><div class="gmeta">${vehs.map(v=>{const a=assign[v]||{};return `<span><b>${esc(v)}</b>${a.plate?' · '+esc(a.plate):''}${a.phone?' · водитель '+esc(a.phone):''}</span>`}).join('')}</div><div class="gmeta"><span><b>${tasks.filter(t=>t.kind==='arr').length}</b> встреч</span><span><b>${tasks.filter(t=>t.kind==='dep').length}</b> сборов</span><span><b>${tot}</b> гостей</span><span>отмечено <b>${done}</b></span></div></div>`;
   const hide=$('#hideDone').checked;
   const nextIdx=tasks.findIndex(t=>!t.complete&&t.time+60>=NOW);
   $('#tasks').innerHTML=tasks.map((t,ti)=>hide&&t.complete?'':taskCard(t,'g'+ti,{next:ti===nextIdx})).join('')||'<p class="hint">Все задания выполнены.</p>';
@@ -2395,7 +2432,7 @@ function renderOpsGuides(sel){
   $('#opsGuides').innerHTML=sec('arr','✈️ Встречают · Arrival')+sec('dep','🛫 Увозят в аэропорт · Depar');
   $('#opsGuides').querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{const g=b.dataset.pick,k=b.dataset.kind;const same=$('#opsGuide').value===g&&$('#opsKind').value===k;$('#opsGuide').value=same?'':g;$('#opsKind').value=same?'':k;renderOps();$('#opsWait').scrollIntoView?.({behavior:'smooth',block:'start'})});
   $('#opsGuides').querySelectorAll('[data-gcopy]').forEach(b=>b.onclick=async()=>{const g=b.dataset.gcopy;const r=exitedText(buildTasks(t=>t.g===g),{...woOpts(),onlyNew:false});if(r.text)await copy(r.text,true)});
-  $('#opsGuides').querySelectorAll('[data-gp]').forEach(i=>i.addEventListener('change',e=>{GP[e.target.dataset.gp]=e.target.value.trim();saveGP();renderOps()}));
+  $('#opsGuides').querySelectorAll('[data-gp]').forEach(i=>i.addEventListener('change',e=>{const g=e.target.dataset.gp,k=gMatch(g)||g,v=e.target.value.trim();if(v)GP[k]=v.replace(/\D/g,'').length>=10?normPh(v):v;else delete GP[k];saveGP();gpChanged()}));
 }
 ['#opsGuide','#opsKind'].forEach(s=>$(s).addEventListener('change',renderOps));$('#opsQ').addEventListener('input',renderOps);
 $('#opsLaterBox').addEventListener('toggle',e=>opsOpen.later=e.target.open);$('#opsStaleBox').addEventListener('toggle',e=>opsOpen.stale=e.target.open);$('#opsDoneBox').addEventListener('toggle',e=>opsOpen.done=e.target.open);
@@ -2511,27 +2548,21 @@ setInterval(pullMarks,20000);setInterval(pullAssign,60000);document.addEventList
 
 
 /* ---------- contacts & log ---------- */
-function renderContacts(){
-  if(!contacts)contacts=[...guides().map(g=>({name:g,role:'Гид',phone:gPhone(g),on:true})),{name:'Операционный отдел',role:'Операционщик',phone:'',on:true},{name:'Владелец',role:'Только срочное',phone:'',on:true}];
-  contacts.forEach(c=>{if(c.role==='Гид'&&gPhone(c.name))c.phone=gPhone(c.name)});
-  $('#ctable').innerHTML=`<thead><tr><th>Кто</th><th>Роль</th><th>Телефон</th><th>Уведомлять</th></tr></thead><tbody>${contacts.map((c,i)=>`<tr><td>${esc(c.name)}</td><td class="hint">${esc(c.role)}</td><td><input id="cp_${i}" data-i="${i}" value="${esc(c.phone)}" placeholder="+90 5xx xxx xx xx"></td><td><input type="checkbox" id="cn_${i}" data-i="${i}" ${c.on?'checked':''} style="width:auto;min-width:0" aria-label="Уведомлять"></td></tr>`).join('')}</tbody>`;
-  $('#ctable').querySelectorAll('input').forEach(inp=>inp.addEventListener('input',e=>{const c=contacts[e.target.dataset.i];if(e.target.type==='checkbox')c.on=e.target.checked;else{c.phone=e.target.value;if(c.role==='Гид'){GP[c.name]=c.phone.trim();saveGP()}}store.set('contacts_'+dayKey,contacts);renderLog()}));
-  renderLog();
-}
+function renderContacts(){renderGpImport();renderLog()}
 function renderLog(){
-  const ev=[];const ph=n=>{const c=(contacts||[]).find(x=>x.name===n);return c&&c.phone?c.phone:(gPhone(n)||'номер не указан')};
+  const ev=[];const ph=n=>gPhone(n)||'номер не указан';
   flights.forEach(f=>{
     const gs=[...new Set(f.groups.map(g=>g.g).filter(Boolean))],vs=[...new Set(f.groups.map(g=>g.v).filter(Boolean))];
     if(f.delay&&f.delayKnownAt<=NOW&&f.delayKnownAt<f.eta){
-      gs.forEach(g=>ev.push([f.delayKnownAt,`${f.code}: задержка +${f.delay} мин, новая посадка ${fmt(f.eta)}`,`Гид ${g} · ${ph(g)}`]));
+      gs.forEach(g=>ev.push([f.delayKnownAt,`${f.code}: задержка +${f.delay} мин, новая посадка ${fmt(f.eta)}`,`Гид ${g} · ${ph(g)}`,g]));
       vs.forEach(v=>{const a=assign[v]||{};ev.push([f.delayKnownAt,`${f.code}: выезд в аэропорт сдвинуть на ${f.delay} мин`,`Водитель ${v} · ${a.phone||'номер не указан'}`])});
-      if(f.delay>=40)ev.push([f.delayKnownAt,`${f.code}: большая задержка, ${f.pax} гостей ждут встречи позже`,`Операционный отдел · ${ph('Операционный отдел')}`]);
+      if(f.delay>=40)ev.push([f.delayKnownAt,`${f.code}: большая задержка, ${f.pax} гостей ждут встречи позже`,`Операционный отдел · ${ph('Операционный отдел')}`,'Операционный отдел']);
     }
-    if(!f.unknown&&f.eta<=NOW)gs.forEach(g=>ev.push([f.eta,`${f.code} приземлился, ${f.pax} гостей`,`Гид ${g} · ${ph(g)}`]));
+    if(!f.unknown&&f.eta<=NOW)gs.forEach(g=>ev.push([f.eta,`${f.code} приземлился, ${f.pax} гостей`,`Гид ${g} · ${ph(g)}`,g]));
   });
-  DAY.dep.forEach(r=>{if(r.pu&&r.g&&toMin(r.pu)-60<=NOW)ev.push([toMin(r.pu)-60,`Через час выезд: ${r.h}, ${r.pax} чел → ${r.fl} ${r.t}`,`Гид ${r.g} · ${ph(r.g)}`])});
+  DAY.dep.forEach(r=>{if(r.pu&&r.g&&toMin(r.pu)-60<=NOW)ev.push([toMin(r.pu)-60,`Через час выезд: ${r.h}, ${r.pax} чел → ${r.fl} ${r.t}`,`Гид ${r.g} · ${ph(r.g)}`,r.g])});
   ev.sort((a,b)=>b[0]-a[0]);
-  $('#log').innerHTML=ev.length?ev.slice(0,50).map(e=>`<div class="e"><span class="t num">${fmt(e[0])}</span><div><div>${esc(e[1])}</div><div class="to">${esc(e[2])}</div></div></div>`).join(''):'<p class="hint">К этому времени уведомлений ещё не было. Сдвиньте время вперёд.</p>';
+  $('#log').innerHTML=ev.length?ev.slice(0,50).map(e=>{const off=e[3]&&!notifyOn(e[3]);return `<div class="e${off?' off':''}"><span class="t num">${fmt(e[0])}</span><div><div>${esc(e[1])}</div><div class="to">${esc(e[2])}${off?' · 🔕 уведомления выключены':''}</div></div></div>`}).join(''):'<p class="hint">К этому времени уведомлений ещё не было. Сдвиньте время вперёд.</p>';
 }
 
 /* ---------- excel import ---------- */
