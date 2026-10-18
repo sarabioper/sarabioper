@@ -102,7 +102,7 @@ function renderQuota(){
   const wait=q.nextAt&&Date.now()<Date.parse(q.nextAt);
   const why=q.left<=0?'Лимит запросов на этот месяц исчерпан':q.manualToday>=q.manualPerDay?'Ручные обновления на сегодня закончились':wait?`Следующее ручное обновление в ${hm(q.nextAt)}`:'';
   btn.disabled=!!why;btn.title=why||`Один запрос к сервису рейсов. Можно раз в ${q.gapMin} мин.`;
-  lbl.textContent=(why?why+' · ':'')+`запросов в месяц: осталось ${q.left} из ${q.limit} · ручных сегодня ${q.manualToday} из ${q.manualPerDay}`;
+  lbl.textContent=(why?why+' · ':'')+`${q.provider}: запросов в месяц осталось ${q.left} из ${q.limit} · ручных сегодня ${q.manualToday} из ${q.manualPerDay}`+(q.airlabsBasic?' · AirLabs на бесплатном тарифе даёт только расписание, живые времена берутся из Aviationstack':'');
   lbl.classList.toggle('low',q.left<=Math.max(5,q.limit*0.1)||!!why);
 }
 async function manualRefresh(){
@@ -122,9 +122,28 @@ $('#liveBtn').onclick=manualRefresh;
 setInterval(()=>{if(SERVER)renderQuota()},30000);
 function liveFor(f){
   if(!LIVE||!LIVE.flights||!DAY||!DAY.iso||LIVE.date!==DAY.iso)return null;
-  for(const c of f.codes){const x=LIVE.flights[normFl(c).replace(' ','')];if(x)return x}
+  for(const c of f.codes){const x=LIVE.flights[normFl(c).replace(' ','')];if(x&&x.rich!==false)return x}
   return null;
 }
+// ---- airport time typed by a dispatcher (THM from the airport app). Wins until the service reports a landing.
+let ETA={};
+function manualLive(f){const M=ETA[f.key];if(!M)return null;
+  return {rich:true,manual:true,status:M.landed?'landed':'active',sch:f.t,est:M.landed?null:M.t,act:M.landed?M.t:null,at:M.at,src:'вручную'};}
+function saveEta(patch){Object.entries(patch).forEach(([k,v])=>{if(v==null)delete ETA[k];else ETA[k]=v});store.set('eta_'+dayKey,ETA);
+  if(SERVER)api('PUT','/api/state?d='+encodeURIComponent(dayKey)+'&kind=eta',patch).catch(()=>toast('Нет связи с сервером, изменения сохранены только здесь'));
+  buildFlights();renderAll()}
+function askEta(f,landed){
+  const cur=ETA[f.key];const def=cur&&!!cur.landed===landed?cur.t:fmt(nowMinutes());
+  const v=prompt(T(landed?`${f.code}: во сколько сел? (ЧЧ:ММ)`:`${f.code}: новое время посадки из приложения аэропорта (THM), ЧЧ:ММ.\nПусто — убрать ручное время.`),def);
+  if(v===null)return;const t=v.trim().replace(/[.,\s]/,':');
+  if(!t){saveEta({[f.key]:null});return}
+  if(!/^\d{1,2}:\d\d$/.test(t)){toast('Время нужно в формате 16:12');return}
+  saveEta({[f.key]:{t:t.padStart(5,'0'),landed,at:new Date().toISOString()}});
+}
+async function pullEta(){if(!SERVER||!DAY||document.hidden)return;
+  try{const k=dayKey;const r=await api('GET','/api/state?d='+encodeURIComponent(k)+'&kind=eta');if(k!==dayKey)return;
+    const srv=r.data||{};if(JSON.stringify(srv)!==JSON.stringify(ETA)){ETA=srv;store.set('eta_'+k,ETA);buildFlights();renderAll()}}catch(e){}}
+setInterval(pullEta,20000);
 
 let DAY=null,flights=[];
 function dayIso(k){const d=DAYS[k];if(d&&/^\d{4}-\d\d-\d\d$/.test(d.iso||''))return d.iso;const [dd,mm]=k.split('.');const y=new Date().getFullYear();let iso=`${y}-${mm}-${dd}`;if(Date.parse(iso)-Date.now()>60*864e5)iso=`${y-1}-${mm}-${dd}`;return iso}
@@ -142,6 +161,7 @@ function loadDay(k){
   assign=store.get('assign_'+k,k==='15.10'?{"BUS 10":{plate:"35 CVL 346",phone:"0553 573 61 69",driver:""},"BUS 12":{plate:"07 CJD 855",phone:"0554 407 82 82",driver:""},"BUS 13":{plate:"07 GLE 03",phone:"0552 169 14 75",driver:""},"BUS 6":{plate:"07 BJH 898",phone:"0533 680 38 05",driver:""},"MİNİ 4":{plate:"34 BK 1708",phone:"0532 515 44 65",driver:""},"MİNİ 10":{plate:"19 TT 077",phone:"0532 177 87 57",driver:""}}:{});
   met=store.get('met_'+k,{});contacts=store.get('contacts_'+k,null);SENT=store.get('sent_'+k,{});SENTD=store.get('sentd_'+k,{});
   if(DAY.assign)assign=Object.assign({},assign,DAY.assign);if(DAY.met)met=Object.assign({},met,DAY.met);
+  ETA=Object.assign({},store.get('eta_'+k,{}),DAY.eta||{});
   NOW=SERVER?nowMinutes():store.get('now_'+k,k==='15.10'?nowMinutes():540);followNow=SERVER;
   buildFlights();fillFilters();
   $('#dateLbl').textContent='Операционный центр · '+DAY.title+' · '+DAY.source;
@@ -168,6 +188,7 @@ function buildFlights(){
     f.delay=dl;f.eta=f.sched+dl;f.dur=DUR[f.org]||150;f.dep=f.sched-f.dur;
     f.delayKnownAt=f.dep+Math.min(30,f.dur/3);
     f.live=liveFor(f);
+    {const M=manualLive(f);if(M&&!(f.live&&f.live.act&&f.live.status==='landed'))f.live=M}
     if(f.live){const L=f.live=sanitizeLive(f.live,f.sched);const e=L.act||L.est;
       // no new landing time from the service: shift by the departure delay if we know it
       f.estFrom=L.act?'act':L.est?'est':(L.depDelay>0?'dep':'');
@@ -186,7 +207,9 @@ function sanitizeLive(L,sched){
   return x;
 }
 const liveAge=L=>L&&L.at?Math.round((Date.now()-Date.parse(L.at))/60000):null;
-function liveNote(f){const L=f.live;if(!L)return '';const age=liveAge(L);
+function liveNote(f){const L=f.live;if(!L)return '';
+  if(L.manual)return `<small class="lnote man">✎ вручную из приложения аэропорта · ${L.act?'сел '+esc(L.act):'THM '+esc(L.est)} · введено ${new Date(L.at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'})}</small>`;
+  const age=liveAge(L);
   const parts=[`${L.src||(LIVE&&LIVE.provider)||'сервис'}${L.at?' · '+new Date(L.at).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}):''}`,`статус: ${L.status||'—'}`,`по расписанию ${L.sch||f.t}`];
   if(L.est)parts.push(`ожидается ${L.est}`);if(L.act)parts.push(`сел ${L.act}`);if(L.depDelay>0)parts.push(`вылет +${L.depDelay} мин`);
   return `<small class="lnote${age!=null&&age>60&&!L.act?' stale':''}">${age!=null&&age>60&&!L.act?'⚠ данные старше часа · ':''}${esc(parts.join(' · '))}</small>`}
@@ -251,6 +274,7 @@ function renderBoard(){
       </div>
       <div class="side">
         <span class="status ${st.k}"><span class="dot"></span>${st.lbl}</span>${liveNote(f)}
+        ${f.unknown?'':`<div class="eta-btns"><button type="button" class="btn sm" data-eta="${esc(f.key)}">✎ Время THM</button>${st.k!=='land'||(f.live&&f.live.manual)?`<button type="button" class="btn sm" data-landed="${esc(f.key)}">✓ Сел</button>`:''}${ETA[f.key]?`<button type="button" class="btn sm" data-etaclr="${esc(f.key)}" title="Убрать ручное время">✕</button>`:''}</div>`}
         ${st.p!=null?`<div class="prog" aria-hidden="true"><i style="width:${Math.round(st.p*100)}%"></i></div>`:''}
         ${vehs.map(v=>{const a=assign[v]||{};const g=(gs.find(x=>(x.v||'—')===v)||{}).g;return `<div class="veh">${esc(v)} · ${esc(a.plate||'номер не назначен')}<small>${esc(g||'гид не указан')}</small></div>`}).join('')}
       </div>
@@ -258,6 +282,8 @@ function renderBoard(){
   });
   if(!nowPlaced)html+=`<div class="nowline">СЕЙЧАС ${fmt(NOW)}</div>`;
   $('#board').innerHTML=html||'<p class="hint">Ничего не найдено.</p>';
+  $('#board').querySelectorAll('[data-eta],[data-landed],[data-etaclr]').forEach(b=>b.onclick=()=>{const k=b.dataset.eta||b.dataset.landed||b.dataset.etaclr;const f=flights.find(x=>x.key===k);if(!f)return;
+    if(b.dataset.etaclr)saveEta({[k]:null});else askEta(f,!!b.dataset.landed)});
   const totalPax=flights.reduce((s,f)=>s+f.pax,0);
   $('#sumBoard').innerHTML=[
     ['Прилёты',flights.length,`${totalPax} гостей из аэропорта`],

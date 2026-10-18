@@ -26,12 +26,13 @@ export default async (req) => {
       if (!d) continue;
       const iso = isoOf(d, k, today);
       if (Date.parse(iso + "T00:00:00Z") < cutoff) {
-        await Promise.all(["day/" + k, "state/" + k + "/assign", "state/" + k + "/met", "watch/" + iso, "live/" + iso].map((x) => s.delete(x).catch(() => {})));
+        await Promise.all(["day/" + k, "state/" + k + "/assign", "state/" + k + "/met", "state/" + k + "/eta", "watch/" + iso, "live/" + iso].map((x) => s.delete(x).catch(() => {})));
         continue;
       }
       d.iso = d.iso || iso;
       d.assign = (await s.get("state/" + k + "/assign", { type: "json" })) || d.assign || {};
       d.met = (await s.get("state/" + k + "/met", { type: "json" })) || {};
+      d.eta = (await s.get("state/" + k + "/eta", { type: "json" })) || {};
       days.push(d);
     }
     days.sort((a, b) => (a.iso < b.iso ? 1 : -1));
@@ -59,14 +60,21 @@ export default async (req) => {
 
   if (req.method === "GET" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
-    if (!["assign", "met", "guides"].includes(kind)) return json({ error: "Неверный тип" }, 400);
+    if (!["assign", "met", "guides", "eta"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     return json({ data: (await s.get("state/" + d + "/" + kind, { type: "json" })) || {} });
   }
 
   if (req.method === "PUT" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
-    if (!["assign", "met", "guides"].includes(kind)) return json({ error: "Неверный тип" }, 400);
+    if (!["assign", "met", "guides", "eta"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     const body = await req.json();
+    if (kind === "eta") {
+      // airport times typed by dispatchers, one key per flight; null removes it
+      const prev = (await s.get("state/" + d + "/eta", { type: "json" })) || {};
+      for (const [k, v] of Object.entries(body || {})) { if (v == null) delete prev[k]; else prev[k] = v; }
+      await s.setJSON("state/" + d + "/eta", prev);
+      return json({ ok: true, data: prev });
+    }
     if (kind === "met") {
       // merge marks so two guides ticking at once do not overwrite each other
       const prev = (await s.get("state/" + d + "/met", { type: "json" })) || {};

@@ -36,25 +36,27 @@ export async function poll({ force = false } = {}) {
   const count = (p, n) => { meta.used[p] = (meta.used[p] || 0) + n; meta.today[p] = (meta.today[p] || 0) + n; };
   let found = {}, provider = null, errors = [];
 
-  // 1) AirLabs
-  if (airlabsKey && (force || minsSince("AirLabs") >= Number(process.env.AIRLABS_EVERY_MIN || 20) - 1)) {
+  // 1) AirLabs. On the Free plan it has no live times: detected once, then skipped for a day.
+  const airlabsBasic = meta.airlabsBasicAt && Date.now() - Date.parse(meta.airlabsBasicAt) < 24 * 3600 * 1000;
+  if (airlabsKey && !airlabsBasic && (force || minsSince("AirLabs") >= Number(process.env.AIRLABS_EVERY_MIN || 20) - 1)) {
     try {
       const r = await airLabsAirport(airlabsKey, watch, Number(process.env.AIRLABS_PAGES || 1), now.date);
       count("AirLabs", r.requests); meta.lastAirLabs = new Date().toISOString();
-      Object.assign(found, r.flights); provider = "AirLabs";
+      if (r.basic) { meta.airlabsBasicAt = new Date().toISOString(); errors.push("AirLabs: тариф без живых данных (только расписание)"); }
+      else { Object.assign(found, r.flights); provider = "AirLabs"; meta.airlabsBasicAt = null; }
       // single-flight requests for ours that the airport list missed
       const merged = { ...snap.flights, ...found };
       const missing = missingSoon(watch, merged, nowMin).filter((w) => (snap.checked[w.code] || 0) < 2);
-      for (const w of missing.slice(0, Number(process.env.AIRLABS_SINGLE_PER_POLL || 3))) {
+      for (const w of provider ? missing.slice(0, Number(process.env.AIRLABS_SINGLE_PER_POLL || 3)) : []) {
         snap.checked[w.code] = (snap.checked[w.code] || 0) + 1;
         const rec = await airLabsFlight(airlabsKey, w.code); count("AirLabs", 1);
-        if (rec) found[w.code] = rec;
+        if (rec && rec.rich) found[w.code] = rec;
       }
     } catch (e) { errors.push(String(e.message || e)); }
   }
 
   // 2) Aviationstack (main if no AirLabs, fallback if AirLabs failed)
-  const avsWanted = avsKey && (!airlabsKey || errors.length);
+  const avsWanted = avsKey && (!airlabsKey || errors.length || airlabsBasic);
   if (avsWanted) {
     const left = Number(process.env.AVS_MONTHLY_LIMIT || 100) - (meta.used.Aviationstack || 0);
     const leftToday = Number(process.env.AVS_PER_DAY || 3) - (meta.today.Aviationstack || 0);
@@ -88,7 +90,12 @@ export async function poll({ force = false } = {}) {
     return { skipped: "Не время для запроса", active: active.length, used: meta.used };
   }
   const stamp = new Date().toISOString();
-  for (const [k, v] of Object.entries(found)) { if (!v.date || v.date === now.date) snap.flights[k] = { ...v, at: stamp, src: provider }; }
+  for (const [k, v] of Object.entries(found)) {
+    if (v.date && v.date !== now.date) continue;
+    const old = snap.flights[k];
+    if (v.rich === false && old && old.rich !== false) continue; // never replace live data with a bare timetable line
+    snap.flights[k] = { ...v, at: stamp, src: v.src || provider };
+  }
   snap.updated = new Date().toISOString();
   snap.provider = provider;
   await s.setJSON(snapKey, snap);

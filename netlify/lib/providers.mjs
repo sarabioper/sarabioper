@@ -4,9 +4,14 @@ import { flKey, hhmm } from "./common.mjs";
 // Record: status, sch, est, act (arrival, Antalya local HH:MM), depEst, depAct, from, term, date.
 
 const AIRPORT = "AYT";
+// AirLabs: 50 results per request on Free, up to 1000 on paid plans (AIRLABS_LIMIT).
+const LIM = () => Number(process.env.AIRLABS_LIMIT || 50);
 
+// The AirLabs Free plan returns only the timetable (no status, no estimated/actual times).
+// Such a record is marked rich:false and never replaces live data.
 const fromAirLabsRow = (x) => ({
-  status: x.status || "scheduled",
+  rich: !!(x.status || x.arr_estimated || x.arr_actual || x.arr_delayed != null || x.dep_delayed != null),
+  status: x.status === "en-route" ? "active" : x.status || null,
   sch: hhmm(x.arr_time),
   est: hhmm(x.arr_estimated),
   act: hhmm(x.arr_actual),
@@ -22,6 +27,7 @@ const fromAirLabsRow = (x) => ({
 const fromAvsRow = (x) => {
   const a = x.arrival || {}, d = x.departure || {};
   return {
+    rich: true,
     status: x.flight_status || "scheduled",
     sch: hhmm(a.scheduled),
     est: hhmm(a.estimated),
@@ -52,17 +58,18 @@ function collect(rows, toRec, codeOf, csOf, watch, today) {
 
 // One request = every arrival into AYT. Cheapest way to cover many flights.
 export async function airLabsAirport(key, watch, pages = 1, today) {
-  let flights = {}, requests = 0;
+  let flights = {}, requests = 0, seen = 0, rich = 0;
   for (let page = 0; page < pages; page++) {
-    const r = await fetch(`https://airlabs.co/api/v9/schedules?arr_iata=${AIRPORT}&limit=50&offset=${page * 50}&api_key=${encodeURIComponent(key)}`);
+    const r = await fetch(`https://airlabs.co/api/v9/schedules?arr_iata=${AIRPORT}&limit=${LIM()}&offset=${page * LIM()}&api_key=${encodeURIComponent(key)}`);
     requests++;
     const body = await r.json();
     if (body.error) throw new Error("AirLabs: " + (body.error.message || JSON.stringify(body.error)));
     const rows = body.response || [];
+    seen += rows.length; rich += rows.filter((x) => fromAirLabsRow(x).rich).length;
     Object.assign(flights, collect(rows, fromAirLabsRow, (x) => x.flight_iata, (x) => x.cs_flight_iata, watch, today));
-    if (rows.length < 50) break;
+    if (rows.length < LIM()) break;
   }
-  return { provider: "AirLabs", flights, requests };
+  return { provider: "AirLabs", flights, requests, basic: seen > 0 && rich === 0 };
 }
 
 // One request = one flight. Used only for our flights the airport-wide answer missed.

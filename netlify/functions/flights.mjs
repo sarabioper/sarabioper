@@ -9,13 +9,14 @@ const GAP = () => Number(process.env.REFRESH_MIN_GAP || 15);
 const PER_DAY = () => Number(process.env.REFRESH_PER_DAY || 5);
 
 function quotaOf(meta, today) {
-  const main = process.env.AIRLABS_KEY ? "AirLabs" : process.env.AVIATIONSTACK_KEY ? "Aviationstack" : null;
+  const airlabsBasic = meta.airlabsBasicAt && Date.now() - Date.parse(meta.airlabsBasicAt) < 24 * 3600 * 1000;
+  const main = process.env.AIRLABS_KEY && !(airlabsBasic && process.env.AVIATIONSTACK_KEY) ? "AirLabs" : process.env.AVIATIONSTACK_KEY ? "Aviationstack" : null;
   const sameMonth = meta.month === today.slice(0, 7);
   const used = sameMonth ? (meta.used || {})[main] || 0 : 0;
   const limit = main === "AirLabs" ? Number(process.env.AIRLABS_MONTHLY_LIMIT || 1000) : Number(process.env.AVS_MONTHLY_LIMIT || 100);
   const manualToday = meta.manualDay === today ? meta.manualCount || 0 : 0;
   const nextAt = meta.lastManual ? new Date(Date.parse(meta.lastManual) + GAP() * 60000).toISOString() : null;
-  return { provider: main, used, limit, left: Math.max(0, limit - used), manualToday, manualPerDay: PER_DAY(), gapMin: GAP(), nextAt, lastManual: meta.lastManual || null };
+  return { airlabsBasic: !!airlabsBasic, provider: main, used, limit, left: Math.max(0, limit - used), manualToday, manualPerDay: PER_DAY(), gapMin: GAP(), nextAt, lastManual: meta.lastManual || null };
 }
 
 export default async (req) => {
