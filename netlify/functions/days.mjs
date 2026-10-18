@@ -14,17 +14,28 @@ export default async (req) => {
   const path = url.pathname;
 
   if (req.method === "GET" && path === "/api/days") {
+    // Every uploaded day is kept for KEEP_DAYS (15) days after its date, then removed with its marks.
+    const keep = Number(process.env.KEEP_DAYS || 15);
+    const today = istanbulNow().date;
+    const cutoff = Date.parse(today + "T00:00:00Z") - keep * 86400000;
     const { blobs } = await s.list({ prefix: "day/" });
-    const keys = blobs.map((b) => b.key.slice(4)).sort((a, b) => dayOrder(b) - dayOrder(a)).slice(0, 7);
     const days = [];
-    for (const k of keys) {
+    for (const b of blobs) {
+      const k = b.key.slice(4);
       const d = await s.get("day/" + k, { type: "json" });
       if (!d) continue;
+      const iso = isoOf(d, k, today);
+      if (Date.parse(iso + "T00:00:00Z") < cutoff) {
+        await Promise.all(["day/" + k, "state/" + k + "/assign", "state/" + k + "/met", "watch/" + iso, "live/" + iso].map((x) => s.delete(x).catch(() => {})));
+        continue;
+      }
+      d.iso = d.iso || iso;
       d.assign = (await s.get("state/" + k + "/assign", { type: "json" })) || d.assign || {};
       d.met = (await s.get("state/" + k + "/met", { type: "json" })) || {};
       days.push(d);
     }
-    return json({ days });
+    days.sort((a, b) => (a.iso < b.iso ? 1 : -1));
+    return json({ days, keepDays: keep });
   }
 
   const d = url.searchParams.get("d") || "";
@@ -70,7 +81,14 @@ export default async (req) => {
   return json({ error: "Не найдено" }, 404);
 };
 
-// "15.10" -> sortable number (month*100 + day); good within a season.
-const dayOrder = (k) => { const [dd, mm] = k.split(".").map(Number); return mm * 100 + dd; };
+// The day's own ISO date, or a guess from "dd.mm" (this year, or last year if that would be far in the future).
+function isoOf(d, k, today) {
+  if (/^\d{4}-\d\d-\d\d$/.test(d.iso || "")) return d.iso;
+  const [dd, mm] = k.split(".");
+  let y = Number(today.slice(0, 4));
+  let iso = `${y}-${mm}-${dd}`;
+  if (Date.parse(iso) - Date.parse(today) > 60 * 86400000) iso = `${y - 1}-${mm}-${dd}`;
+  return iso;
+}
 
 export const config = { path: ["/api/days", "/api/day", "/api/state"] };

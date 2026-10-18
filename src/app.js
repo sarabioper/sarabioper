@@ -79,7 +79,7 @@ async function serverBoot(){
     const res=await api('GET','/api/days');
     res.days.forEach(d=>{DAYS[d.key]=d});
     try{const gp=await api('GET','/api/state?d=00.00&kind=guides');GP=Object.assign({},GP,gp.data||{});store.set('guidePhones',GP)}catch(e){}
-    const keys=Object.keys(DAYS).sort();
+    const keys=dayKeys();
     if(!DAYS[dayKey])dayKey=keys.includes(todayKey())?todayKey():keys.pop()||null;
     loadDay(dayKey);
     await refreshLive();setInterval(refreshLive,5*60*1000);
@@ -127,7 +127,9 @@ function liveFor(f){
 }
 
 let DAY=null,flights=[];
-let dayKey=store.get('day','15.10');if(!DAYS[dayKey])dayKey=Object.keys(DAYS).sort().pop()||null;
+function dayIso(k){const d=DAYS[k];if(d&&/^\d{4}-\d\d-\d\d$/.test(d.iso||''))return d.iso;const [dd,mm]=k.split('.');const y=new Date().getFullYear();let iso=`${y}-${mm}-${dd}`;if(Date.parse(iso)-Date.now()>60*864e5)iso=`${y-1}-${mm}-${dd}`;return iso}
+function dayKeys(){return Object.keys(DAYS).sort((a,b)=>dayIso(a)<dayIso(b)?-1:1)}
+let dayKey=store.get('day','15.10');if(!DAYS[dayKey])dayKey=dayKeys().pop()||null;
 let NOW=store.get('now_'+dayKey,540);
 let assign={},met={},contacts=null;
 let GP=store.get('guidePhones',{});
@@ -147,7 +149,7 @@ function loadDay(k){
 }
 function nowMinutes(){const d=new Date();return d.getHours()*60+d.getMinutes()}
 function renderDaySel(){
-  $('#daySel').innerHTML=Object.keys(DAYS).sort().map(k=>`<button type="button" aria-pressed="${k===dayKey}" data-k="${k}">${k}</button>`).join('');
+  $('#daySel').innerHTML=dayKeys().map(k=>`<button type="button" aria-pressed="${k===dayKey}" data-k="${k}">${k}</button>`).join('');
   $('#daySel').querySelectorAll('button').forEach(b=>b.onclick=()=>loadDay(b.dataset.k));
 }
 

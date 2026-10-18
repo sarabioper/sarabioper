@@ -1,6 +1,7 @@
 
 <style>
-.daysel{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.daysel{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow-x:auto;overflow-y:hidden;max-width:100%;scrollbar-width:thin}
+.daysel button{flex:0 0 auto}
 .daysel button{border:0;background:var(--surface);padding:5px 12px;font-size:13px;font-variant-numeric:tabular-nums}
 .daysel button+button{border-left:1px solid var(--line)}
 .daysel button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
