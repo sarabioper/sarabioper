@@ -1260,6 +1260,13 @@ const TR_DICT={
 "нет номера":"numara yok",
 "+ номер":"+ numara",
 "уведомления выключены":"bildirimler kapalı",
+"Терминал верный":"Terminal doğru",
+"Запомнил":"Kaydedildi",
+"— внутренний город, но в Капаке стоит":"iç hat şehri, ama KAPAK'ta yazan:",
+"Так бывает у транзитных рейсов с пассажирами из-за границы. Если в приложении аэропорта рейс на":"Yurt dışından transfer yolcusu olan uçuşlarda bu olur. Havalimanı uygulamasında uçuş şu terminaldeyse:",
+", нажмите «Терминал верный», и программа запомнит этот рейс.":", «Terminal doğru»ya basın, program bu uçuşu hatırlar.",
+"— внутренний, но в Капаке стоит":"iç hat, ama KAPAK'ta yazan:",
+"Так бывает, когда гости летят дальше за границу с пересадкой. Если это верно, нажмите «Терминал верный».":"Misafirler aktarmayla yurt dışına devam ediyorsa bu olur. Doğruysa «Terminal doğru»ya basın.",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",
@@ -1721,6 +1728,7 @@ async function serverBoot(){
   try{
     const res=await api('GET','/api/days');
     res.days.forEach(d=>{DAYS[d.key]=d});
+    try{const st=await api('GET','/api/state?d=00.00&kind=settings');if(st.data&&st.data.termOk){SETTINGS=Object.assign({termOk:{}},st.data);store.set('settings',SETTINGS)}}catch(e){}
     try{const gp=await api('GET','/api/state?d=00.00&kind=guides');GP=Object.assign({},GP,gp.data||{});store.set('guidePhones',GP);renderGpImport()}catch(e){}
     const keys=dayKeys();
     if(!DAYS[dayKey])dayKey=keys.includes(todayKey())?todayKey():keys.pop()||null;
@@ -1795,6 +1803,11 @@ let dayKey=store.get('day','15.10');if(!DAYS[dayKey])dayKey=dayKeys().pop()||nul
 let NOW=store.get('now_'+dayKey,540);
 let assign={},met={},contacts=null;
 let GP=store.get('guidePhones',{});
+// global settings shared by everyone: flights whose terminal a dispatcher confirmed ("VF3033": "DIŞ")
+let SETTINGS=store.get('settings',{termOk:{}});SETTINGS.termOk=SETTINGS.termOk||{};
+const flKeyC=fl=>normFl(fl).replace(/\s/g,'');
+const termOk=(fl,term)=>SETTINGS.termOk[flKeyC(fl)]===term;
+function setTermOk(fl,term){SETTINGS.termOk[flKeyC(fl)]=term;store.set('settings',SETTINGS);if(SERVER)api('PUT','/api/state?d=00.00&kind=settings',SETTINGS).catch(()=>{});if(DAY){runChecks();renderAll()}}
 function saveGP(){store.set('guidePhones',GP);if(SERVER)api('PUT','/api/state?d=00.00&kind=guides',GP).catch(()=>{})}
 // guide phones: exact name, otherwise the KAPAK short name ("ABUTAL", "RAFİK") against the full one ("ABUTALİP ALİYEV")
 const CYR2LAT={а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'yo',ж:'j',з:'z',и:'i',й:'y',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'h',ц:'ts',ч:'c',ш:'s',щ:'s',ъ:'',ы:'i',ь:'',э:'e',ю:'yu',я:'ya'};
@@ -1959,7 +1972,7 @@ function renderBoard(){
       <div class="time">${timeCol}</div>
       <div class="mid">
         <div class="fl-head"><span class="fl-code">${esc([...f.codes].join(' / '))}</span><span class="fl-from">${esc(CITY[f.org]||f.org||'город вылета не указан')}</span>
-        ${f.to==='GZP'?'<span class="chip gzp">Аэропорт Газипаша</span>':terms.map(t=>{const bad=t&&f.org&&t!==expected;return `<span class="chip term ${bad||!t?'bad':''}">${termLbl(t)}${bad?' ⚠':''}</span>`}).join('')}</div>
+        ${f.to==='GZP'?'<span class="chip gzp">Аэропорт Газипаша</span>':terms.map(t=>{const bad=t&&f.org&&t!==expected;const ok=bad&&f.groups.some(g=>g.term===t&&termOk(g.fl,t));const soft=bad&&!ok&&expected==='İÇ';return `<span class="chip term ${bad&&!ok&&!soft||!t?'bad':''}">${termLbl(t)}${bad&&!ok?(soft?' ?':' ⚠'):''}</span>`}).join('')}</div>
         ${gs.map(g=>{const mc=metCount(g);return `<div class="grp"><span class="h">${esc(g.h)} <span class="op">${esc(g.op)}</span>${mc?` <span class="met">вышли ${mc}/${groupTotal(g)}</span>`:''}${g.note?` <span class="op">· ${esc(g.note)}</span>`:''}</span><span class="chip">${esc(g.v||'нет машины')}</span><span class="px">${g.pax} чел</span></div>`}).join('')}
       </div>
       <div class="side">
@@ -2207,10 +2220,16 @@ function runChecks(){
   // terminals
   flights.forEach(f=>{
     if(!f.org||f.to==='GZP')return;const exp=DOMESTIC.has(f.org)?'İÇ':'DIŞ';
-    f.groups.filter(g=>g.term&&g.term!==exp).forEach(g=>out.push(['crit',`Неверный терминал на прилёт: ${g.fl} ${g.t}`,`Рейс из ${CITY[f.org]||f.org} прилетает в ${termLbl(exp)}, а для группы ${g.op} → ${g.h} (${g.pax} чел, ${g.v}) указан ${termLbl(g.term)}. Машина будет ждать не у того терминала.`]));
+    f.groups.filter(g=>g.term&&g.term!==exp&&!termOk(g.fl,g.term)).forEach(g=>{
+      // a flight from abroad cannot use the domestic terminal; a flight from Istanbul/Ankara on Dış Hatlar is normal for transit (international-transfer) flights
+      if(exp==='DIŞ')out.push(['crit',`Неверный терминал на прилёт: ${g.fl} ${g.t}`,`Рейс из ${CITY[f.org]||f.org} прилетает в ${termLbl(exp)}, а для группы ${g.op} → ${g.h} (${g.pax} чел, ${g.v}) указан ${termLbl(g.term)}. Машина будет ждать не у того терминала.`,{fl:g.fl,term:g.term}]);
+      else out.push(['warn',`Терминал: ${g.fl} ${g.t} на ${termLbl(g.term)}`,`Рейс из ${CITY[f.org]||f.org} — внутренний город, но в Капаке стоит ${termLbl(g.term)} (${g.op} → ${g.h}, ${g.pax} чел, ${g.v}). Так бывает у транзитных рейсов с пассажирами из-за границы. Если в приложении аэропорта рейс на ${termLbl(g.term)}, нажмите «Терминал верный», и программа запомнит этот рейс.`,{fl:g.fl,term:g.term}]);
+    });
     if(f.codes.size>1)out.push(['warn',`Один рейс записан по-разному: ${[...f.codes].join(' и ')}`,`Одно время, один маршрут. Программа объединила их в одну встречу на ${f.pax} чел.`]);
   });
-  D.forEach(r=>{if(!r.dest||!r.term)return;const exp=DOMESTIC.has(r.dest)?'İÇ':'DIŞ';if(r.term!==exp)out.push(['crit',`Неверный терминал на вылет: ${r.fl} ${r.t}`,`Рейс в ${CITY[r.dest]||r.dest} улетает из ${termLbl(exp)}, а для ${r.op} · ${r.h} (${r.pax} чел, выезд ${r.pu}, ${r.v}) указан ${termLbl(r.term)}.`])});
+  D.forEach(r=>{if(!r.dest||!r.term)return;const exp=DOMESTIC.has(r.dest)?'İÇ':'DIŞ';if(r.term===exp||termOk(r.fl,r.term))return;
+    if(exp==='DIŞ')out.push(['crit',`Неверный терминал на вылет: ${r.fl} ${r.t}`,`Рейс в ${CITY[r.dest]||r.dest} улетает из ${termLbl(exp)}, а для ${r.op} · ${r.h} (${r.pax} чел, выезд ${r.pu}, ${r.v}) указан ${termLbl(r.term)}.`,{fl:r.fl,term:r.term}]);
+    else out.push(['warn',`Терминал: ${r.fl} ${r.t} из ${termLbl(r.term)}`,`Рейс в ${CITY[r.dest]||r.dest} — внутренний, но в Капаке стоит ${termLbl(r.term)} (${r.op} · ${r.h}, ${r.pax} чел, выезд ${r.pu}). Так бывает, когда гости летят дальше за границу с пересадкой. Если это верно, нажмите «Терминал верный».`,{fl:r.fl,term:r.term}]);});
   // codeshare
   const by={};flights.forEach(f=>{if(f.unknown)return;const k=f.t+'|'+f.org+'|'+f.code.split(' ')[1];(by[k]=by[k]||[]).push(f)});
   Object.values(by).filter(a=>a.length>1).forEach(a=>out.push(['warn',`Скорее всего один самолёт: ${a.map(f=>f.code).join(' и ')}`,`Одинаковые номер, время ${a[0].t} и город вылета (${CITY[a[0].org]||a[0].org}). На табло будет один код. Всего ${a.reduce((s,f)=>s+f.pax,0)} чел.`]));
@@ -2252,7 +2271,8 @@ function runChecks(){
   out.push(...DAY.extra);
   const order={crit:0,warn:1,info:2};out.sort((a,b)=>order[a[0]]-order[b[0]]);
   const lbl={crit:'Срочно',warn:'Проверить',info:'К сведению'};
-  $('#checks').innerHTML=out.map(([s,t,d])=>`<div class="chk ${s}"><div class="bar"></div><div class="body"><span class="sev">${lbl[s]}</span><span class="ttl">${esc(t)}</span><span class="det">${esc(d)}</span></div></div>`).join('');
+  $('#checks').innerHTML=out.map(([s,t,d,a])=>`<div class="chk ${s}"><div class="bar"></div><div class="body"><span class="sev">${lbl[s]}</span><span class="ttl">${esc(t)}</span><span class="det">${esc(d)}</span>${a&&a.term?`<span><button type="button" class="btn sm" data-termok="${esc(a.fl)}" data-term="${esc(a.term)}">✓ Терминал верный: ${esc(termLbl(a.term))}</button></span>`:''}</div></div>`).join('');
+  $('#checks').querySelectorAll('[data-termok]').forEach(b=>b.onclick=()=>{setTermOk(b.dataset.termok,b.dataset.term);toast(`Запомнил: ${b.dataset.termok} — ${termLbl(b.dataset.term)}`)});
   $('#chkCnt').textContent=out.filter(o=>o[0]!=='info').length;
   const r=DAY.recon;
   $('#reconLbl').className='recon'+(r&&r.bad.length?' bad':'');

@@ -60,13 +60,13 @@ export default async (req) => {
 
   if (req.method === "GET" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
-    if (!["assign", "met", "guides", "eta"].includes(kind)) return json({ error: "Неверный тип" }, 400);
+    if (!["assign", "met", "guides", "eta", "settings"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     return json({ data: (await s.get("state/" + d + "/" + kind, { type: "json" })) || {} });
   }
 
   if (req.method === "PUT" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
-    if (!["assign", "met", "guides", "eta"].includes(kind)) return json({ error: "Неверный тип" }, 400);
+    if (!["assign", "met", "guides", "eta", "settings"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     const body = await req.json();
     if (kind === "eta") {
       // airport times typed by dispatchers, one key per flight; null removes it
