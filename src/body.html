@@ -152,6 +152,13 @@
 .eta-btns{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
 .eta-btns .btn.sm{padding:3px 9px;font-size:12px;min-height:28px}
 .lnote.man{color:var(--info);font-weight:600}
+.gpbox{display:grid;gap:12px;padding:14px;margin-bottom:16px}
+.gp-form{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.gp-form label{display:grid;gap:4px;font-size:12px;color:var(--muted);flex:1 1 200px;min-width:0}
+.gp-form input{font:inherit;font-size:15px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg)}
+.gp-tbl td{padding:7px 8px;border-top:1px solid var(--line)}
+.gp-tbl td.ph{font-variant-numeric:tabular-nums;white-space:nowrap}
+.gp-tbl td.act{white-space:nowrap;text-align:right}
 .daycheck{display:flex;gap:8px;flex-wrap:wrap}
 .daycheck span{font-weight:600;padding:2px 8px;border-radius:4px}
 .daycheck .ok{background:var(--ok-soft);color:var(--ok)}
@@ -362,14 +369,16 @@ mark{background:var(--signal-soft);color:inherit}
   </section>
 
   <section id="v-contacts" hidden>
-    <details class="panel wapaste" id="gpBox" open>
-      <summary><b>📇 Телефоны гидов</b> <span class="hint">· один раз на сезон, видно всем</span></summary>
-      <p class="hint">Вставьте список гидов с телефонами: из WhatsApp, Excel, заметок или чата, строка за строкой, например «YASİN ALİGİL - 0532 123 45 67». Порядок и разделители любые. Короткие имена из Капака («ABUTAL», «RAFİK») программа сама сопоставит с полными.</p>
-      <textarea id="gpText" rows="6" placeholder="RUSTEM SELİM - 0532 000 00 00&#10;ALİBEK MUFTİ - 0533 000 00 00"></textarea>
-      <div class="wp-btns"><label class="btn" for="gpFile">📄 Загрузить файл (PDF, Excel, Word)</label><input type="file" id="gpFile" accept=".pdf,.xlsx,.xls,.docx" hidden><button class="btn" type="button" id="gpParse">Разобрать</button><button class="btn primary" type="button" id="gpSave" hidden>Сохранить</button><button class="btn" type="button" id="gpClear">Очистить</button></div>
-      <div id="gpPreview"></div>
+    <div class="panel gpbox" id="gpBox">
+      <h2 style="margin:0">📇 Телефоны гидов</h2>
+      <form class="gp-form" id="gpForm" autocomplete="off">
+        <label>Имя и фамилия<input id="gpName" required placeholder="YASİN ALİGİL"></label>
+        <label>Телефон<input id="gpPhone" required inputmode="tel" placeholder="0532 123 45 67"></label>
+        <button class="btn primary" type="submit" id="gpAdd">Добавить</button>
+        <button class="btn" type="button" id="gpCancel" hidden>Отмена</button>
+      </form>
       <div id="gpList"></div>
-    </details>
+    </div>
     <div class="split">
       <div style="display:grid;gap:10px;min-width:0">
         <h2 style="margin:0">Кому уведомлять</h2>

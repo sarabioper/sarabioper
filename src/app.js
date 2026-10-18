@@ -161,44 +161,28 @@ function gPhone(n){if(!n)return '';if(GP[n])return GP[n];const k=gKey(n);if(!k)r
   const first=k.split(' ')[0];
   m=ks.filter(x=>{const g=gKey(x),gf=g.split(' ')[0];return g.startsWith(k+' ')||(k.indexOf(' ')<0&&gf.startsWith(k)&&k.length>=4)||(gf===first&&g.indexOf(' ')<0)});
   return m.length===1?GP[m[0]]:''}
-// "RAFİK - 0532 123 45 67", "1. YASİN ALİGİL 05321234567", "ABUTALİP ALİYEV / +90 532 …", "+7 999 …"
-function parseGuidePhones(text){const out=[];
-  for(const raw of String(text).split(/\r?\n/)){
-    const line=raw.replace(/[\u200e\u200f*_~]/g,'').replace(/^\[[^\]]*\]\s*[^:]*:\s*/,'').trim();if(!line)continue;
-    const pm=line.match(/(?:\+?\s*90[\s-]*)?0?\s*5\d{2}[\s.\-()]*\d{3}[\s.\-]*\d{2}[\s.\-]*\d{2}|\+\s*\d[\d\s\-()]{8,16}\d|(?:^|\s)8[\s-]?9\d{2}[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}/);
-    if(!pm)continue;
-    const ph=/^\s*(\+?\s*90|0?\s*5)/.test(pm[0])&&!/^\s*\+\s*[1-8]/.test(pm[0])?fmtPhone(pm[0]):pm[0].trim().replace(/\s+/g,' ');
-    let name=line.slice(0,pm.index);if(!/[A-Za-zА-Яа-яÇĞİÖŞÜçğıöşü]/.test(name))name=line.slice(pm.index+pm[0].length);
-    name=name.replace(/\b\d{2}\s*[A-ZÇĞİÖŞÜ]{1,3}\s*\d{2,4}\b/g,' ').replace(/(^|\s)(Админ|Admin|Yönetici)(?=\s|$)/gi,' ').replace(/[\u{1F000}-\u{1FAFF}\u2600-\u27BF]/gu,' ').replace(/^\s*\d{1,3}\s*[.)\-–]?\s+/,'').replace(/(тел(ефон)?|tel(efon)?|phone|гид|rehber)\s*[:.]?/gi,' ').replace(/[\-–—:\/|,;•·]+/g,' ').replace(/\s+/g,' ').trim();
-    if(!name||/\.\.\.$|…$/.test(name))continue; // cut-off names ("SAR...") cannot be matched safely
-    out.push({name:name.replace(/i/g,'İ').replace(/ı/g,'I').toUpperCase(),phone:ph});
-  }
-  // the same name with two different numbers ("ASLAN") is kept as "ASLAN (1)", "ASLAN (2)" and never matched automatically
-  const by=new Map();out.forEach(x=>{const k=gKey(x.name);if(!by.has(k))by.set(k,[]);if(!by.get(k).some(y=>y.phone===x.phone))by.get(k).push(x)});
-  return [...by.values()].flatMap(L=>L.length===1?L:L.map((x,i)=>({...x,name:`${x.name} (${i+1})`,dup:true})));
-}
-let GPP=null;
+// guide phone book: type a name and a number, edit or delete; saved on the server for everyone
+let gpEdit=null;
+const normPh=p=>/^\s*(\+?\s*90|0?\s*5)/.test(p)&&p.replace(/\D/g,'').replace(/^90(?=5)/,'').replace(/^(?=5)/,'0').length===11?fmtPhone(p):p.trim().replace(/\s+/g,' ');
 function renderGpImport(){
-  const box=$('#gpPreview');if(!box)return;
+  const el=$('#gpList');if(!el)return;
   const today=new Set([...(DAY?DAY.arr:[]),...(DAY?DAY.dep:[])].map(x=>x.g).filter(Boolean));
-  if(GPP){const rows=GPP.map(x=>{const ex=Object.keys(GP).find(k=>gKey(k)===gKey(x.name));const old=ex?GP[ex]:'';return {...x,old,st:!old?'new':old===x.phone?'same':'chg',day:[...today].some(g=>gKey(g)===gKey(x.name)||gKey(x.name).startsWith(gKey(g)+' ')||(gKey(g).indexOf(' ')<0&&gKey(x.name).split(' ')[0].startsWith(gKey(g))))}});
-    box.innerHTML=rows.length?`<p class="hint">Найдено: <b>${rows.length}</b> · новых ${rows.filter(r=>r.st==='new').length} · изменилось ${rows.filter(r=>r.st==='chg').length} · без изменений ${rows.filter(r=>r.st==='same').length}</p>
-      <table class="wp-tbl"><thead><tr><th>Гид</th><th></th><th>Телефон</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${esc(r.name)}</b>${r.day?' <span class="chip ok">работает сегодня</span>':''}</td><td><span class="wp-st ${r.st==='chg'?'chg':r.st==='new'?'new':'same'}">${r.st==='new'?'новый':r.st==='chg'?'изменился':'без изменений'}</span></td><td>${r.st==='chg'?`<span class="old">${esc(r.old)}</span>`:''}${esc(r.phone)}</td></tr>`).join('')}</tbody></table>`
-      :'<p class="hint">Не нашёл ни одного телефона. Нужны строки вида «YASİN ALİGİL - 0532 123 45 67».</p>';
-    $('#gpSave').hidden=!rows.some(r=>r.st!=='same');
-  }else{box.innerHTML='';$('#gpSave').hidden=true}
-  const all=Object.keys(GP).filter(k=>GP[k]).sort();
-  const miss=[...today].filter(g=>!gPhone(g));
-  $('#gpList').innerHTML=`<p class="hint">Сохранено телефонов: <b>${all.length}</b>${miss.length?` · <span style="color:var(--warn)">сегодня без телефона: ${esc(miss.join(', '))}</span>`:today.size?' · у всех гидов дня есть телефон ✓':''}</p>`+(all.length?`<details><summary class="hint" style="cursor:pointer">Показать все</summary><table class="wp-tbl"><tbody>${all.map(k=>`<tr><td>${esc(k)}</td><td class="num"><a href="tel:${esc(GP[k].replace(/\s/g,''))}" style="color:inherit">${esc(GP[k])}</a></td><td><button type="button" class="btn sm" data-gpdel="${esc(k)}" title="Удалить">✕</button></td></tr>`).join('')}</tbody></table></details>`:'');
-  $('#gpList').querySelectorAll('[data-gpdel]').forEach(b=>b.onclick=()=>{if(!confirm(T('Удалить телефон гида')+' '+b.dataset.gpdel+'?'))return;delete GP[b.dataset.gpdel];saveGP();renderGpImport();renderOps()});
+  const miss=[...today].filter(g=>!gPhone(g)).sort();
+  const all=Object.keys(GP).filter(k=>GP[k]).sort((a,b)=>a.localeCompare(b,'tr'));
+  el.innerHTML=`<p class="hint">Сохранено: <b>${all.length}</b>${miss.length?` · <span style="color:var(--warn)">сегодня без телефона: ${miss.map(g=>`<a href="#" data-gpfill="${esc(g)}" style="color:inherit">${esc(g)}</a>`).join(', ')}</span>`:today.size?' · у всех гидов дня есть телефон ✓':''}</p>`+
+    (all.length?`<div class="tbl-wrap"><table class="gp-tbl" style="width:100%;border-collapse:collapse"><tbody>${all.map(k=>`<tr><td><b>${esc(k)}</b></td><td class="ph">${esc(GP[k])}</td><td class="act"><button type="button" class="btn sm" data-gped="${esc(k)}">✎</button> <button type="button" class="btn sm" data-gpdel="${esc(k)}" title="Удалить">✕</button></td></tr>`).join('')}</tbody></table></div>`:'');
+  el.querySelectorAll('[data-gpdel]').forEach(b=>b.onclick=()=>{if(!confirm(T('Удалить телефон гида')+' '+b.dataset.gpdel+'?'))return;delete GP[b.dataset.gpdel];saveGP();renderGpImport();renderOps();if(DAY){renderContacts();renderLog()}});
+  el.querySelectorAll('[data-gped]').forEach(b=>b.onclick=()=>{gpEdit=b.dataset.gped;$('#gpName').value=gpEdit;$('#gpPhone').value=GP[gpEdit];$('#gpAdd').textContent=T('Сохранить');$('#gpCancel').hidden=false;$('#gpPhone').focus()});
+  el.querySelectorAll('[data-gpfill]').forEach(a=>a.onclick=e=>{e.preventDefault();$('#gpName').value=a.dataset.gpfill;$('#gpPhone').focus()});
 }
-$('#gpParse').onclick=()=>{GPP=parseGuidePhones($('#gpText').value);renderGpImport()};
-$('#gpText').addEventListener('paste',()=>setTimeout(()=>{GPP=parseGuidePhones($('#gpText').value);renderGpImport()},0));
-$('#gpSave').onclick=()=>{if(!GPP)return;let n=0;GPP.forEach(x=>{const ex=Object.keys(GP).find(k=>gKey(k)===gKey(x.name));const k=ex||x.name;if(GP[k]!==x.phone){GP[k]=x.phone;n++}});saveGP();toast(`Телефоны гидов сохранены: ${n}`);GPP=null;$('#gpText').value='';renderGpImport();renderOps();renderGuide()};
-$('#gpClear').onclick=()=>{GPP=null;$('#gpText').value='';renderGpImport()};
-$('#gpFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;
-  try{const rows=await readRows(f);$('#gpText').value=rows.map(r=>r.filter(c=>c!=null&&c!=='').join('  ')).join('\n');GPP=parseGuidePhones($('#gpText').value);renderGpImport()}
-  catch(err){toast(T('не удалось прочитать')+': '+err.message)}e.target.value=''});
+function gpReset(){gpEdit=null;$('#gpForm').reset();$('#gpAdd').textContent=T('Добавить');$('#gpCancel').hidden=true}
+$('#gpForm').addEventListener('submit',e=>{e.preventDefault();
+  const name=$('#gpName').value.trim().replace(/\s+/g,' ').replace(/i/g,'İ').replace(/ı/g,'I').toUpperCase();const ph=normPh($('#gpPhone').value);
+  if(!name||ph.replace(/\D/g,'').length<7){toast('Введите имя и номер телефона');return}
+  if(gpEdit&&gpEdit!==name)delete GP[gpEdit];
+  const same=Object.keys(GP).find(k=>k!==gpEdit&&gKey(k)===gKey(name));if(same&&same!==name)delete GP[same];
+  GP[name]=ph;saveGP();toast(`Сохранено: ${name}`);gpReset();renderGpImport();renderOps();renderGuide();if(DAY){renderContacts();renderLog()}});
+$('#gpCancel').onclick=gpReset;
 
 function loadDay(k){
   if(!k||!DAYS[k]){DAY=null;$('#dateLbl').textContent='Операционный центр · день ещё не загружен';$('#daySel').innerHTML='';$('#board').innerHTML='<p class="hint">Пока нет ни одного дня. Откройте вкладку «Загрузить день» и перетащите Excel KAPAK.</p>';const tb=document.querySelector('.tab[data-t=data]');if(tb)tb.click();renderDayStatus();return}
@@ -905,6 +889,7 @@ setInterval(pullMarks,20000);setInterval(pullAssign,60000);document.addEventList
 /* ---------- contacts & log ---------- */
 function renderContacts(){
   if(!contacts)contacts=[...guides().map(g=>({name:g,role:'Гид',phone:gPhone(g),on:true})),{name:'Операционный отдел',role:'Операционщик',phone:'',on:true},{name:'Владелец',role:'Только срочное',phone:'',on:true}];
+  contacts.forEach(c=>{if(c.role==='Гид'&&gPhone(c.name))c.phone=gPhone(c.name)});
   $('#ctable').innerHTML=`<thead><tr><th>Кто</th><th>Роль</th><th>Телефон</th><th>Уведомлять</th></tr></thead><tbody>${contacts.map((c,i)=>`<tr><td>${esc(c.name)}</td><td class="hint">${esc(c.role)}</td><td><input id="cp_${i}" data-i="${i}" value="${esc(c.phone)}" placeholder="+90 5xx xxx xx xx"></td><td><input type="checkbox" id="cn_${i}" data-i="${i}" ${c.on?'checked':''} style="width:auto;min-width:0" aria-label="Уведомлять"></td></tr>`).join('')}</tbody>`;
   $('#ctable').querySelectorAll('input').forEach(inp=>inp.addEventListener('input',e=>{const c=contacts[e.target.dataset.i];if(e.target.type==='checkbox')c.on=e.target.checked;else{c.phone=e.target.value;if(c.role==='Гид'){GP[c.name]=c.phone.trim();saveGP()}}store.set('contacts_'+dayKey,contacts);renderLog()}));
   renderLog();
