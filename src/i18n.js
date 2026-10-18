@@ -505,6 +505,33 @@ const TR_DICT={
 "На сегодня Капак не загружен, рейсы не отслеживаются":"Bugün için KAPAK yüklenmedi, uçuşlar takip edilmiyor",
 "Сейчас ни один наш рейс не в пути":"Şu an uçuşlarımızdan hiçbiri yolda değil",
 "Не время для запроса":"Sorgu zamanı değil",
+"Обновить рейсы":"Uçuşları güncelle",
+"Обновляю…":"Güncelleniyor…",
+"Лимит запросов на этот месяц исчерпан":"Bu ayın sorgu limiti doldu",
+"Ручные обновления на сегодня закончились":"Bugünkü elle güncelleme hakkı bitti",
+"Следующее ручное обновление в":"Sonraki elle güncelleme saati:",
+"Один запрос к сервису рейсов. Можно раз в":"Uçuş servisine bir sorgu. Şu sıklıkta yapılabilir: her",
+"запросов в месяц: осталось":"aylık sorgu: kalan",
+"ручных сегодня":"bugün elle",
+"Обновить статусы рейсов сейчас?":"Uçuş durumları şimdi güncellensin mi?",
+"Это потратит запрос к сервису рейсов":"Bu, uçuş servisine bir sorgu harcar",
+"В этом месяце осталось":"Bu ay kalan:",
+"Ручных обновлений сегодня":"Bugün elle güncelleme",
+"не чаще раза в":"en fazla her",
+"Сервер и так обновляет рейсы сам, пока наши самолёты в пути. Нажимайте, только если нужно срочно.":"Sunucu uçaklarımız yoldayken uçuşları zaten kendisi günceller. Sadece acil gerekirse basın.",
+"Сервис рейсов ответил ошибкой":"Uçuş servisi hata verdi",
+"Рейсы обновлены: найдено":"Uçuşlar güncellendi: bulunan",
+"Рейсы проверены":"Uçuşlar kontrol edildi",
+"Слишком часто. Следующее обновление в":"Çok sık. Sonraki güncelleme saati:",
+"Слишком часто":"Çok sık",
+"Не удалось обновить":"Güncellenemedi",
+"сбора":"toplama",
+"сборе":"toplama",
+"сбору":"toplamaya",
+"сбором":"toplamayla",
+"встречу":"karşılama",
+"встрече":"karşılamada",
+"Сборы":"Toplamalar",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",
@@ -524,13 +551,16 @@ const TR_RULES=[
   [/(?<![А-Яа-яЁё])в (?=\d\d?:\d\d)/g,'saat '],
 ];
 let LANG=(()=>{try{return localStorage.getItem('sarabi.lang')||'ru'}catch(e){return 'ru'}})();
-const TR_RE=(()=>{const keys=Object.keys(TR_DICT).sort((a,b)=>b.length-a.length).map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
-  return new RegExp('(?<![А-Яа-яЁё])(?:'+keys.join('|')+')(?![А-Яа-яЁё])','g')})();
+const trRe=keys=>{keys=keys.sort((a,b)=>b.length-a.length).map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
+  return new RegExp('(?<![А-Яа-яЁё])(?:'+keys.join('|')+')(?![А-Яа-яЁё])','g')};
+const TR_RE=trRe(Object.keys(TR_DICT).filter(k=>k.length>2));
+const TR_RE_SMALL=trRe(Object.keys(TR_DICT).filter(k=>k.length<=2));
 const CYR=/[А-Яа-яЁё]/;
 function trText(s){
   if(LANG!=='tr'||!s||!CYR.test(s))return s;
-  let t=s;for(const [re,to] of TR_RULES)t=t.replace(re,to);
-  t=t.replace(TR_RE,m=>TR_DICT[m]);
+  let t=s.replace(TR_RE,m=>TR_DICT[m]);
+  for(const [re,to] of TR_RULES)t=t.replace(re,to);
+  t=t.replace(TR_RE_SMALL,m=>TR_DICT[m]);
   return t.replace(/ {2,}/g,' ').replace(/ ([,.:;)])/g,'$1');
 }
 const T=trText;
@@ -541,12 +571,12 @@ function trNode(root){
   if(root.nodeType!==1)return;
   if(root.tagName==='SCRIPT'||root.tagName==='STYLE')return;
   if(root.closest&&root.closest('[data-noi18n]'))return;
-  for(const a of I18N_ATTRS){const v=root.getAttribute&&root.getAttribute(a);if(v&&CYR.test(v))root.setAttribute(a,trText(v))}
-  if((root.tagName==='TEXTAREA'||root.tagName==='INPUT')&&CYR.test(root.value||''))root.value=trText(root.value);
+  for(const a of I18N_ATTRS){const v=root.getAttribute&&root.getAttribute(a);if(v&&CYR.test(v)){const t=trText(v);if(t!==v)root.setAttribute(a,t)}}
+  if(root.tagName==='TEXTAREA'&&CYR.test(root.value||'')){const t=trText(root.value);if(t!==root.value)root.value=t}
   const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT|NodeFilter.SHOW_ELEMENT);let n;
   while((n=w.nextNode())){
     if(n.nodeType===3){if(CYR.test(n.nodeValue)){const v=trText(n.nodeValue);if(v!==n.nodeValue)n.nodeValue=v}}
-    else{for(const a of I18N_ATTRS){const v=n.getAttribute(a);if(v&&CYR.test(v))n.setAttribute(a,trText(v))}
+    else{for(const a of I18N_ATTRS){const v=n.getAttribute(a);if(v&&CYR.test(v)){const t=trText(v);if(t!==v)n.setAttribute(a,t)}}
       if((n.tagName==='TEXTAREA')&&CYR.test(n.value||''))n.value=trText(n.value)}
   }
 }

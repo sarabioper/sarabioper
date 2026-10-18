@@ -313,6 +313,10 @@ tr.soon td.t{color:var(--signal-ink)}
 .langsw button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:600;padding:4px 9px;cursor:pointer;min-height:28px}
 .langsw button[aria-pressed="true"]{background:var(--ink,#111);color:var(--bg,#fff)}
 .login-card .langsw{align-self:flex-end}
+.livectl{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+.livectl .btn.sm{padding:4px 10px;font-size:12px;min-height:28px}
+.livectl .btn[disabled]{opacity:.55;cursor:not-allowed}
+.livectl small.low{color:var(--warn);font-weight:600}
 .daycheck{display:flex;gap:8px;flex-wrap:wrap}
 .daycheck span{font-weight:600;padding:2px 8px;border-radius:4px}
 .daycheck .ok{background:var(--ok-soft);color:var(--ok)}
@@ -382,6 +386,7 @@ mark{background:var(--signal-soft);color:inherit}
       <span class="daysel" id="daySel" role="group" aria-label="День"></span>
       <span class="date" id="dateLbl"></span>
       <span class="demo-pill" id="modePill">Статусы рейсов в демо-режиме</span>
+      <span class="livectl" id="liveCtl" hidden><button class="btn sm" id="liveBtn" type="button">⟳ Обновить рейсы</button><small class="hint" id="liveQuota"></small></span>
     </div>
     <div class="clock">
       <div class="now num" id="nowLbl">09:00</div>
@@ -1069,6 +1074,33 @@ const TR_DICT={
 "На сегодня Капак не загружен, рейсы не отслеживаются":"Bugün için KAPAK yüklenmedi, uçuşlar takip edilmiyor",
 "Сейчас ни один наш рейс не в пути":"Şu an uçuşlarımızdan hiçbiri yolda değil",
 "Не время для запроса":"Sorgu zamanı değil",
+"Обновить рейсы":"Uçuşları güncelle",
+"Обновляю…":"Güncelleniyor…",
+"Лимит запросов на этот месяц исчерпан":"Bu ayın sorgu limiti doldu",
+"Ручные обновления на сегодня закончились":"Bugünkü elle güncelleme hakkı bitti",
+"Следующее ручное обновление в":"Sonraki elle güncelleme saati:",
+"Один запрос к сервису рейсов. Можно раз в":"Uçuş servisine bir sorgu. Şu sıklıkta yapılabilir: her",
+"запросов в месяц: осталось":"aylık sorgu: kalan",
+"ручных сегодня":"bugün elle",
+"Обновить статусы рейсов сейчас?":"Uçuş durumları şimdi güncellensin mi?",
+"Это потратит запрос к сервису рейсов":"Bu, uçuş servisine bir sorgu harcar",
+"В этом месяце осталось":"Bu ay kalan:",
+"Ручных обновлений сегодня":"Bugün elle güncelleme",
+"не чаще раза в":"en fazla her",
+"Сервер и так обновляет рейсы сам, пока наши самолёты в пути. Нажимайте, только если нужно срочно.":"Sunucu uçaklarımız yoldayken uçuşları zaten kendisi günceller. Sadece acil gerekirse basın.",
+"Сервис рейсов ответил ошибкой":"Uçuş servisi hata verdi",
+"Рейсы обновлены: найдено":"Uçuşlar güncellendi: bulunan",
+"Рейсы проверены":"Uçuşlar kontrol edildi",
+"Слишком часто. Следующее обновление в":"Çok sık. Sonraki güncelleme saati:",
+"Слишком часто":"Çok sık",
+"Не удалось обновить":"Güncellenemedi",
+"сбора":"toplama",
+"сборе":"toplama",
+"сбору":"toplamaya",
+"сбором":"toplamayla",
+"встречу":"karşılama",
+"встрече":"karşılamada",
+"Сборы":"Toplamalar",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",
@@ -1088,13 +1120,16 @@ const TR_RULES=[
   [/(?<![А-Яа-яЁё])в (?=\d\d?:\d\d)/g,'saat '],
 ];
 let LANG=(()=>{try{return localStorage.getItem('sarabi.lang')||'ru'}catch(e){return 'ru'}})();
-const TR_RE=(()=>{const keys=Object.keys(TR_DICT).sort((a,b)=>b.length-a.length).map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
-  return new RegExp('(?<![А-Яа-яЁё])(?:'+keys.join('|')+')(?![А-Яа-яЁё])','g')})();
+const trRe=keys=>{keys=keys.sort((a,b)=>b.length-a.length).map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
+  return new RegExp('(?<![А-Яа-яЁё])(?:'+keys.join('|')+')(?![А-Яа-яЁё])','g')};
+const TR_RE=trRe(Object.keys(TR_DICT).filter(k=>k.length>2));
+const TR_RE_SMALL=trRe(Object.keys(TR_DICT).filter(k=>k.length<=2));
 const CYR=/[А-Яа-яЁё]/;
 function trText(s){
   if(LANG!=='tr'||!s||!CYR.test(s))return s;
-  let t=s;for(const [re,to] of TR_RULES)t=t.replace(re,to);
-  t=t.replace(TR_RE,m=>TR_DICT[m]);
+  let t=s.replace(TR_RE,m=>TR_DICT[m]);
+  for(const [re,to] of TR_RULES)t=t.replace(re,to);
+  t=t.replace(TR_RE_SMALL,m=>TR_DICT[m]);
   return t.replace(/ {2,}/g,' ').replace(/ ([,.:;)])/g,'$1');
 }
 const T=trText;
@@ -1105,12 +1140,12 @@ function trNode(root){
   if(root.nodeType!==1)return;
   if(root.tagName==='SCRIPT'||root.tagName==='STYLE')return;
   if(root.closest&&root.closest('[data-noi18n]'))return;
-  for(const a of I18N_ATTRS){const v=root.getAttribute&&root.getAttribute(a);if(v&&CYR.test(v))root.setAttribute(a,trText(v))}
-  if((root.tagName==='TEXTAREA'||root.tagName==='INPUT')&&CYR.test(root.value||''))root.value=trText(root.value);
+  for(const a of I18N_ATTRS){const v=root.getAttribute&&root.getAttribute(a);if(v&&CYR.test(v)){const t=trText(v);if(t!==v)root.setAttribute(a,t)}}
+  if(root.tagName==='TEXTAREA'&&CYR.test(root.value||'')){const t=trText(root.value);if(t!==root.value)root.value=t}
   const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT|NodeFilter.SHOW_ELEMENT);let n;
   while((n=w.nextNode())){
     if(n.nodeType===3){if(CYR.test(n.nodeValue)){const v=trText(n.nodeValue);if(v!==n.nodeValue)n.nodeValue=v}}
-    else{for(const a of I18N_ATTRS){const v=n.getAttribute(a);if(v&&CYR.test(v))n.setAttribute(a,trText(v))}
+    else{for(const a of I18N_ATTRS){const v=n.getAttribute(a);if(v&&CYR.test(v)){const t=trText(v);if(t!==v)n.setAttribute(a,t)}}
       if((n.tagName==='TEXTAREA')&&CYR.test(n.value||''))n.value=trText(n.value)}
   }
 }
@@ -1526,8 +1561,35 @@ async function refreshLive(){
   const c=LIVE&&LIVE.coverage;const cov=c&&c.watched?` · найдено ${c.found} из ${c.watched} наших рейсов`:'';
   $('#modePill').textContent=LIVE&&LIVE.updated?`Рейсы: обновлено ${new Date(LIVE.updated).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'})} · ${LIVE.provider}${cov}`:((LIVE&&LIVE.message)||'Живые статусы ещё не подключены')+cov;
   $('#modePill').title=c&&c.missing&&c.missing.length?'Пока без данных: '+c.missing.join(', '):'';
+  renderQuota();
   if(DAY){buildFlights();renderAll()}
 }
+const hm=iso=>new Date(iso).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+function renderQuota(){
+  const box=$('#liveCtl');if(!SERVER){box.hidden=true;return}
+  box.hidden=false;const q=LIVE&&LIVE.quota;const btn=$('#liveBtn');const lbl=$('#liveQuota');
+  if(!q||!q.provider){btn.disabled=true;lbl.textContent='';btn.title='Ключ API рейсов не задан на сервере';return}
+  const wait=q.nextAt&&Date.now()<Date.parse(q.nextAt);
+  const why=q.left<=0?'Лимит запросов на этот месяц исчерпан':q.manualToday>=q.manualPerDay?'Ручные обновления на сегодня закончились':wait?`Следующее ручное обновление в ${hm(q.nextAt)}`:'';
+  btn.disabled=!!why;btn.title=why||`Один запрос к сервису рейсов. Можно раз в ${q.gapMin} мин.`;
+  lbl.textContent=(why?why+' · ':'')+`запросов в месяц: осталось ${q.left} из ${q.limit} · ручных сегодня ${q.manualToday} из ${q.manualPerDay}`;
+  lbl.classList.toggle('low',q.left<=Math.max(5,q.limit*0.1)||!!why);
+}
+async function manualRefresh(){
+  const q=LIVE&&LIVE.quota;if(!q)return;
+  const msg=`Обновить статусы рейсов сейчас?\n\nЭто потратит запрос к сервису рейсов (${q.provider}). В этом месяце осталось ${q.left} из ${q.limit}. Ручных обновлений сегодня: ${q.manualToday} из ${q.manualPerDay}, не чаще раза в ${q.gapMin} мин.\n\nСервер и так обновляет рейсы сам, пока наши самолёты в пути. Нажимайте, только если нужно срочно.`;
+  if(!confirm(T(msg)))return;
+  const btn=$('#liveBtn');btn.disabled=true;btn.textContent='⟳ Обновляю…';
+  try{LIVE=await api('GET','/api/flights?refresh=1');const p=LIVE.poll||{};
+    toast(p.error?'Сервис рейсов ответил ошибкой: '+p.error:p.ok?`Рейсы обновлены: найдено ${p.found}`:'Рейсы проверены')}
+  catch(e){let j=null;try{j=JSON.parse(e.message)}catch(x){}
+    if(j&&j.quota&&LIVE)LIVE.quota=j.quota;
+    toast(j&&j.error?(j.error==='Слишком часто'&&j.quota&&j.quota.nextAt?`Слишком часто. Следующее обновление в ${hm(j.quota.nextAt)}`:j.error):'Не удалось обновить: '+e.message)}
+  btn.textContent='⟳ Обновить рейсы';
+  await refreshLive();
+}
+$('#liveBtn').onclick=manualRefresh;
+setInterval(()=>{if(SERVER)renderQuota()},30000);
 function liveFor(f){
   if(!LIVE||!LIVE.flights||!DAY||!DAY.iso||LIVE.date!==DAY.iso)return null;
   for(const c of f.codes){const x=LIVE.flights[normFl(c).replace(' ','')];if(x)return x}

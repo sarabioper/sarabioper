@@ -91,8 +91,35 @@ async function refreshLive(){
   const c=LIVE&&LIVE.coverage;const cov=c&&c.watched?` · найдено ${c.found} из ${c.watched} наших рейсов`:'';
   $('#modePill').textContent=LIVE&&LIVE.updated?`Рейсы: обновлено ${new Date(LIVE.updated).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'})} · ${LIVE.provider}${cov}`:((LIVE&&LIVE.message)||'Живые статусы ещё не подключены')+cov;
   $('#modePill').title=c&&c.missing&&c.missing.length?'Пока без данных: '+c.missing.join(', '):'';
+  renderQuota();
   if(DAY){buildFlights();renderAll()}
 }
+const hm=iso=>new Date(iso).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'});
+function renderQuota(){
+  const box=$('#liveCtl');if(!SERVER){box.hidden=true;return}
+  box.hidden=false;const q=LIVE&&LIVE.quota;const btn=$('#liveBtn');const lbl=$('#liveQuota');
+  if(!q||!q.provider){btn.disabled=true;lbl.textContent='';btn.title='Ключ API рейсов не задан на сервере';return}
+  const wait=q.nextAt&&Date.now()<Date.parse(q.nextAt);
+  const why=q.left<=0?'Лимит запросов на этот месяц исчерпан':q.manualToday>=q.manualPerDay?'Ручные обновления на сегодня закончились':wait?`Следующее ручное обновление в ${hm(q.nextAt)}`:'';
+  btn.disabled=!!why;btn.title=why||`Один запрос к сервису рейсов. Можно раз в ${q.gapMin} мин.`;
+  lbl.textContent=(why?why+' · ':'')+`запросов в месяц: осталось ${q.left} из ${q.limit} · ручных сегодня ${q.manualToday} из ${q.manualPerDay}`;
+  lbl.classList.toggle('low',q.left<=Math.max(5,q.limit*0.1)||!!why);
+}
+async function manualRefresh(){
+  const q=LIVE&&LIVE.quota;if(!q)return;
+  const msg=`Обновить статусы рейсов сейчас?\n\nЭто потратит запрос к сервису рейсов (${q.provider}). В этом месяце осталось ${q.left} из ${q.limit}. Ручных обновлений сегодня: ${q.manualToday} из ${q.manualPerDay}, не чаще раза в ${q.gapMin} мин.\n\nСервер и так обновляет рейсы сам, пока наши самолёты в пути. Нажимайте, только если нужно срочно.`;
+  if(!confirm(T(msg)))return;
+  const btn=$('#liveBtn');btn.disabled=true;btn.textContent='⟳ Обновляю…';
+  try{LIVE=await api('GET','/api/flights?refresh=1');const p=LIVE.poll||{};
+    toast(p.error?'Сервис рейсов ответил ошибкой: '+p.error:p.ok?`Рейсы обновлены: найдено ${p.found}`:'Рейсы проверены')}
+  catch(e){let j=null;try{j=JSON.parse(e.message)}catch(x){}
+    if(j&&j.quota&&LIVE)LIVE.quota=j.quota;
+    toast(j&&j.error?(j.error==='Слишком часто'&&j.quota&&j.quota.nextAt?`Слишком часто. Следующее обновление в ${hm(j.quota.nextAt)}`:j.error):'Не удалось обновить: '+e.message)}
+  btn.textContent='⟳ Обновить рейсы';
+  await refreshLive();
+}
+$('#liveBtn').onclick=manualRefresh;
+setInterval(()=>{if(SERVER)renderQuota()},30000);
 function liveFor(f){
   if(!LIVE||!LIVE.flights||!DAY||!DAY.iso||LIVE.date!==DAY.iso)return null;
   for(const c of f.codes){const x=LIVE.flights[normFl(c).replace(' ','')];if(x)return x}

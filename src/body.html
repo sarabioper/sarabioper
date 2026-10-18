@@ -118,6 +118,10 @@
 .langsw button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:600;padding:4px 9px;cursor:pointer;min-height:28px}
 .langsw button[aria-pressed="true"]{background:var(--ink,#111);color:var(--bg,#fff)}
 .login-card .langsw{align-self:flex-end}
+.livectl{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+.livectl .btn.sm{padding:4px 10px;font-size:12px;min-height:28px}
+.livectl .btn[disabled]{opacity:.55;cursor:not-allowed}
+.livectl small.low{color:var(--warn);font-weight:600}
 .daycheck{display:flex;gap:8px;flex-wrap:wrap}
 .daycheck span{font-weight:600;padding:2px 8px;border-radius:4px}
 .daycheck .ok{background:var(--ok-soft);color:var(--ok)}
@@ -187,6 +191,7 @@ mark{background:var(--signal-soft);color:inherit}
       <span class="daysel" id="daySel" role="group" aria-label="День"></span>
       <span class="date" id="dateLbl"></span>
       <span class="demo-pill" id="modePill">Статусы рейсов в демо-режиме</span>
+      <span class="livectl" id="liveCtl" hidden><button class="btn sm" id="liveBtn" type="button">⟳ Обновить рейсы</button><small class="hint" id="liveQuota"></small></span>
     </div>
     <div class="clock">
       <div class="now num" id="nowLbl">09:00</div>
