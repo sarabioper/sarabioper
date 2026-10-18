@@ -366,7 +366,7 @@ mark{background:var(--signal-soft);color:inherit}
       <summary><b>📇 Телефоны гидов</b> <span class="hint">· один раз на сезон, видно всем</span></summary>
       <p class="hint">Вставьте список гидов с телефонами: из WhatsApp, Excel, заметок или чата, строка за строкой, например «YASİN ALİGİL - 0532 123 45 67». Порядок и разделители любые. Короткие имена из Капака («ABUTAL», «RAFİK») программа сама сопоставит с полными.</p>
       <textarea id="gpText" rows="6" placeholder="RUSTEM SELİM - 0532 000 00 00&#10;ALİBEK MUFTİ - 0533 000 00 00"></textarea>
-      <div class="wp-btns"><button class="btn" type="button" id="gpParse">Разобрать</button><button class="btn primary" type="button" id="gpSave" hidden>Сохранить</button><button class="btn" type="button" id="gpClear">Очистить</button></div>
+      <div class="wp-btns"><label class="btn" for="gpFile">📄 Загрузить файл (PDF, Excel, Word)</label><input type="file" id="gpFile" accept=".pdf,.xlsx,.xls,.docx" hidden><button class="btn" type="button" id="gpParse">Разобрать</button><button class="btn primary" type="button" id="gpSave" hidden>Сохранить</button><button class="btn" type="button" id="gpClear">Очистить</button></div>
       <div id="gpPreview"></div>
       <div id="gpList"></div>
     </details>

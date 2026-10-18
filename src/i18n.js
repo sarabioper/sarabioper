@@ -613,6 +613,7 @@ const TR_DICT={
 "Удалить телефон гида":"Rehber telefonu silinsin mi:",
 "Телефоны гидов сохранены":"Rehber telefonları kaydedildi",
 "Сохранить":"Kaydet",
+"Загрузить файл (PDF, Excel, Word)":"Dosya yükle (PDF, Excel, Word)",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",

@@ -154,7 +154,8 @@ let assign={},met={},contacts=null;
 let GP=store.get('guidePhones',{});
 function saveGP(){store.set('guidePhones',GP);if(SERVER)api('PUT','/api/state?d=00.00&kind=guides',GP).catch(()=>{})}
 // guide phones: exact name, otherwise the KAPAK short name ("ABUTAL", "RAFİK") against the full one ("ABUTALİP ALİYEV")
-const gKey=n=>String(n||'').replace(/i/g,'İ').replace(/ı/g,'I').toUpperCase().replace(/İ/g,'I').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+const CYR2LAT={а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'yo',ж:'j',з:'z',и:'i',й:'y',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'h',ц:'ts',ч:'c',ш:'s',щ:'s',ъ:'',ы:'i',ь:'',э:'e',ю:'yu',я:'ya'};
+const gKey=n=>String(n||'').replace(/[А-Яа-яЁё]/g,c=>{const l=CYR2LAT[c.toLowerCase()];return l==null?c:l}).replace(/i/g,'İ').replace(/ı/g,'I').toUpperCase().replace(/İ/g,'I').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
 function gPhone(n){if(!n)return '';if(GP[n])return GP[n];const k=gKey(n);if(!k)return '';
   const ks=Object.keys(GP).filter(x=>GP[x]);let m=ks.filter(x=>gKey(x)===k);if(!m.length)m=ks.filter(x=>gKey(x).replace(/ /g,'')===k.replace(/ /g,''));if(m.length)return GP[m[0]];
   const first=k.split(' ')[0];
@@ -168,11 +169,13 @@ function parseGuidePhones(text){const out=[];
     if(!pm)continue;
     const ph=/^\s*(\+?\s*90|0?\s*5)/.test(pm[0])&&!/^\s*\+\s*[1-8]/.test(pm[0])?fmtPhone(pm[0]):pm[0].trim().replace(/\s+/g,' ');
     let name=line.slice(0,pm.index);if(!/[A-Za-zА-Яа-яÇĞİÖŞÜçğıöşü]/.test(name))name=line.slice(pm.index+pm[0].length);
-    name=name.replace(/\b\d{2}\s*[A-ZÇĞİÖŞÜ]{1,3}\s*\d{2,4}\b/g,' ').replace(/^\s*\d{1,3}\s*[.)\-–]\s*/,'').replace(/(тел(ефон)?|tel(efon)?|phone|гид|rehber)\s*[:.]?/gi,' ').replace(/[\-–—:\/|,;•·]+/g,' ').replace(/\s+/g,' ').trim();
-    if(!name)continue;
+    name=name.replace(/\b\d{2}\s*[A-ZÇĞİÖŞÜ]{1,3}\s*\d{2,4}\b/g,' ').replace(/(^|\s)(Админ|Admin|Yönetici)(?=\s|$)/gi,' ').replace(/[\u{1F000}-\u{1FAFF}\u2600-\u27BF]/gu,' ').replace(/^\s*\d{1,3}\s*[.)\-–]?\s+/,'').replace(/(тел(ефон)?|tel(efon)?|phone|гид|rehber)\s*[:.]?/gi,' ').replace(/[\-–—:\/|,;•·]+/g,' ').replace(/\s+/g,' ').trim();
+    if(!name||/\.\.\.$|…$/.test(name))continue; // cut-off names ("SAR...") cannot be matched safely
     out.push({name:name.replace(/i/g,'İ').replace(/ı/g,'I').toUpperCase(),phone:ph});
   }
-  const seen=new Map();out.forEach(x=>seen.set(gKey(x.name),x));return [...seen.values()];
+  // the same name with two different numbers ("ASLAN") is kept as "ASLAN (1)", "ASLAN (2)" and never matched automatically
+  const by=new Map();out.forEach(x=>{const k=gKey(x.name);if(!by.has(k))by.set(k,[]);if(!by.get(k).some(y=>y.phone===x.phone))by.get(k).push(x)});
+  return [...by.values()].flatMap(L=>L.length===1?L:L.map((x,i)=>({...x,name:`${x.name} (${i+1})`,dup:true})));
 }
 let GPP=null;
 function renderGpImport(){
@@ -193,6 +196,9 @@ $('#gpParse').onclick=()=>{GPP=parseGuidePhones($('#gpText').value);renderGpImpo
 $('#gpText').addEventListener('paste',()=>setTimeout(()=>{GPP=parseGuidePhones($('#gpText').value);renderGpImport()},0));
 $('#gpSave').onclick=()=>{if(!GPP)return;let n=0;GPP.forEach(x=>{const ex=Object.keys(GP).find(k=>gKey(k)===gKey(x.name));const k=ex||x.name;if(GP[k]!==x.phone){GP[k]=x.phone;n++}});saveGP();toast(`Телефоны гидов сохранены: ${n}`);GPP=null;$('#gpText').value='';renderGpImport();renderOps();renderGuide()};
 $('#gpClear').onclick=()=>{GPP=null;$('#gpText').value='';renderGpImport()};
+$('#gpFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;
+  try{const rows=await readRows(f);$('#gpText').value=rows.map(r=>r.filter(c=>c!=null&&c!=='').join('  ')).join('\n');GPP=parseGuidePhones($('#gpText').value);renderGpImport()}
+  catch(err){toast(T('не удалось прочитать')+': '+err.message)}e.target.value=''});
 
 function loadDay(k){
   if(!k||!DAYS[k]){DAY=null;$('#dateLbl').textContent='Операционный центр · день ещё не загружен';$('#daySel').innerHTML='';$('#board').innerHTML='<p class="hint">Пока нет ни одного дня. Откройте вкладку «Загрузить день» и перетащите Excel KAPAK.</p>';const tb=document.querySelector('.tab[data-t=data]');if(tb)tb.click();renderDayStatus();return}
