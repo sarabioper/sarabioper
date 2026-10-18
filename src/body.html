@@ -144,6 +144,9 @@
 .vtbl{width:100%}
 .vtbl a{color:inherit}
 .vtbl th{text-align:left;padding:8px 10px;font-size:12px;color:var(--muted);font-weight:600}
+.gsec{margin-bottom:6px}
+.gsec-h{font-size:15px;margin:12px 0 0;padding:0 10px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.gsec:first-child .gsec-h{margin-top:4px}
 .daycheck{display:flex;gap:8px;flex-wrap:wrap}
 .daycheck span{font-weight:600;padding:2px 8px;border-radius:4px}
 .daycheck .ok{background:var(--ok-soft);color:var(--ok)}
@@ -283,7 +286,7 @@ mark{background:var(--signal-soft);color:inherit}
         <div class="vfoot" style="padding:0"><button class="btn primary" type="button" id="woCopy">Скопировать и отметить как отправленные</button><button class="btn" type="button" id="woReset">Сбросить «отправленные»</button></div>
       </div>
     </details>
-    <details class="ops-box" id="opsGuidesBox" open><summary>Гиды дня <span class="hint">· нажмите на имя, чтобы увидеть только его задания</span></summary><div class="gcards" id="opsGuides"></div></details>
+    <details class="ops-box" id="opsGuidesBox" open><summary>Гиды дня <span class="hint">· нажмите на имя, чтобы увидеть только его задания</span></summary><div id="opsGuides"></div></details>
     <div class="ops-grid" style="margin-top:14px">
       <div class="ops-main">
         <h2>Ждём сейчас <span class="hint">· от полутора часов назад до двух часов вперёд</span></h2>

@@ -339,6 +339,9 @@ tr.soon td.t{color:var(--signal-ink)}
 .vtbl{width:100%}
 .vtbl a{color:inherit}
 .vtbl th{text-align:left;padding:8px 10px;font-size:12px;color:var(--muted);font-weight:600}
+.gsec{margin-bottom:6px}
+.gsec-h{font-size:15px;margin:12px 0 0;padding:0 10px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.gsec:first-child .gsec-h{margin-top:4px}
 .daycheck{display:flex;gap:8px;flex-wrap:wrap}
 .daycheck span{font-weight:600;padding:2px 8px;border-radius:4px}
 .daycheck .ok{background:var(--ok-soft);color:var(--ok)}
@@ -478,7 +481,7 @@ mark{background:var(--signal-soft);color:inherit}
         <div class="vfoot" style="padding:0"><button class="btn primary" type="button" id="woCopy">Скопировать и отметить как отправленные</button><button class="btn" type="button" id="woReset">Сбросить «отправленные»</button></div>
       </div>
     </details>
-    <details class="ops-box" id="opsGuidesBox" open><summary>Гиды дня <span class="hint">· нажмите на имя, чтобы увидеть только его задания</span></summary><div class="gcards" id="opsGuides"></div></details>
+    <details class="ops-box" id="opsGuidesBox" open><summary>Гиды дня <span class="hint">· нажмите на имя, чтобы увидеть только его задания</span></summary><div id="opsGuides"></div></details>
     <div class="ops-grid" style="margin-top:14px">
       <div class="ops-main">
         <h2>Ждём сейчас <span class="hint">· от полутора часов назад до двух часов вперёд</span></h2>
@@ -1170,6 +1173,11 @@ const TR_DICT={
 "машин":"araç",
 "Нет машин.":"Araç yok.",
 "машин на турах":"turlardaki araç",
+"Встречают · Arrival":"Karşılayanlar · Arrival",
+"Увозят в аэропорт · Depar":"Havalimanına götürenler · Depar",
+"гидов":"rehber",
+"Нет гидов.":"Rehber yok.",
+"также":"ayrıca",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",
@@ -2238,17 +2246,21 @@ function renderOps(){
 }
 function renderOpsGuides(sel){
   const all=buildTasks(()=>true);
-  const rows=guides().map(g=>{const ts=all.filter(t=>t.guide===g);const open=ts.filter(t=>!t.complete);const next=open.find(t=>t.time>=NOW-90)||open[0];
+  const card=(g,kind)=>{const ts=all.filter(t=>t.guide===g&&t.kind===kind);const open=ts.filter(t=>!t.complete);const next=open.find(t=>t.time>=NOW-90)||open[0];
     const out=ts.reduce((s,t)=>s+t.done,0),tot=ts.reduce((s,t)=>s+t.total,0),no=ts.reduce((s,t)=>s+t.no,0),stale=open.filter(t=>t.time<NOW-90).length;
     const vs=[...new Set(ts.flatMap(t=>t.groups.map(x=>x.v)).filter(Boolean))];
     const nx=next?`${fmt(next.time)} ${next.kind==='arr'?'встреча '+(next.f?[...next.f.codes][0]:normFl(next.groups[0].fl)):'сбор '+next.groups[0].h}`:'всё закрыто';
-    return `<div class="gcard${sel===g?' on':''}"><button type="button" class="gc-name" data-pick="${esc(g)}">${esc(g)}</button>
+    const other=all.some(t=>t.guide===g&&t.kind!==kind);
+    return `<div class="gcard${sel===g&&(!$('#opsKind').value||$('#opsKind').value===kind)?' on':''}"><button type="button" class="gc-name" data-pick="${esc(g)}" data-kind="${kind}">${esc(g)}${other?`<small class="hint"> · также ${kind==='arr'?'Depar':'Arrival'}</small>`:''}</button>
       <input class="gc-ph" id="gp_${esc(g).replace(/\W/g,'_')}" data-gp="${esc(g)}" value="${esc(gPhone(g))}" placeholder="телефон гида" inputmode="tel" aria-label="Телефон ${esc(g)}">
       <span class="gc-veh">${esc(vs.join(', ')||'без машины')}</span>
       <span class="gc-prog"><span class="bar"><i style="width:${tot?Math.round(out/tot*100):0}%"></i></span><span class="num">${out}/${tot}</span>${no?` <span class="nos">✗${no}</span>`:''}${stale?` <span class="chip gzp" title="задания прошли, отметок нет">⚠ ${stale}</span>`:''}</span>
-      <span class="gc-next ${next?'':'hint'}">Дальше: ${esc(nx)}</span>${out?`<button type="button" class="btn gc-copy" data-gcopy="${esc(g)}">📋 Вышедшие (${out})</button>`:''}</div>`}).join('');
-  $('#opsGuides').innerHTML=rows;
-  $('#opsGuides').querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{const g=b.dataset.pick;$('#opsGuide').value=$('#opsGuide').value===g?'':g;renderOps();$('#opsWait').scrollIntoView?.({behavior:'smooth',block:'start'})});
+      <span class="gc-next ${next?'':'hint'}">Дальше: ${esc(nx)}</span>${out&&kind==='arr'?`<button type="button" class="btn gc-copy" data-gcopy="${esc(g)}">📋 Вышедшие (${out})</button>`:''}</div>`};
+  const sec=(kind,title)=>{const gs=guides().filter(g=>all.some(t=>t.guide===g&&t.kind===kind));
+    const pax=all.filter(t=>t.kind===kind).reduce((s,t)=>s+t.total,0),done=all.filter(t=>t.kind===kind).reduce((s,t)=>s+t.done,0);
+    return `<div class="gsec"><h3 class="gsec-h">${title} <span class="hint">${gs.length} гидов · ${done}/${pax} ${kind==='arr'?'вышли':'сели'}</span></h3>${gs.length?`<div class="gcards">${gs.map(g=>card(g,kind)).join('')}</div>`:'<p class="hint">Нет гидов.</p>'}</div>`};
+  $('#opsGuides').innerHTML=sec('arr','✈️ Встречают · Arrival')+sec('dep','🛫 Увозят в аэропорт · Depar');
+  $('#opsGuides').querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{const g=b.dataset.pick,k=b.dataset.kind;const same=$('#opsGuide').value===g&&$('#opsKind').value===k;$('#opsGuide').value=same?'':g;$('#opsKind').value=same?'':k;renderOps();$('#opsWait').scrollIntoView?.({behavior:'smooth',block:'start'})});
   $('#opsGuides').querySelectorAll('[data-gcopy]').forEach(b=>b.onclick=async()=>{const g=b.dataset.gcopy;const r=exitedText(buildTasks(t=>t.g===g),{...woOpts(),onlyNew:false});if(r.text)await copy(r.text,true)});
   $('#opsGuides').querySelectorAll('[data-gp]').forEach(i=>i.addEventListener('change',e=>{GP[e.target.dataset.gp]=e.target.value.trim();saveGP();renderOps()}));
 }
