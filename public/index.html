@@ -342,6 +342,8 @@ tr.soon td.t{color:var(--signal-ink)}
 .gsec{margin-bottom:6px}
 .gsec-h{font-size:15px;margin:12px 0 0;padding:0 10px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 .gsec:first-child .gsec-h{margin-top:4px}
+.h2h-names summary{cursor:pointer;color:var(--info);font-size:12px;margin-top:4px}
+.h2h-names ol{margin:6px 0 0;padding-left:22px;font-size:12px;columns:2;column-gap:24px}
 .daycheck{display:flex;gap:8px;flex-wrap:wrap}
 .daycheck span{font-weight:600;padding:2px 8px;border-radius:4px}
 .daycheck .ok{background:var(--ok-soft);color:var(--ok)}
@@ -1178,6 +1180,15 @@ const TR_DICT={
 "гидов":"rehber",
 "Нет гидов.":"Rehber yok.",
 "также":"ayrıca",
+"Маршрут записан наоборот":"Güzergâh ters yazılmış",
+"Рейс стоит в колонке":"Uçuş şu sütunda:",
+"прилётов":"gelişler",
+"вылетов":"gidişler",
+"а маршрут в Капаке написан в обратную сторону. Программа считает его по колонке":"ama KAPAK'ta güzergâh ters yazılmış. Program sütuna göre sayıyor",
+"без гида":"rehbersiz",
+"Проверьте у диспетчера.":"Dispeçerle kontrol edin.",
+"имён":"isim",
+"комн.":"oda",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",
@@ -1326,7 +1337,9 @@ function parseKapak(rows){
     });
     // drop the op token that belongs to the next record from each body
     rr.forEach((r,i)=>{if(i+1<rr.length&&rr[i+1].op){const j=r.b.op.lastIndexOf(rr[i+1].op);if(j>=0)r.b.op.splice(j,1)}});
-    rr.forEach(r=>{r.kind=r.from==='AYT'?'dep':(r.to==='AYT'||r.to==='GZP')?'arr':(r.b.pu.length?'dep':'arr')});
+    rr.forEach(r=>{r.kind=r.from==='AYT'?'dep':(r.to==='AYT'||r.to==='GZP')?'arr':(r.b.pu.length?'dep':'arr');
+      // the column wins over a route typed the wrong way round ("2S 198 (AYT-AER)" in the ARRIVAL column)
+      if(side&&r.kind!==side&&(side==='arr'?!r.b.pu.length:true)){if(r.from==='AYT'||r.to==='AYT'||r.to==='GZP'){r.routeFlip=`${r.from}-${r.to}`;const f=r.from;r.from=r.to;r.to=f}r.kind=side}});
     // prefix operators like "ELDR27 RIXS27 SSS27 ¦ VF 4009 …"
     const prefixOps=(S.slice(0,anchors[0].start).match(/\b([A-Z]{3,6}\d{2}|AIR|SKY|SARAB|BINALI|SIBIR|URAN|KAP|MERID)\b/g)||[]);
     if(prefixOps.length===rr.length&&rr.slice(1).every(r=>!r.op))rr.forEach((r,i)=>r.op=prefixOps[i]);
@@ -1398,6 +1411,8 @@ function parseTourists(rows){
   const heads=[];let m;
   while((m=hdr.exec(S)))heads.push({start:m.index,end:hdr.lastIndex,type:m[3],time:m[4]||'',from:m[5],to:m[6]});
   const isArac=/ARAÇ\s+TRANSFER\s+L[İI]STES[İI]/.test(S);
+  // the list's own title says the direction ("GELİŞ … TRANSFER LİSTESİ" = arrivals), even when a route is typed backwards
+  const listDir=/GEL[İI][ŞS]\s+(?:ARAÇ\s+)?TRANSFER/.test(S)?'arr':/(D[ÖO]N[ÜU][ŞS]|G[İI]D[İI][ŞS])\s+(?:ARAÇ\s+)?TRANSFER/.test(S)?'dep':'';
   const marks=[];const mk=/(BUS\s?\d+|MİNİ\s?\d+|MİN\s?\d+|MİDİ\s?\d+|VİTO\s?\d*)\s+(?=Bas\S*m Tarihi|GEL[İI]Ş|G[İI]D[İI]Ş|D[ÖO]N[ÜU]Ş)/g;
   if(isArac)while((m=mk.exec(S)))marks.push({pos:m.index,v:m[1].replace(/\s+/g,' ').replace(/^(BUS|MİNİ|MİN|MİDİ)(\d)/,'$1 $2').trim()});
   const vehAt=pos=>{let v='';for(const x of marks){if(x.pos<pos)v=x.v;else break}return v};
@@ -1417,11 +1432,14 @@ function parseTourists(rows){
     // guide: capital words after the passenger count (skipping the vehicle), until terminal or a number
     let guide='';{const after=pm?hotelTxt.slice(pm[0].length):'';const tk=after.replace(/<[^>]*>/g,' ').split(' ').filter(Boolean);const gw=[];
       for(let k=0;k<tk.length;k++){const t=tk[k];if(/^(BUS|MİNİ|MİN|MİDİ)$/.test(t)&&/^\d+$/.test(tk[k+1]||'')){k++;continue}if(t==='VİTO')continue;if(/^(TER|ICHAT|NOT)$/.test(t)||/\d/.test(t)){if(gw.length)break;continue}if(T_CAPS.test(t.replace(/\.$/,''))&&!T_STOP.has(t))gw.push(t);else if(gw.length)break}
-      guide=gw.join(' ')}
+      // words of a hotel name wrapped onto the next line ("CASA FORA BEACH / RESORT") are not a guide
+      const HW=/^(BEACH|RESORT|HOTEL|OTEL|SPA|&|CLUB|THERMAL|PALACE|SUITE|SUITES|DELUXE|PREMIUM|RIVER|SIDE|LAKE|PORT)$/;
+      guide=/<\s*Araç Yok\s*>/i.test(head)&&!vm?'':gw.filter(w=>!HW.test(w)).length?gw.join(' '):''}
     const term=/\bICHAT\b/.test(head)?'İÇ':/\bTER\b/.test(head)?'DIŞ':'';
     const opm=seg.slice(0,400).match(/\b([A-Z]{3,6}\d{2}|AIR|SKY|BINALI|SIBIR|URAN|KAP|MERID|SARAB)\s+NOT\b/);
     const g={type:h.type,time:h.time,from:h.from,to:h.to,fl:fm&&!/^[!?]/.test(fm[1])?fm[1].replace(/^([A-Z0-9]{2})\s?0*(\d+)$/,'$1 $2'):'',fFrom:fm?fm[2]:'',fTo:fm?fm[3]:'',hotel:normHotel(hotel),hotelRaw:hotel.trim(),pax,veh:isArac?vehAt(h.start):(vm?(vm[1]+(vm[2]?' '+vm[2]:'')):''),guide,term,op:opm?opm[1]:'',people:[]};
-    g.dir=g.fTo==='AYT'?'arr':g.fFrom==='AYT'?'dep':h.type==='ARA'?'h2h':'arr';
+    g.dir=h.type==='ARA'&&!g.fl?'h2h':listDir||(g.fTo==='AYT'?'arr':g.fFrom==='AYT'?'dep':h.type==='ARA'?'h2h':'arr');
+    if(listDir==='arr'&&g.fFrom==='AYT'){g.routeFlip=g.fFrom+'-'+g.fTo;g.fFrom=g.fTo;g.fTo='AYT'}
     // people
     const pr=/(\d{1,3})-\s+(Mr|Mrs|Ms|Miss|Chd|Inf)\s*\.?\s+(?:\?\s+)?/g;const anchors=[];let p;
     while((p=pr.exec(seg)))anchors.push({start:p.index,end:pr.lastIndex,title:p[2]});
@@ -1463,7 +1481,14 @@ function applyTourists(day,parsed){
   const used=new Set();let matched=0,people=0;const unmatched=[];const changed=[];
   const pools={arr:day.arr,dep:day.dep};
   parsed.groups.forEach(t=>{
-    if(!t.people.length||t.dir==='h2h'||!t.fl)return;
+    if(!t.people.length)return;
+    // hotel-to-hotel (ARA) groups: names go onto the matching transfer, same destination and passenger count
+    if(t.dir==='h2h'){const L=(day.h2hList||[]).filter(x=>!used.has(x.id)&&x.h===t.hotel);
+      const x=L.find(x=>+x.pax===t.pax&&(!t.from||!x.from||normHotel(x.from)===normHotel(t.from)))||L.find(x=>+x.pax===t.pax)||L.find(x=>+x.pax===t.people.length);
+      if(!x){unmatched.push(t);return}used.add(x.id);x.p=t.people;matched++;people+=t.people.length;return}
+    // a group whose flight is not known yet ("????") goes onto the KAPAK line with no flight, same hotel and count
+    if(!t.fl){const x=(pools[t.dir]||[]).find(g=>!used.has(g.id)&&/^[!?]/.test(g.fl||'?')&&g.h===t.hotel&&(+g.pax===t.pax||+g.pax===t.people.length));
+      if(!x){unmatched.push(t);return}used.add(x.id);x.p=t.people;matched++;people+=t.people.length;return}
     const pool=pools[t.dir]||[];
     let cands=pool.filter(g=>!used.has(g.id)&&key(g.fl,g.h)===key(t.fl,t.hotel));
     if(!cands.length)cands=pool.filter(g=>!used.has(g.id)&&key(g.fl,'')===key(t.fl,'')&&(+g.pax===t.people.length||+g.pax===t.pax));
@@ -1487,7 +1512,7 @@ function applyTourists(day,parsed){
   if(parsed.isArac){const full=[...new Set(day.arr.map(g=>g.g).filter(n=>/\s/.test(n||'')))];
     day.dep.forEach(r=>{if(!r.g||/\s/.test(r.g))return;const k=r.g.normalize('NFD').replace(/[\u0300-\u036f]/g,'');const c=full.filter(f=>f.split(' ')[0].normalize('NFD').replace(/[\u0300-\u036f]/g,'')===k);if(c.length===1)r.g=c[0]});
     day.aracTotals=parsed.totals;day.aracVehicles=parsed.vehicles;}
-  const h2h=parsed.groups.filter(t=>t.dir==='h2h').reduce((s,t)=>s+t.people.length,0);
+  const h2h=unmatched.filter(t=>t.dir==='h2h').reduce((s,t)=>s+t.people.length,0);
   return {matched,people,unmatched,h2h,changed,added};
 }
 if(typeof module!=='undefined')module.exports={parseTourists,applyTourists};
@@ -1594,8 +1619,8 @@ function dayFromKapak(K,key,title){
   K.recs.forEach((r,i)=>{
     if(r.kind==='self'){self+=r.pax;return}
     if(r.kind==='h2h'){h2h+=r.pax;h2hList.push({id:key+'h'+i,from:r.hotelFrom||'',h:r.hotel,pax:r.pax,op:r.op||'—',side:r.side||'',v:r.v||'',g:r.g||'',t:r.time||'',note:r.note||''});return}
-    if(r.kind==='arr')arr.push({id:key+'a'+i,t:r.time,fl:r.fl,org:clean(r.from),to:r.to,h:r.hotel,v:r.v,g:r.g,op:r.op||'—',term:tm(r.term),p:[],pax:r.pax,note:r.note});
-    else dep.push({id:key+'d'+i,fl:r.fl,dest:clean(r.to),t:r.time,h:r.hotel,pax:r.pax,pu:r.pu,g:r.g,v:r.v,term:tm(r.term),op:r.op||'—',note:r.note});
+    if(r.kind==='arr')arr.push({id:key+'a'+i,t:r.time,fl:r.fl,org:clean(r.from),to:r.to,h:r.hotel,v:r.v,g:r.g,op:r.op||'—',term:tm(r.term),p:[],pax:r.pax,note:r.note,flip:r.routeFlip||''});
+    else dep.push({id:key+'d'+i,fl:r.fl,dest:clean(r.to),t:r.time,h:r.hotel,pax:r.pax,pu:r.pu,g:r.g,v:r.v,term:tm(r.term),op:r.op||'—',note:r.note,flip:r.routeFlip||''});
   });
   return {key,title,source:'Excel KAPAK',arr,dep,self,h2h,h2hList,check:K.check||null,breakdown:K.breakdown||null,recon:K.recon,delays:{},extra:[]};
 }
@@ -1962,7 +1987,7 @@ const VSEC={arr:'✈️ ARRIVAL · встречи',dep:'🛫 DEPAR · сборы
 function h2hVehHtml(){const L=(DAY.h2hList||[]).slice().sort((a,b)=>toMin(a.t)-toMin(b.t));
   if(!L.length)return '<p class="hint">Межотельных переездов в этом дне нет.</p>';
   return `<div class="panel" style="padding:0;overflow-x:auto"><table class="legs vtbl"><thead><tr><th>Время</th><th>Откуда → Куда</th><th class="n">Чел</th><th>Машина</th><th>Гид</th><th>Опер.</th></tr></thead><tbody>${L.map(x=>{const a=assign[x.v]||{};
-    return `<tr><td class="tm num">${esc(x.t||'—')}</td><td>${esc(x.from||'откуда не указано')} → <b>${esc(x.h||'')}</b>${x.note?`<br><span class="hint">${esc(x.note)}</span>`:''}</td><td class="n num">${x.pax}</td><td>${x.v?`<b>${esc(x.v)}</b>${a.plate?'<br><span class="hint">'+esc(a.plate)+(a.phone?' · '+esc(a.phone):'')+'</span>':''}`:'<span class="chip bad">нет машины</span>'}</td><td>${esc(x.g||'—')}</td><td>${esc(x.op||'')}</td></tr>`}).join('')}</tbody></table></div>`}
+    return `<tr><td class="tm num">${esc(x.t||'—')}</td><td>${esc(x.from||'откуда не указано')} → <b>${esc(x.h||'')}</b>${x.note?`<br><span class="hint">${esc(x.note)}</span>`:''}${x.p&&x.p.length?`<details class="h2h-names"><summary>👥 ${x.p.length} имён</summary><ol>${x.p.map(p=>`<li>${esc(p[0])} ${esc(p[1])}${p[3]&&p[3].room?` <span class="hint">· комн. ${esc(p[3].room)} ${esc(p[3].type||'')} ${esc(p[3].board||'')}</span>`:''}</li>`).join('')}</ol></details>`:''}</td><td class="n num">${x.pax}</td><td>${x.v?`<b>${esc(x.v)}</b>${a.plate?'<br><span class="hint">'+esc(a.plate)+(a.phone?' · '+esc(a.phone):'')+'</span>':''}`:'<span class="chip bad">нет машины</span>'}</td><td>${esc(x.g||'—')}</td><td>${esc(x.op||'')}</td></tr>`}).join('')}</tbody></table></div>`}
 function toursHtml(){const T=assign['~tours']||[];
   if(!T.length)return '<p class="hint">Туров пока нет. Вставьте сообщение «ДАТА - TUR» из группы в блок «Машины из WhatsApp» выше.</p>';
   const by=new Map();T.forEach(x=>{if(!by.has(x.tour))by.set(x.tour,[]);by.get(x.tour).push(x)});
@@ -2051,6 +2076,7 @@ function runChecks(){
   [...A,...D].filter(x=>x.pax>0&&!x.v&&!/^[!?]/.test(x.fl)).forEach(x=>out.push(['crit',`Нет машины: ${x.fl} ${x.t}, ${x.pax} чел`,`${x.h} · ${x.op}. Трансфер стоит в списке, но машина не назначена.`]));
   [...A,...D].filter(x=>x.v&&!x.g&&x.v!=='VİTO').forEach(x=>out.push(['warn',`Нет гида: ${x.v}, ${x.fl} ${x.t}`,`${x.h}, ${x.pax} чел${x.pu?', выезд '+x.pu:''}. Некому получить уведомления.`]));
   // Gazipaşa
+  [...A.map(x=>({...x,side:'прилётов'})),...D.map(x=>({...x,side:'вылетов'}))].filter(x=>x.flip).forEach(x=>out.push(['warn',`Маршрут записан наоборот: ${x.fl} (${x.flip}) ${x.t}`,`Рейс стоит в колонке ${x.side}, а маршрут в Капаке написан в обратную сторону. Программа считает его по колонке: ${x.side==='прилётов'?'встреча':'сбор'}, ${x.h}, ${x.pax} чел, ${x.v||'без машины'}, ${x.g||'без гида'}. Проверьте у диспетчера.`]));
   A.filter(x=>x.to==='GZP').forEach(x=>out.push(['warn',`Прилёт в Газипашу, не в Анталью: ${x.fl} ${x.t}`,`${x.h}, ${x.pax} чел, ${x.v}, ${x.g}. Дорога другая и дольше. ${x.note?'Пометка: «'+x.note+'».':''}`]));
   // guide spelling variants
   const allG=[...new Set([...A,...D].map(x=>x.g).filter(Boolean))];

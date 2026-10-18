@@ -78,7 +78,9 @@ function parseKapak(rows){
     });
     // drop the op token that belongs to the next record from each body
     rr.forEach((r,i)=>{if(i+1<rr.length&&rr[i+1].op){const j=r.b.op.lastIndexOf(rr[i+1].op);if(j>=0)r.b.op.splice(j,1)}});
-    rr.forEach(r=>{r.kind=r.from==='AYT'?'dep':(r.to==='AYT'||r.to==='GZP')?'arr':(r.b.pu.length?'dep':'arr')});
+    rr.forEach(r=>{r.kind=r.from==='AYT'?'dep':(r.to==='AYT'||r.to==='GZP')?'arr':(r.b.pu.length?'dep':'arr');
+      // the column wins over a route typed the wrong way round ("2S 198 (AYT-AER)" in the ARRIVAL column)
+      if(side&&r.kind!==side&&(side==='arr'?!r.b.pu.length:true)){if(r.from==='AYT'||r.to==='AYT'||r.to==='GZP'){r.routeFlip=`${r.from}-${r.to}`;const f=r.from;r.from=r.to;r.to=f}r.kind=side}});
     // prefix operators like "ELDR27 RIXS27 SSS27 ¦ VF 4009 …"
     const prefixOps=(S.slice(0,anchors[0].start).match(/\b([A-Z]{3,6}\d{2}|AIR|SKY|SARAB|BINALI|SIBIR|URAN|KAP|MERID)\b/g)||[]);
     if(prefixOps.length===rr.length&&rr.slice(1).every(r=>!r.op))rr.forEach((r,i)=>r.op=prefixOps[i]);

@@ -47,8 +47,8 @@ function dayFromKapak(K,key,title){
   K.recs.forEach((r,i)=>{
     if(r.kind==='self'){self+=r.pax;return}
     if(r.kind==='h2h'){h2h+=r.pax;h2hList.push({id:key+'h'+i,from:r.hotelFrom||'',h:r.hotel,pax:r.pax,op:r.op||'—',side:r.side||'',v:r.v||'',g:r.g||'',t:r.time||'',note:r.note||''});return}
-    if(r.kind==='arr')arr.push({id:key+'a'+i,t:r.time,fl:r.fl,org:clean(r.from),to:r.to,h:r.hotel,v:r.v,g:r.g,op:r.op||'—',term:tm(r.term),p:[],pax:r.pax,note:r.note});
-    else dep.push({id:key+'d'+i,fl:r.fl,dest:clean(r.to),t:r.time,h:r.hotel,pax:r.pax,pu:r.pu,g:r.g,v:r.v,term:tm(r.term),op:r.op||'—',note:r.note});
+    if(r.kind==='arr')arr.push({id:key+'a'+i,t:r.time,fl:r.fl,org:clean(r.from),to:r.to,h:r.hotel,v:r.v,g:r.g,op:r.op||'—',term:tm(r.term),p:[],pax:r.pax,note:r.note,flip:r.routeFlip||''});
+    else dep.push({id:key+'d'+i,fl:r.fl,dest:clean(r.to),t:r.time,h:r.hotel,pax:r.pax,pu:r.pu,g:r.g,v:r.v,term:tm(r.term),op:r.op||'—',note:r.note,flip:r.routeFlip||''});
   });
   return {key,title,source:'Excel KAPAK',arr,dep,self,h2h,h2hList,check:K.check||null,breakdown:K.breakdown||null,recon:K.recon,delays:{},extra:[]};
 }
@@ -415,7 +415,7 @@ const VSEC={arr:'✈️ ARRIVAL · встречи',dep:'🛫 DEPAR · сборы
 function h2hVehHtml(){const L=(DAY.h2hList||[]).slice().sort((a,b)=>toMin(a.t)-toMin(b.t));
   if(!L.length)return '<p class="hint">Межотельных переездов в этом дне нет.</p>';
   return `<div class="panel" style="padding:0;overflow-x:auto"><table class="legs vtbl"><thead><tr><th>Время</th><th>Откуда → Куда</th><th class="n">Чел</th><th>Машина</th><th>Гид</th><th>Опер.</th></tr></thead><tbody>${L.map(x=>{const a=assign[x.v]||{};
-    return `<tr><td class="tm num">${esc(x.t||'—')}</td><td>${esc(x.from||'откуда не указано')} → <b>${esc(x.h||'')}</b>${x.note?`<br><span class="hint">${esc(x.note)}</span>`:''}</td><td class="n num">${x.pax}</td><td>${x.v?`<b>${esc(x.v)}</b>${a.plate?'<br><span class="hint">'+esc(a.plate)+(a.phone?' · '+esc(a.phone):'')+'</span>':''}`:'<span class="chip bad">нет машины</span>'}</td><td>${esc(x.g||'—')}</td><td>${esc(x.op||'')}</td></tr>`}).join('')}</tbody></table></div>`}
+    return `<tr><td class="tm num">${esc(x.t||'—')}</td><td>${esc(x.from||'откуда не указано')} → <b>${esc(x.h||'')}</b>${x.note?`<br><span class="hint">${esc(x.note)}</span>`:''}${x.p&&x.p.length?`<details class="h2h-names"><summary>👥 ${x.p.length} имён</summary><ol>${x.p.map(p=>`<li>${esc(p[0])} ${esc(p[1])}${p[3]&&p[3].room?` <span class="hint">· комн. ${esc(p[3].room)} ${esc(p[3].type||'')} ${esc(p[3].board||'')}</span>`:''}</li>`).join('')}</ol></details>`:''}</td><td class="n num">${x.pax}</td><td>${x.v?`<b>${esc(x.v)}</b>${a.plate?'<br><span class="hint">'+esc(a.plate)+(a.phone?' · '+esc(a.phone):'')+'</span>':''}`:'<span class="chip bad">нет машины</span>'}</td><td>${esc(x.g||'—')}</td><td>${esc(x.op||'')}</td></tr>`}).join('')}</tbody></table></div>`}
 function toursHtml(){const T=assign['~tours']||[];
   if(!T.length)return '<p class="hint">Туров пока нет. Вставьте сообщение «ДАТА - TUR» из группы в блок «Машины из WhatsApp» выше.</p>';
   const by=new Map();T.forEach(x=>{if(!by.has(x.tour))by.set(x.tour,[]);by.get(x.tour).push(x)});
@@ -504,6 +504,7 @@ function runChecks(){
   [...A,...D].filter(x=>x.pax>0&&!x.v&&!/^[!?]/.test(x.fl)).forEach(x=>out.push(['crit',`Нет машины: ${x.fl} ${x.t}, ${x.pax} чел`,`${x.h} · ${x.op}. Трансфер стоит в списке, но машина не назначена.`]));
   [...A,...D].filter(x=>x.v&&!x.g&&x.v!=='VİTO').forEach(x=>out.push(['warn',`Нет гида: ${x.v}, ${x.fl} ${x.t}`,`${x.h}, ${x.pax} чел${x.pu?', выезд '+x.pu:''}. Некому получить уведомления.`]));
   // Gazipaşa
+  [...A.map(x=>({...x,side:'прилётов'})),...D.map(x=>({...x,side:'вылетов'}))].filter(x=>x.flip).forEach(x=>out.push(['warn',`Маршрут записан наоборот: ${x.fl} (${x.flip}) ${x.t}`,`Рейс стоит в колонке ${x.side}, а маршрут в Капаке написан в обратную сторону. Программа считает его по колонке: ${x.side==='прилётов'?'встреча':'сбор'}, ${x.h}, ${x.pax} чел, ${x.v||'без машины'}, ${x.g||'без гида'}. Проверьте у диспетчера.`]));
   A.filter(x=>x.to==='GZP').forEach(x=>out.push(['warn',`Прилёт в Газипашу, не в Анталью: ${x.fl} ${x.t}`,`${x.h}, ${x.pax} чел, ${x.v}, ${x.g}. Дорога другая и дольше. ${x.note?'Пометка: «'+x.note+'».':''}`]));
   // guide spelling variants
   const allG=[...new Set([...A,...D].map(x=>x.g).filter(Boolean))];

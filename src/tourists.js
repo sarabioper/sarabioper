@@ -13,6 +13,8 @@ function parseTourists(rows){
   const heads=[];let m;
   while((m=hdr.exec(S)))heads.push({start:m.index,end:hdr.lastIndex,type:m[3],time:m[4]||'',from:m[5],to:m[6]});
   const isArac=/ARAÇ\s+TRANSFER\s+L[İI]STES[İI]/.test(S);
+  // the list's own title says the direction ("GELİŞ … TRANSFER LİSTESİ" = arrivals), even when a route is typed backwards
+  const listDir=/GEL[İI][ŞS]\s+(?:ARAÇ\s+)?TRANSFER/.test(S)?'arr':/(D[ÖO]N[ÜU][ŞS]|G[İI]D[İI][ŞS])\s+(?:ARAÇ\s+)?TRANSFER/.test(S)?'dep':'';
   const marks=[];const mk=/(BUS\s?\d+|MİNİ\s?\d+|MİN\s?\d+|MİDİ\s?\d+|VİTO\s?\d*)\s+(?=Bas\S*m Tarihi|GEL[İI]Ş|G[İI]D[İI]Ş|D[ÖO]N[ÜU]Ş)/g;
   if(isArac)while((m=mk.exec(S)))marks.push({pos:m.index,v:m[1].replace(/\s+/g,' ').replace(/^(BUS|MİNİ|MİN|MİDİ)(\d)/,'$1 $2').trim()});
   const vehAt=pos=>{let v='';for(const x of marks){if(x.pos<pos)v=x.v;else break}return v};
@@ -32,11 +34,14 @@ function parseTourists(rows){
     // guide: capital words after the passenger count (skipping the vehicle), until terminal or a number
     let guide='';{const after=pm?hotelTxt.slice(pm[0].length):'';const tk=after.replace(/<[^>]*>/g,' ').split(' ').filter(Boolean);const gw=[];
       for(let k=0;k<tk.length;k++){const t=tk[k];if(/^(BUS|MİNİ|MİN|MİDİ)$/.test(t)&&/^\d+$/.test(tk[k+1]||'')){k++;continue}if(t==='VİTO')continue;if(/^(TER|ICHAT|NOT)$/.test(t)||/\d/.test(t)){if(gw.length)break;continue}if(T_CAPS.test(t.replace(/\.$/,''))&&!T_STOP.has(t))gw.push(t);else if(gw.length)break}
-      guide=gw.join(' ')}
+      // words of a hotel name wrapped onto the next line ("CASA FORA BEACH / RESORT") are not a guide
+      const HW=/^(BEACH|RESORT|HOTEL|OTEL|SPA|&|CLUB|THERMAL|PALACE|SUITE|SUITES|DELUXE|PREMIUM|RIVER|SIDE|LAKE|PORT)$/;
+      guide=/<\s*Araç Yok\s*>/i.test(head)&&!vm?'':gw.filter(w=>!HW.test(w)).length?gw.join(' '):''}
     const term=/\bICHAT\b/.test(head)?'İÇ':/\bTER\b/.test(head)?'DIŞ':'';
     const opm=seg.slice(0,400).match(/\b([A-Z]{3,6}\d{2}|AIR|SKY|BINALI|SIBIR|URAN|KAP|MERID|SARAB)\s+NOT\b/);
     const g={type:h.type,time:h.time,from:h.from,to:h.to,fl:fm&&!/^[!?]/.test(fm[1])?fm[1].replace(/^([A-Z0-9]{2})\s?0*(\d+)$/,'$1 $2'):'',fFrom:fm?fm[2]:'',fTo:fm?fm[3]:'',hotel:normHotel(hotel),hotelRaw:hotel.trim(),pax,veh:isArac?vehAt(h.start):(vm?(vm[1]+(vm[2]?' '+vm[2]:'')):''),guide,term,op:opm?opm[1]:'',people:[]};
-    g.dir=g.fTo==='AYT'?'arr':g.fFrom==='AYT'?'dep':h.type==='ARA'?'h2h':'arr';
+    g.dir=h.type==='ARA'&&!g.fl?'h2h':listDir||(g.fTo==='AYT'?'arr':g.fFrom==='AYT'?'dep':h.type==='ARA'?'h2h':'arr');
+    if(listDir==='arr'&&g.fFrom==='AYT'){g.routeFlip=g.fFrom+'-'+g.fTo;g.fFrom=g.fTo;g.fTo='AYT'}
     // people
     const pr=/(\d{1,3})-\s+(Mr|Mrs|Ms|Miss|Chd|Inf)\s*\.?\s+(?:\?\s+)?/g;const anchors=[];let p;
     while((p=pr.exec(seg)))anchors.push({start:p.index,end:pr.lastIndex,title:p[2]});
@@ -78,7 +83,14 @@ function applyTourists(day,parsed){
   const used=new Set();let matched=0,people=0;const unmatched=[];const changed=[];
   const pools={arr:day.arr,dep:day.dep};
   parsed.groups.forEach(t=>{
-    if(!t.people.length||t.dir==='h2h'||!t.fl)return;
+    if(!t.people.length)return;
+    // hotel-to-hotel (ARA) groups: names go onto the matching transfer, same destination and passenger count
+    if(t.dir==='h2h'){const L=(day.h2hList||[]).filter(x=>!used.has(x.id)&&x.h===t.hotel);
+      const x=L.find(x=>+x.pax===t.pax&&(!t.from||!x.from||normHotel(x.from)===normHotel(t.from)))||L.find(x=>+x.pax===t.pax)||L.find(x=>+x.pax===t.people.length);
+      if(!x){unmatched.push(t);return}used.add(x.id);x.p=t.people;matched++;people+=t.people.length;return}
+    // a group whose flight is not known yet ("????") goes onto the KAPAK line with no flight, same hotel and count
+    if(!t.fl){const x=(pools[t.dir]||[]).find(g=>!used.has(g.id)&&/^[!?]/.test(g.fl||'?')&&g.h===t.hotel&&(+g.pax===t.pax||+g.pax===t.people.length));
+      if(!x){unmatched.push(t);return}used.add(x.id);x.p=t.people;matched++;people+=t.people.length;return}
     const pool=pools[t.dir]||[];
     let cands=pool.filter(g=>!used.has(g.id)&&key(g.fl,g.h)===key(t.fl,t.hotel));
     if(!cands.length)cands=pool.filter(g=>!used.has(g.id)&&key(g.fl,'')===key(t.fl,'')&&(+g.pax===t.people.length||+g.pax===t.pax));
@@ -102,7 +114,7 @@ function applyTourists(day,parsed){
   if(parsed.isArac){const full=[...new Set(day.arr.map(g=>g.g).filter(n=>/\s/.test(n||'')))];
     day.dep.forEach(r=>{if(!r.g||/\s/.test(r.g))return;const k=r.g.normalize('NFD').replace(/[\u0300-\u036f]/g,'');const c=full.filter(f=>f.split(' ')[0].normalize('NFD').replace(/[\u0300-\u036f]/g,'')===k);if(c.length===1)r.g=c[0]});
     day.aracTotals=parsed.totals;day.aracVehicles=parsed.vehicles;}
-  const h2h=parsed.groups.filter(t=>t.dir==='h2h').reduce((s,t)=>s+t.people.length,0);
+  const h2h=unmatched.filter(t=>t.dir==='h2h').reduce((s,t)=>s+t.people.length,0);
   return {matched,people,unmatched,h2h,changed,added};
 }
 if(typeof module!=='undefined')module.exports={parseTourists,applyTourists};
