@@ -399,6 +399,10 @@ body.sc-open .scan-fab{display:none}
 .sc-act .btn{min-height:42px;font-size:15px}
 @media (max-width:520px){.scan-fab span{display:none}}
 .wa-go{background:#25D366!important;color:#06341b!important;border-color:#1fb457!important;text-decoration:none;display:inline-flex;align-items:center}
+article.flight .mid{cursor:pointer}
+.fl-toggle{align-self:flex-start;justify-self:start;width:max-content;max-width:100%;margin:6px 0 2px;border:1px solid var(--line);background:var(--sunk,transparent);color:var(--fg,inherit);border-radius:999px;padding:4px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+article.flight.open{border-bottom-left-radius:0;border-bottom-right-radius:0;margin-bottom:0}
+.fl-guests{background:var(--surface);border:1px solid var(--line);border-top:0;border-radius:0 0 var(--r,10px) var(--r,10px);padding:6px 14px 12px;margin:-1px 0 14px}
 .daycheck{display:flex;gap:8px;flex-wrap:wrap}
 .daycheck span{font-weight:600;padding:2px 8px;border-radius:4px}
 .daycheck .ok{background:var(--ok-soft);color:var(--ok)}
@@ -1349,6 +1353,8 @@ const TR_DICT={
 "групп на вылет":"gidiş grubu",
 "Добавлено новых выездов":"Eklenen yeni çıkış",
 "туристов":"turist",
+"Скрыть гостей":"Misafirleri gizle",
+"Гости":"Misafirler",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",
@@ -2030,6 +2036,7 @@ function fillFilters(){
   opt('#fOp',[...new Set(DAY.arr.map(t=>t.op))].sort());
 }
 const metCount=g=>marked(g);
+const OPENF=new Set();
 function renderBoard(){
   const fv=$('#fVeh').value,fh=$('#fHotel').value,fo=$('#fOp').value,q=$('#fQ').value.trim().toUpperCase();
   let html='',nowPlaced=false,land=0,air=0,late=0,paxLanded=0,paxMet=0;
@@ -2050,11 +2057,13 @@ function renderBoard(){
       ?`<span class="sch struck num">${f.t}</span><span class="eta num">${fmt(etaShown)}</span><span class="hint" style="font-size:11px">${st.k==='land'?'сел':'расч. посадка'}</span>`
       :overdue?`<span class="sch num" style="color:var(--warn)">${f.t}</span><span class="hint" style="font-size:11px;color:var(--warn)">ещё не сел</span>`
       :`<span class="sch num">${f.t}</span><span class="hint" style="font-size:11px">${st.k==='land'?'сел':'посадка'}</span>`;
-    html+=`<article class="flight">
+    const open=OPENF.has(f.key);const totG=gs.reduce((a,g)=>a+groupTotal(g),0),doneG=gs.reduce((a,g)=>a+marked(g),0);
+    html+=`<article class="flight${open?' open':''}" data-fk="${esc(f.key)}">
       <div class="time">${timeCol}</div>
       <div class="mid">
         <div class="fl-head"><span class="fl-code">${esc([...f.codes].join(' / '))}</span><span class="fl-from">${esc(CITY[f.org]||f.org||'город вылета не указан')}</span>
         ${f.to==='GZP'?'<span class="chip gzp">Аэропорт Газипаша</span>':terms.map(t=>{const bad=t&&f.org&&t!==expected;const ok=bad&&f.groups.some(g=>g.term===t&&termOk(g.fl,t));const soft=bad&&!ok&&expected==='İÇ';return `<span class="chip term ${bad&&!ok&&!soft||!t?'bad':''}">${termLbl(t)}${bad&&!ok?(soft?' ?':' ⚠'):''}</span>`}).join('')}</div>
+        <button type="button" class="fl-toggle" data-fk="${esc(f.key)}" aria-expanded="${open}">👥 ${open?'Скрыть гостей':'Гости'} · ${doneG}/${totG} ${open?'▴':'▾'}</button>
         ${gs.map(g=>{const mc=metCount(g);return `<div class="grp"><span class="h">${esc(g.h)} <span class="op">${esc(g.op)}</span>${mc?` <span class="met">вышли ${mc}/${groupTotal(g)}</span>`:''}${g.note?` <span class="op">· ${esc(g.note)}</span>`:''}</span><span class="chip">${esc(g.v||'нет машины')}</span><span class="px">${g.pax} чел</span></div>`}).join('')}
       </div>
       <div class="side">
@@ -2064,9 +2073,15 @@ function renderBoard(){
         ${vehs.map(v=>{const a=assign[v]||{};const g=(gs.find(x=>(x.v||'—')===v)||{}).g;return `<div class="veh">${esc(v)} · ${esc(a.plate||'номер не назначен')}<small>${g?gTag(g):'гид не указан'}</small></div>`}).join('')}
       </div>
     </article>`;
+    // the guests of this flight, opened by a tap on the flight: same rows and marks as on the guide screen
+    if(open){const key='b_'+f.key;const t={kind:'arr',groups:gs,guide:(gs.find(g=>g.g)||{}).g||'',done:doneG,total:totG};TASKS[key]=t;const ids=gs.map(x=>x.id).join(',');
+      html+=`<div class="fl-guests" data-fk="${esc(f.key)}">${grpHtml(t)}<div class="tf"><button class="btn primary" type="button" data-allk="${ids}">Все вышли</button><button class="btn" type="button" data-clear="${ids}">Сбросить</button>${waBtns(t,key)}</div></div>`}
   });
   if(!nowPlaced)html+=`<div class="nowline">СЕЙЧАС ${fmt(NOW)}</div>`;
   $('#board').innerHTML=html||'<p class="hint">Ничего не найдено.</p>';
+  $('#board').querySelectorAll('.fl-toggle').forEach(b=>b.onclick=e=>{e.stopPropagation();const k=b.dataset.fk;OPENF.has(k)?OPENF.delete(k):OPENF.add(k);renderBoard()});
+  $('#board').querySelectorAll('article.flight .mid').forEach(m=>m.onclick=e=>{if(e.target.closest('a,button'))return;const k=m.closest('article').dataset.fk;OPENF.has(k)?OPENF.delete(k):OPENF.add(k);renderBoard()});
+  bindMarks($('#board'));
   $('#board').querySelectorAll('[data-eta],[data-landed],[data-etaclr]').forEach(b=>b.onclick=()=>{const k=b.dataset.eta||b.dataset.landed||b.dataset.etaclr;const f=flights.find(x=>x.key===k);if(!f)return;
     if(b.dataset.etaclr)saveEta({[k]:null});else askEta(f,!!b.dataset.landed)});
   const totalPax=flights.reduce((s,f)=>s+f.pax,0);

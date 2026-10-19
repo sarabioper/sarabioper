@@ -672,6 +672,8 @@ const TR_DICT={
 "групп на вылет":"gidiş grubu",
 "Добавлено новых выездов":"Eklenen yeni çıkış",
 "туристов":"turist",
+"Скрыть гостей":"Misafirleri gizle",
+"Гости":"Misafirler",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",
