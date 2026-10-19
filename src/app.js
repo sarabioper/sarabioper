@@ -1000,12 +1000,15 @@ async function importTourists(T,file){
     const per=T.vehicles.map(v=>{const n=d.arr.concat(d.dep).filter(g=>g.v===v).reduce((s,g)=>s+(g.p&&g.p.length?g.p.filter(p=>p[0]!=='Inf').length:+g.pax||0),0);const tot=T.totals[v];return `${esc(v)}: ${n}${tot!=null?(n===tot?' ✓':` (в листе ${tot})`):''}`});
     return {key,html:`<b>Araç Listesi ${esc(key)} загружен: ${T.vehicles.length} машин.</b><span>${created?'Капака на этот день нет, прилёты построены по листу машин. ':''}Машины, гиды и терминалы обновлены, имена добавлены в ${r.matched+r.added} групп, всего ${r.people} туристов.</span><span>По машинам: ${per.join(' · ')}</span>${r.changed.length?`<span>Машина изменилась по сравнению с Капаком: ${r.changed.map(esc).join('; ')}</span>`:''}${r.added&&!created?`<span>Добавлено трансферов, которых не было в Капаке: ${r.added}.</span>`:''}`};
   }
+  if(T.forcedDep)return {key,html:`<b>Вылеты ${esc(key)}: список загружен.</b><span>Имена добавлены в ${r.matched} групп на вылет, всего ${r.people} туристов.${r.added?` Добавлено новых выездов: ${r.added}.`:''}</span>${un.length?`<span>Не нашлись в Капаке (${un.length}): ${un.slice(0,8).map(t=>esc((t.fl||'без рейса')+' '+t.hotel)).join(', ')}</span>`:''}`};
   return {key,html:`<b>Имена туристов ${esc(key)} загружены.</b><span>Имена добавлены в ${r.matched} групп, всего ${r.people} туристов. Теперь у гидов есть кнопки «Вышел».</span>${r.h2h?`<span>${r.h2h} туристов в межотельных переездах, в Капаке их нет.</span>`:''}${un.length?`<span>Не нашлись в Капаке (${un.length}): ${un.slice(0,8).map(t=>esc((t.fl||'без рейса')+' '+t.hotel+' · '+t.people.length+' чел')).join('; ')}${un.length>8?'…':''}</span>`:''}`};
 }
-async function importFiles(files){
+async function importFiles(files,opt={}){
   const msg=$('#xlsMsg');msg.innerHTML='Читаю файлы…';
   const items=[];
-  for(const file of files){try{const rows=await readRows(file);const T=parseTourists(rows);const people=T.groups.reduce((s,g)=>s+g.people.length,0);items.push({file,rows,T,isTourists:people>0})}catch(e){items.push({file,err:e.message})}}
+  for(const file of files){try{const rows=await readRows(file);const T=parseTourists(rows);
+    // the DEPAR box: every transfer in the file is a departure, whatever its title or route says
+    if(opt.dir==='dep'){T.forcedDep=true;T.groups.forEach(g=>{if(g.dir==='h2h')return;if(g.fTo==='AYT'&&g.fFrom!=='AYT'){const f=g.fFrom;g.fFrom='AYT';g.fTo=f}g.dir='dep'})}const people=T.groups.reduce((s,g)=>s+g.people.length,0);items.push({file,rows,T,isTourists:people>0})}catch(e){items.push({file,err:e.message})}}
   items.sort((a,b)=>(a.isTourists?(a.T.isArac?1:2):0)-(b.isTourists?(b.T.isArac?1:2):0));
   const out=[];let last=null;
   for(const it of items){
@@ -1018,11 +1021,11 @@ async function importFiles(files){
 }
 // kept for older callers and tests
 const importFile=f=>importFiles([f]);
-['#xlsK','#xlsA','#xlsT'].forEach(id=>$(id).addEventListener('change',e=>{if(e.target.files.length)importFiles([...e.target.files]);e.target.value=''}));
-['#dropK','#dropA','#dropT'].forEach(id=>{const drop=$(id);
+['#xlsK','#xlsA','#xlsT','#xlsD'].forEach(id=>$(id).addEventListener('change',e=>{if(e.target.files.length)importFiles([...e.target.files],id==='#xlsD'?{dir:'dep'}:{});e.target.value=''}));
+['#dropK','#dropA','#dropT','#dropD'].forEach(id=>{const drop=$(id);
   ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
   ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
-  drop.addEventListener('drop',e=>{const f=[...e.dataTransfer.files];if(f.length)importFiles(f)})});
+  drop.addEventListener('drop',e=>{const f=[...e.dataTransfer.files];if(f.length)importFiles(f,id==='#dropD'?{dir:'dep'}:{})})});
 function renderDayStatus(){
   const el=$('#dayStatus');if(!el)return;
   if(!DAY){el.innerHTML='<span class="chip">День ещё не загружен</span>';return}

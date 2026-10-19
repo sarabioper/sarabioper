@@ -433,10 +433,12 @@ mark{background:var(--signal-soft);color:inherit}
           <label class="drop" id="dropK" for="xlsK"><span class="step">1</span><b>Капак</b><span class="hint">Excel или PDF · Transfer Takip Formu</span><span class="hint">рейсы, выезды, гиды, машины</span></label>
           <label class="drop" id="dropA" for="xlsA"><span class="step">2</span><b>Машины</b><span class="hint">PDF, Word или Excel · Araç Transfer Listesi</span><span class="hint">кто в какой машине, гиды, имена с возрастом</span></label>
           <label class="drop" id="dropT" for="xlsT"><span class="step">3</span><b>Имена туристов</b><span class="hint">PDF, Word или Excel · Genel Geliş</span><span class="hint">если Araç Listesi нет</span></label>
+          <label class="drop" id="dropD" for="xlsD"><span class="step">4</span><b>Вылеты (DEPAR)</b><span class="hint">PDF, Word или Excel · Dönüş / Gidiş listesi, лист машин на вылет</span><span class="hint">всё, что сюда, считается вылетом</span></label>
         </div>
         <input type="file" id="xlsK" accept=".xlsx,.xls,.pdf" multiple hidden>
         <input type="file" id="xlsA" accept=".pdf,.docx,.doc,.xlsx,.xls" multiple hidden>
         <input type="file" id="xlsT" accept=".pdf,.docx,.doc,.xlsx,.xls" multiple hidden>
+        <input type="file" id="xlsD" accept=".pdf,.docx,.doc,.xlsx,.xls" multiple hidden>
         <p class="hint">Нажмите на окно или перетащите в него файлы. Можно перетащить все файлы дня в любое окно сразу: программа сама поймёт, где Капак, где лист машин, а где имена.</p>
         <div id="xlsMsg" class="res"></div>
       </div>
