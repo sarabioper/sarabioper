@@ -1012,17 +1012,29 @@ async function importTourists(T,file){
   if(T.forcedDep)return {key,html:`<b>Вылеты ${esc(key)}: список загружен.</b><span>Имена добавлены в ${r.matched} групп на вылет, всего ${r.people} туристов.${r.added?` Добавлено новых выездов: ${r.added}.`:''}</span>${un.length?`<span>Не нашлись в Капаке (${un.length}): ${un.slice(0,8).map(t=>esc((t.fl||'без рейса')+' '+t.hotel)).join(', ')}</span>`:''}`};
   return {key,html:`<b>Имена туристов ${esc(key)} загружены.</b><span>Имена добавлены в ${r.matched} групп, всего ${r.people} туристов. Теперь у гидов есть кнопки «Вышел».</span>${r.h2h?`<span>${r.h2h} туристов в межотельных переездах, в Капаке их нет.</span>`:''}${un.length?`<span>Не нашлись в Капаке (${un.length}): ${un.slice(0,8).map(t=>esc((t.fl||'без рейса')+' '+t.hotel+' · '+t.people.length+' чел')).join('; ')}${un.length>8?'…':''}</span>`:''}`};
 }
+async function importDepNotice(N,file){
+  if(!N.groups.length)throw new Error('в листе выезда не нашёл пассажиров');
+  const key=N.date?N.date.d+'.'+N.date.m:null;if(!key)throw new Error('не нашёл дату полёта в листе выезда');
+  let d=DAYS[key],created=false;
+  if(!d){d={key,title:`${+N.date.d} ${MONTHS[+N.date.m-1]} ${N.date.y}`,source:'Листы выезда',arr:[],dep:[],self:0,h2h:0,recon:null,delays:{},extra:[],iso:`${N.date.y}-${N.date.m}-${N.date.d}`};DAYS[key]=d;created=true}
+  const r=applyDepNotices(d,N);
+  await saveDay(key,d);
+  const lines=r.out.map(x=>`${x.st==='ok'?'✓':'＋'} ${esc(x.g.fl||'рейс не указан')}${x.g.t?' '+esc(x.g.t):''} · ${esc(x.g.hotelRaw||x.g.hotel)} · ${x.g.people.length} чел${x.g.pu?' · выезд '+esc(x.g.pu):' · <b>время выезда не указано</b>'}${x.st==='new'?' · <i>нет в Капаке, добавлено</i>':''}`);
+  return {key,html:`<b>Лист выезда ${esc(key)} (${esc(file.name)}) загружен: ${N.groups.length} групп, ${r.people} чел.</b>${created?'<span>Капака на этот день ещё нет: выезды добавлены из листа.</span>':''}<span>${lines.join('<br>')}</span>`};
+}
 async function importFiles(files,opt={}){
   const msg=$('#xlsMsg');msg.innerHTML='Читаю файлы…';
   const items=[];
-  for(const file of files){try{const rows=await readRows(file);const T=parseTourists(rows);
+  for(const file of files){try{const rows=await readRows(file);
+    if(isDepNotice(rows)){items.push({file,rows,N:parseDepNotice(rows),isTourists:true,T:{isArac:false}});continue}
+    const T=parseTourists(rows);
     // the DEPAR box: every transfer in the file is a departure, whatever its title or route says
     if(opt.dir==='dep'){T.forcedDep=true;T.groups.forEach(g=>{if(g.dir==='h2h')return;if(g.fTo==='AYT'&&g.fFrom!=='AYT'){const f=g.fFrom;g.fFrom='AYT';g.fTo=f}g.dir='dep'})}const people=T.groups.reduce((s,g)=>s+g.people.length,0);items.push({file,rows,T,isTourists:people>0})}catch(e){items.push({file,err:e.message})}}
   items.sort((a,b)=>(a.isTourists?(a.T.isArac?1:2):0)-(b.isTourists?(b.T.isArac?1:2):0));
   const out=[];let last=null;
   for(const it of items){
     if(it.err){out.push(`<span>${esc(it.file.name)}: не удалось прочитать (${esc(it.err)}).</span>`);continue}
-    try{const r=it.isTourists?await importTourists(it.T,it.file):await importKapak(it.rows,it.file);last=r.key;out.push(r.html)}
+    try{const r=it.N?await importDepNotice(it.N,it.file):it.isTourists?await importTourists(it.T,it.file):await importKapak(it.rows,it.file);last=r.key;out.push(r.html)}
     catch(e){if(e.message==='401')return;out.push(`<span>${esc(it.file.name)}: ${esc(e.message)}.</span>`)}
   }
   if(last){if(SERVER)refreshLive();loadDay(last)}

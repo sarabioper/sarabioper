@@ -117,4 +117,48 @@ function applyTourists(day,parsed){
   const h2h=unmatched.filter(t=>t.dir==='h2h').reduce((s,t)=>s+t.people.length,0);
   return {matched,people,unmatched,h2h,changed,added};
 }
+
+// ---- departure notices put up in hotels ("ИНФОРМАЦИЯ О ВЫЕЗДЕ": one group per page, pickup time, flight, passengers)
+const NOTICE_HDR=/ИНФОРМАЦИЯ\s+О\s+ВЫЕЗДЕ|DEPARTURE\s+INFORMATION|D[ÖO]N[ÜU][ŞS]\s+B[İI]LG[İI]|TRANSFER\s+INFORMATION|ИНФОРМАЦИЯ\s+ОБ?\s+ОТЪЕЗДЕ/i;
+const CITY_CODE={MOSKVA:'MOW',MOSCOW:'MOW',MOSKOVA:'MOW',NOVOSIBIRSK:'OVB',KRASNODAR:'KRR',YEKATERINBURG:'SVX',EKATERINBURG:'SVX',KAZAN:'KZN',SOCHI:'AER',SOCI:'AER',UFA:'UFA',SAMARA:'KUF',ALMATY:'ALA',ALMATI:'ALA',ASTANA:'NQZ',BISHKEK:'FRU',BISKEK:'FRU',TASHKENT:'TAS',ISTANBUL:'IST',ANKARA:'ESB',PETERBURG:'LED',PETERSBURG:'LED',MINERALNYE:'MRV',KALININGRAD:'KGD',CHELYABINSK:'CEK',ORENBURG:'REN',PERM:'PEE',SURGUT:'SGC',TYUMEN:'TJM',OMSK:'OMS',KRASNOYARSK:'KJA',IRKUTSK:'IKT',BAKU:'GYD',BAKI:'GYD',TBILISI:'TBS',VOLGOGRAD:'VOG',ROSTOV:'ROV',SHYMKENT:'CIT',KARAGANDA:'KGF',AKTOBE:'AKX',ATYRAU:'GUW'};
+const cityCode=s=>{const u=String(s||'').toUpperCase().replace(/İ/g,'I').replace(/Ş/g,'S').replace(/Ç/g,'C').replace(/Ü/g,'U').replace(/Ö/g,'O').replace(/Ğ/g,'G');for(const [k,v] of Object.entries(CITY_CODE))if(u.includes(k))return v;return ''};
+function isDepNotice(rows){return rows.slice(0,40).some(r=>NOTICE_HDR.test((r||[]).join(' ')))}
+function parseDepNotice(rows){
+  const lines=rows.map(r=>(r||[]).filter(c=>c!=null&&c!=='').join('  ').replace(/\s+/g,' ').trim()).filter(Boolean);
+  const groups=[];let g=null,date=null;
+  const val=(l,re)=>{const m=l.match(re);return m?l.slice(m.index+m[0].length).replace(/^[\s:]+/,'').replace(/^:\s*/,'').trim():null};
+  lines.forEach((l,i)=>{
+    if(NOTICE_HDR.test(l)){g={dir:'dep',op:'',fl:'',t:'',hotel:'',hotelRaw:'',pu:'',meet:'',dest:'',destName:'',people:[],pax:0};groups.push(g);
+      const prev=lines[i-1]||'';if(prev&&!/:/.test(prev)&&prev.length<40&&!/^\d+\s*[-.)]/.test(prev))g.op=prev;return}
+    if(!g)return;let v;
+    if((v=val(l,/В\s+АЭРОПОРТ\s+ГОРОДА|TO\s+(?:AIRPORT|CITY)|VARI[ŞS]\s+(?:HAVAL[İI]MANI|[ŞS]EHR[İI])/i))!==null){g.destName=v;g.dest=cityCode(v);return}
+    if(/ИЗ\s+АЭРОПОРТА\s+ГОРОДА|FROM\s+AIRPORT|KALKI[ŞS]\s+HAVAL/i.test(l))return;
+    if((v=val(l,/дата\s+полета|FLIGHT\s+DATE|U[ÇC]U[ŞS]\s+TAR[İI]H[İI]/i))!==null){const m=v.match(/(\d{1,2})[./](\d{1,2})[./](\d{4})/);if(m)date=date||{d:m[1].padStart(2,'0'),m:m[2].padStart(2,'0'),y:m[3]};return}
+    if((v=val(l,/НОМЕР\s+РЕЙСА|FLIGHT\s+(?:NO|NUMBER)\.?|U[ÇC]U[ŞS]\s+(?:NO|NUMARASI)/i))!==null){const m=v.toUpperCase().match(/\b([A-Z0-9]{2})\s?0*(\d{1,4})\b/);g.fl=m&&!/^[!?]/.test(v)?m[1]+' '+m[2]:'';return}
+    if((v=val(l,/ВРЕМЯ\s+ВЫЛЕТА|DEPARTURE\s+TIME|KALKI[ŞS]\s+SAAT[İI]/i))!==null){const m=v.match(/\d{1,2}:\d\d/);g.t=m?m[0].padStart(5,'0'):'';return}
+    if(/ВРЕМЯ\s+ПРИБЫТИЯ|ARRIVAL\s+TIME|VARI[ŞS]\s+SAAT/i.test(l))return;
+    if((v=val(l,/ВРЕМЯ\s+ВЫЕЗДА\s+ИЗ\s+ГОСТИНИЦЫ|PICK[\s-]?UP\s+TIME|OTELDEN\s+[ÇC]IKI[ŞS]|ALI[ŞS]\s+SAAT[İI]/i))!==null){const m=v.match(/\d{1,2}:\d\d/);g.pu=m?m[0].padStart(5,'0'):'';return}
+    if((v=val(l,/НАЗВАНИЕ\s+ОТЕЛЯ|HOTEL\s+NAME|OTEL\s+ADI/i))!==null){g.hotelRaw=v;g.hotel=normHotel(v);return}
+    if((v=val(l,/^ГОСТИНИЦА|MEETING\s+POINT|BULU[ŞS]MA\s+YER[İI]/i))!==null){g.meet=v.replace(/^[:\s]+/,'');return}
+    const pm=l.match(/^\d{1,3}\s*[-.)]\s*(MRS|MR|MS|MISS|CHD|INF|CHILD)\.?\s+(.+?)(?:\s+(\d{1,3}))?$/i);
+    if(pm){const t=pm[1][0].toUpperCase()+pm[1].slice(1).toLowerCase();g.people.push([t==='Child'?'Chd':t,pm[2].trim().toUpperCase(),pm[3]||'',g.meet?{note:g.meet}:{}]);g.pax=g.people.filter(p=>p[0]!=='Inf').length}
+  });
+  return {date,groups:groups.filter(x=>x.people.length),isNotice:true};
+}
+const hk=s=>String(s||'').toUpperCase().replace(/[^A-Z]/g,'').replace(/(HOTEL|OTEL|RESORT|SPA|BEACH|THE)/g,'');
+function applyDepNotices(day,N){
+  let matched=0,added=0,people=0;const used=new Set();const out=[];
+  N.groups.forEach(g=>{
+    const sameHotel=r=>{const a=hk(r.h),b=hk(g.hotelRaw||g.hotel);return a&&b&&(a.includes(b)||b.includes(a))};
+    let c=day.dep.filter(r=>!used.has(r.id)&&(g.fl?normFlT(r.fl)===normFlT(g.fl):/^[!?]/.test(r.fl||'?'))&&sameHotel(r));
+    if(!c.length&&g.fl)c=day.dep.filter(r=>!used.has(r.id)&&normFlT(r.fl)===normFlT(g.fl)&&(+r.pax===g.pax));
+    const r=c.find(x=>+x.pax===g.pax)||c[0];
+    if(r){used.add(r.id);r.p=g.people;if(!r.pu&&g.pu)r.pu=g.pu;if(g.meet)r.meet=g.meet;matched++;people+=g.people.length;out.push({g,r,st:'ok'});return}
+    const id=(day.key||'')+'n'+(day.dep.length+added);
+    day.dep.push({id,fl:g.fl||'???',dest:g.dest,t:g.t,h:g.hotelRaw||g.hotel,pax:g.pax,pu:g.pu,g:'',v:'',term:'',op:g.op||'—',note:'лист выезда'+(g.meet?' · '+g.meet:''),meet:g.meet,p:g.people});
+    added++;people+=g.people.length;out.push({g,st:'new'});
+  });
+  return {matched,added,people,out};
+}
+const normFlT=f=>String(f||'').toUpperCase().replace(/\s+/g,'').replace(/^([A-Z0-9]{2})0*/,'$1');
 if(typeof module!=='undefined')module.exports={parseTourists,applyTourists};
