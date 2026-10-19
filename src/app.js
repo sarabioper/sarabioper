@@ -683,18 +683,25 @@ function guideStrip(t){
   const vs=[...new Set(t.groups.map(g=>g.v).filter(Boolean))];
   return `<div class="gstrip"><span class="gs-name">${esc(t.guide||'гид не указан')}</span><span class="gs-ph">${gPhone(t.guide)?`<a class="tel" href="tel:${esc(gPhone(t.guide).replace(/\s/g,''))}">${esc(gPhone(t.guide))}</a>`:'<span class="hint">телефон гида не указан</span>'}</span>${vs.map(v=>{const a=assign[v]||{};return `<span class="gs-veh"><b>${esc(v)}</b>${a.plate?' · '+esc(a.plate):''}${a.phone?' · водитель '+esc(a.phone):''}${a.driver?' ('+esc(a.driver)+')':''}</span>`}).join('')}</div>`;
 }
+// guide: copy the guests already out (or seated) for this one flight / pickup, ready for WhatsApp
+const TASKS={};
+const waBtns=(t,key)=>t.done>0?`<button class="btn" type="button" data-wacopy="${key}">📋 ${t.kind==='arr'?'Вышедшие':'Севшие'} для WhatsApp (${t.done})</button><a class="btn wa-go" data-wago="${key}" href="#" target="_blank" rel="noopener">WhatsApp ➜</a>`:'';
+function taskWa(key){const t=TASKS[key];if(!t)return '';return exitedText([t],{onlyNew:false,time:true,no:true,lang:LANG==='tr'?'tr':'ru'}).text}
 function taskCard(t,key,o={}){
+  TASKS[key]=t;
   const cls=['task',t.complete?'done':'',o.next?'next':''].join(' ');
   const ids=t.groups.map(x=>x.id).join(',');
   const strip=o.showGuide?guideStrip(t):'';
-  if(t.complete)return `<article class="${cls}"><div class="th">${taskHead(t,o.showGuide)}</div>${strip}<div class="tf"><span class="met">✓ ${t.kind==='arr'?'Вышли':'Сели'} ${t.done} из ${t.total}${t.no?`, не пришли: ${t.no}`:''}${t.last>=0?` · ${fmt(t.last)}`:''}</span><button class="btn" type="button" data-open="${key}">Показать список</button></div><div hidden id="tg_${key}">${grpHtml(t)}</div></article>`;
-  return `<article class="${cls}"><div class="th">${taskHead(t,o.showGuide)}</div>${strip}${grpHtml(t)}<div class="tf"><button class="btn primary" type="button" data-allk="${ids}">${t.kind==='arr'?'Все вышли':'Все сели'}</button><button class="btn" type="button" data-clear="${ids}">Сбросить</button></div></article>`;
+  if(t.complete)return `<article class="${cls}"><div class="th">${taskHead(t,o.showGuide)}</div>${strip}<div class="tf"><span class="met">✓ ${t.kind==='arr'?'Вышли':'Сели'} ${t.done} из ${t.total}${t.no?`, не пришли: ${t.no}`:''}${t.last>=0?` · ${fmt(t.last)}`:''}</span><button class="btn" type="button" data-open="${key}">Показать список</button>${waBtns(t,key)}</div><div hidden id="tg_${key}">${grpHtml(t)}</div></article>`;
+  return `<article class="${cls}"><div class="th">${taskHead(t,o.showGuide)}</div>${strip}${grpHtml(t)}<div class="tf"><button class="btn primary" type="button" data-allk="${ids}">${t.kind==='arr'?'Все вышли':'Все сели'}</button><button class="btn" type="button" data-clear="${ids}">Сбросить</button>${waBtns(t,key)}</div></article>`;
 }
 function bindMarks(T){
   T.querySelectorAll('[data-mk]').forEach(b=>b.onclick=()=>{const [gid,i,val]=b.dataset.mk.split('|');setMark(gid,i,markOf(gid,i)===val?null:val);rerenderMarks()});
   T.querySelectorAll('[data-cnt]').forEach(b=>b.onclick=()=>{const [gid,d]=b.dataset.cnt.split('|');const g=allGroups().find(x=>x.id===gid);met[gid]=met[gid]||{};met[gid].n=Math.max(0,Math.min(+g.pax||0,(+met[gid].n||0)+(+d)));met[gid]['@n']=stamp();saveMet();rerenderMarks()});
   T.querySelectorAll('[data-allk]').forEach(b=>b.onclick=()=>{const now=stamp();b.dataset.allk.split(',').forEach(gid=>{const g=allGroups().find(x=>x.id===gid);met[gid]=met[gid]||{};if(g.p&&g.p.length)g.p.forEach((_,i)=>{if(!markOf(gid,i)){met[gid][i]='out';met[gid]['@'+i]=now}});else{met[gid].n=+g.pax||0;met[gid]['@n']=now}});saveMet();rerenderMarks();toast('Отмечено, операционщик это видит')});
   T.querySelectorAll('[data-clear]').forEach(b=>b.onclick=()=>{b.dataset.clear.split(',').forEach(gid=>{const g=allGroups().find(x=>x.id===gid);met[gid]={n:0,'@n':null};if(g.p)g.p.forEach((_,i)=>{met[gid][i]=null;met[gid]['@'+i]=null})});saveMet();rerenderMarks()});
+  T.querySelectorAll('[data-wacopy]').forEach(b=>b.onclick=()=>{const txt=taskWa(b.dataset.wacopy);if(txt)copy(txt,true)});
+  T.querySelectorAll('[data-wago]').forEach(a=>a.onclick=()=>{const txt=taskWa(a.dataset.wago);a.href='https://wa.me/?text='+encodeURIComponent(txt)});
   T.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{const el=document.getElementById('tg_'+b.dataset.open);el.hidden=!el.hidden;b.textContent=el.hidden?'Показать список':'Скрыть список'});
 }
 function renderGuide(){
@@ -813,6 +820,7 @@ let SENT={};
 const sentKey=(gid,i)=>gid+'|'+i;
 function exitedText(tasks,o){
   const L=o.lang==='ru'?{title:'ВЫШЛИ ГОСТИ',out:'вышли',in:'сели',no:'Не пришли',noname:'чел. без имён',total:'Всего вышло',guide:'Гид'}:{title:'ÇIKAN MİSAFİRLER',out:'çıktı',in:'bindi',no:'Gelmedi',noname:'kişi (isimsiz)',total:'Toplam çıkan',guide:'Rehber'};
+  if(tasks.length&&tasks.every(t=>t.kind==='dep'))Object.assign(L,o.lang==='ru'?{title:'СЕЛИ В МАШИНУ',total:'Всего село'}:{title:'ARACA BİNENLER',total:'Toplam binen'});
   const byG=new Map();let total=0;const keys=[];
   tasks.forEach(t=>{
     const lines=[];let n=0;

@@ -663,6 +663,8 @@ const TR_DICT={
 "Прочитал":"Okundu",
 "в списках этого дня такого гостя нет":"bu günün listelerinde böyle bir misafir yok",
 "Две нижние строки паспорта (с <<<) — в рамку, ровно, без бликов, на расстоянии 15–20 см":"Pasaportun alttaki iki satırı (<<< olan) çerçeveye, düz, parlama olmadan, 15–20 cm mesafede",
+"Севшие":"Binenler",
+"для WhatsApp":"WhatsApp için",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",
