@@ -60,14 +60,22 @@ export default async (req) => {
 
   if (req.method === "GET" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
-    if (!["assign", "met", "guides", "eta", "settings"].includes(kind)) return json({ error: "Неверный тип" }, 400);
+    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     return json({ data: (await s.get("state/" + d + "/" + kind, { type: "json" })) || {} });
   }
 
   if (req.method === "PUT" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
-    if (!["assign", "met", "guides", "eta", "settings"].includes(kind)) return json({ error: "Неверный тип" }, 400);
+    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     const body = await req.json();
+    if (kind === "tours" || kind === "tourmarks") {
+      // excursion programs and guide check-ins: one key per bus program / per stop, null removes it,
+      // so a guide ticking a stop never overwrites an operator editing another program
+      const prev = (await s.get("state/" + d + "/" + kind, { type: "json" })) || {};
+      for (const [k, v] of Object.entries(body || {})) { if (v == null) delete prev[k]; else prev[k] = v; }
+      await s.setJSON("state/" + d + "/" + kind, prev);
+      return json({ ok: true });
+    }
     if (kind === "eta") {
       // airport times typed by dispatchers, one key per flight; null removes it
       const prev = (await s.get("state/" + d + "/eta", { type: "json" })) || {};

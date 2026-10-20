@@ -29,6 +29,7 @@ ${r("src/parser.js")}
 ${r("src/tourists.js")}
 ${r("src/docs.js")}
 ${r("src/app.js")}
+${r("src/tours.js")}
 ${r("src/scan.js")}
 </script>
 </body>

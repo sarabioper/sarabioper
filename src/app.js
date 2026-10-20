@@ -1093,7 +1093,7 @@ setInterval(()=>{if(followNow&&DAY&&!play){NOW=nowMinutes();renderAll()}},60000)
 $('#nowBtn').onclick=()=>{followNow=true;NOW=nowMinutes();store.set('now_'+dayKey,NOW);renderAll()};
 ['#fVeh','#fHotel','#fOp'].forEach(s=>$(s).addEventListener('change',()=>DAY&&renderBoard()));$('#fQ').addEventListener('input',()=>DAY&&renderBoard());
 $('#copyWa').onclick=()=>copy($('#waMsg').textContent);
-const views=['board','ops','dep','veh','guide','checks','contacts','data'];
+const views=['board','ops','dep','veh','tours','guide','checks','contacts','data'];
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b)return;
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t===b));
   views.forEach(v=>$('#v-'+v).hidden=v!==b.dataset.t);store.set('tab',b.dataset.t);$('#scanBtn').hidden=b.dataset.t!=='ops'});
