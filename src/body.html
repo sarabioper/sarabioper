@@ -31,6 +31,17 @@
 .tpl-cap{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
 .tpl-cap input{width:70px;padding:3px 6px;border:1px solid var(--line);border-radius:5px;background:var(--sunk);color:var(--ink)}
 .tpl-w{color:var(--warn);font-weight:600;font-size:13px}
+.tpl-cfg{display:flex;flex-wrap:wrap;gap:10px}
+#tourLive h3 small{font-weight:400;font-size:11px;margin-left:6px}
+.chip.lv-here{border-color:var(--crit);background:var(--crit-soft)}
+.chip.lv-come{border-color:var(--warn);background:var(--warn-soft)}
+.tfeed{margin:-4px 0 12px;font-size:13px}.tfeed summary{cursor:pointer;color:var(--muted)}
+.tfeed ul{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:3px;max-height:260px;overflow:auto}
+.ch{font-size:13px;border-radius:8px;padding:7px 10px;border:1px solid var(--line);line-height:1.45}
+.ch.ok{background:var(--ok-soft);border-color:transparent}
+.ch.info{background:var(--warn-soft);border-color:transparent}
+.ch.warn{background:var(--crit-soft);border-color:var(--crit)}
+.ch-alt{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .tlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px}
 @media (max-width:420px){.tlist{grid-template-columns:1fr}}
 .tcard{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 12px;display:grid;gap:8px;min-width:0}
@@ -461,9 +472,11 @@ mark{background:var(--signal-soft);color:inherit}
       <select id="tBus" aria-label="Автобус"></select>
       <span class="sp"></span>
       <label class="btn sm">⬆ Excel с программой<input type="file" id="tXls" accept=".xlsx,.xls,.xlsm" multiple hidden></label>
+      <button type="button" class="btn sm" id="tSamples" hidden></button>
       <button type="button" class="btn sm primary" id="tNew">+ Программа</button>
     </div>
     <div class="tsum" id="tourSum"></div>
+    <div id="tourLive"></div>
     <div id="tourPlaces"></div>
     <div class="tlist" id="tourList"></div>
     <div class="ted" id="tourEd" hidden></div>

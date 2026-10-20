@@ -234,6 +234,17 @@ tr.soon td.t{color:var(--signal-ink)}
 .tpl-cap{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
 .tpl-cap input{width:70px;padding:3px 6px;border:1px solid var(--line);border-radius:5px;background:var(--sunk);color:var(--ink)}
 .tpl-w{color:var(--warn);font-weight:600;font-size:13px}
+.tpl-cfg{display:flex;flex-wrap:wrap;gap:10px}
+#tourLive h3 small{font-weight:400;font-size:11px;margin-left:6px}
+.chip.lv-here{border-color:var(--crit);background:var(--crit-soft)}
+.chip.lv-come{border-color:var(--warn);background:var(--warn-soft)}
+.tfeed{margin:-4px 0 12px;font-size:13px}.tfeed summary{cursor:pointer;color:var(--muted)}
+.tfeed ul{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:3px;max-height:260px;overflow:auto}
+.ch{font-size:13px;border-radius:8px;padding:7px 10px;border:1px solid var(--line);line-height:1.45}
+.ch.ok{background:var(--ok-soft);border-color:transparent}
+.ch.info{background:var(--warn-soft);border-color:transparent}
+.ch.warn{background:var(--crit-soft);border-color:var(--crit)}
+.ch-alt{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .tlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px}
 @media (max-width:420px){.tlist{grid-template-columns:1fr}}
 .tcard{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 12px;display:grid;gap:8px;min-width:0}
@@ -664,9 +675,11 @@ mark{background:var(--signal-soft);color:inherit}
       <select id="tBus" aria-label="Автобус"></select>
       <span class="sp"></span>
       <label class="btn sm">⬆ Excel с программой<input type="file" id="tXls" accept=".xlsx,.xls,.xlsm" multiple hidden></label>
+      <button type="button" class="btn sm" id="tSamples" hidden></button>
       <button type="button" class="btn sm primary" id="tNew">+ Программа</button>
     </div>
     <div class="tsum" id="tourSum"></div>
+    <div id="tourLive"></div>
     <div id="tourPlaces"></div>
     <div class="tlist" id="tourList"></div>
     <div class="ted" id="tourEd" hidden></div>
@@ -1506,6 +1519,27 @@ const TR_DICT={
 "В файле не нашёл программу (нужны колонки ÇIKIŞ, MAĞAZA GİRİŞ, PAX)":"Dosyada program bulunamadı (ÇIKIŞ, MAĞAZA GİRİŞ, PAX sütunları gerekli)",
 "Добавить программу с фото 22–27.10 (CAVİT / ELMİRA, 39 pax)":"22–27.10 fotoğraftaki programı ekle (CAVİT / ELMİRA, 39 pax)",
 "Рестораны и магазины на":"Restoranlar ve mağazalar:",
+"Стоянка, мин":"Bekleme, dk",
+"🧭 Где сейчас автобусы":"🧭 Otobüsler şu an nerede",
+"обновляется само каждые 20 сек":"her 20 sn kendiliğinden yenilenir",
+"Пока никто не отметился на точках. Как только гид нажмёт «📍 Прибыли» или «🚌 Уехали», здесь увидят все.":"Henüz kimse noktalarda işaretlemedi. Rehber «📍 Geldik» veya «🚌 Ayrıldık» bastığında herkes burada görür.",
+"Лента отметок":"İşaret akışı",
+"потом ещё:":"sonra gelecek:",
+"уже были:":"gelip gitti:",
+"едет":"yolda",
+"выехал":"çıktı",
+"прибыл в":"geldi:",
+"уехал из":"ayrıldı:",
+"Сюда за вами едут:":"Sizden sonra buraya geliyor:",
+"Следующая точка":"Sonraki nokta",
+"свободна":"boş",
+"Освободится ≈":"Boşalır ≈",
+"Можно задержаться здесь ещё ~":"Burada ~",
+"Сначала":"Önce",
+"свободно":"boş",
+"Добавить программы с фото":"Fotoğraftaki programları ekle",
+"Порядок изменён: сначала":"Sıra değişti: önce",
+"дольше плана на":"plandan uzun:",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",
@@ -3059,9 +3093,16 @@ function stopKind(n,m){const u=upTR(n);
   if(/[ÇC]IKIŞ|ÇIKIS|HAREKET/.test(u))return 'start';
   if(/HAMAM/.test(u))return 'hamam';
   if(/MOLA|PETROL|CAFE|KAFE|\d+\s*MIN/.test(u))return 'break';
-  if(m||/V[İI]OLA|PONTO|D[İI]ON[İI]S|MODAL|DERV[İI]Ş|SAYAN|ONEX|KURUYEM|SERAM|BAZAR|ÇITIR|DEVEL[İI]|HALI|ALTIN|DER[İI]|JEWEL|LEATHER|GOLD|TEKST/.test(u))return 'shop';
+  if(m||/V[İI]OLA|PONTO|D[İI]ON[İI]S|MODAL|DERV[İI]Ş|SAYAN|ONEX|KURUYEM|SERAM|BAZAR|ÇITIR|DEVEL[İI]|HALI|ALTIN|DER[İI]|JEWEL|LEATHER|GOLD|TEKST|ŞARAP|WINE/.test(u))return 'shop';
   return 'sight'}
 // "ÖĞLE YEMEĞİ COLESSAI" -> "COLESSAI"; the place key used for restaurant load
+// one key per real place, so "COLLESAI" and "COLESSAI", "DİONİS" and "DIONIS" meet in the same restaurant/shop
+const placeKey=s=>placeOf(s).replace(/[İI]/g,'I').replace(/Ş/g,'S').replace(/Ğ/g,'G').replace(/Ü/g,'U').replace(/Ö/g,'O').replace(/Ç/g,'C').replace(/[^A-Z0-9 ]/g,' ').replace(/(.)\1+/g,'$1').replace(/\s+/g,' ').trim();
+const STAY={lunch:60,shop:45,sight:40,break:15,hamam:90};
+const isStay=k=>k in STAY;
+const placeCfg=key=>((TOURS['~places']||{}).places||{})[key]||{};
+const stayOf=(key,k)=>+placeCfg(key).stay||STAY[k]||30;
+function setPlaceCfg(key,patch){const P=Object.assign({places:{}},TOURS['~places']);P.id='~places';P.places=Object.assign({},P.places);const c=Object.assign({},P.places[key],patch);Object.keys(c).forEach(k=>{if(!c[k])delete c[k]});if(Object.keys(c).length)P.places[key]=c;else delete P.places[key];saveTour('~places',P)}
 function placeOf(s){const u=upTR(s.n).replace(/\s+\d+\s*MIN.*$/,'');if(s.k==='lunch'){const r=u.replace(/ÖĞLE(N)?\s*YEME[ĞG][İI]|AKŞAM\s*YEME[ĞG][İI]|YEME[ĞG][İI]|RESTORAN(I)?/g,'').trim();return r||u.trim()}return u.trim()}
 
 /* ---- server sync ---- */
@@ -3073,7 +3114,7 @@ async function pullTours(force){if(!SERVER)return;if(!force&&($('#v-tours').hidd
   try{const [a,b]=await Promise.all([api('GET','/api/state?d=00.00&kind=tours'),api('GET','/api/state?d=00.00&kind=tourmarks')]);
     const s1=JSON.stringify(TOURS),s2=JSON.stringify(TM);TOURS=a.data||{};TM=b.data||{};
     if(JSON.stringify(TOURS)!==s1||JSON.stringify(TM)!==s2||force){store.set('tours',TOURS);store.set('tourmarks',TM);if(!tEdit&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#tourList')))renderTours()}}catch(e){}}
-setInterval(()=>pullTours(),30000);
+setInterval(()=>pullTours(),20000);
 
 /* ---- day view ---- */
 const dayOfTour=(t,iso)=>{const i=t.days.findIndex(d=>d.d===iso);return i<0?null:{i,day:t.days[i]}};
@@ -3086,18 +3127,67 @@ function tourNow(t,day){const st=day.s;let last=-1;st.forEach((s,i)=>{if(stopSta
   const nx=st[last+1];return {txt:`Едут → ${nx.n}${nx.t?' (план '+nx.t+')':''}`,cls:'go'}}
 function placeLoad(iso){
   const P={};const caps=(TOURS['~places']||{}).places||{};
-  tours().forEach(t=>{const x=dayOfTour(t,iso);if(!x)return;x.day.s.forEach(s=>{if(s.k!=='lunch'&&s.k!=='shop')return;const key=placeOf(s);
-    (P[key]=P[key]||{key,k:s.k,rows:[]}).rows.push({t,s,min:s.t?toMin(s.t):(s.m?toMin(s.m):null),pax:+t.pax||0})})});
-  return Object.values(P).map(p=>{p.rows.sort((a,b)=>(a.min??9999)-(b.min??9999));p.pax=p.rows.reduce((a,r)=>a+r.pax,0);p.cap=+(caps[p.key]||{}).cap||0;
+  tours().forEach(t=>{const x=dayOfTour(t,iso);if(!x)return;x.day.s.forEach(s=>{if(s.k!=='lunch'&&s.k!=='shop')return;const key=placeKey(s);
+    (P[key]=P[key]||{key,name:placeOf(s),k:s.k,rows:[]}).rows.push({t,s,min:s.t?toMin(s.t):(s.m?toMin(s.m):null),pax:+t.pax||0})})});
+  return Object.values(P).map(p=>{p.rows.sort((a,b)=>(a.min??9999)-(b.min??9999));p.pax=p.rows.reduce((a,r)=>a+r.pax,0);p.cap=+placeCfg(p.key).cap||0;
     const win=p.k==='lunch'?60:30;let peak=0,clash=0;
     p.rows.forEach(r=>{if(r.min==null)return;const same=p.rows.filter(o=>o.min!=null&&Math.abs(o.min-r.min)<win);const sum=same.reduce((a,o)=>a+o.pax,0);if(sum>peak)peak=sum;if(same.length>1)clash=Math.max(clash,same.length)});
     p.peak=peak;p.clash=clash;p.noTime=p.rows.filter(r=>r.min==null).length;
     p.warn=p.cap&&peak>p.cap?`перегруз: ${peak} чел. на ${p.cap} мест`:p.k==='shop'&&clash>1?`${clash} автобуса в одно время`:'';return p})
     .sort((a,b)=>(a.k===b.k?0:a.k==='lunch'?-1:1)||a.key.localeCompare(b.key,'tr'))}
 
+/* ---- live coordination between buses on the same places ---- */
+function busPos(t,day){const st=day.s;let lastA=-1;st.forEach((s,i)=>{if(stopState(t,s).a!=null)lastA=i});
+  const cur=lastA>=0?st[lastA]:null,cm=cur?stopState(t,cur):{};
+  const here=cur&&isStay(cur.k)&&cm.d==null?lastA:-1;
+  const moving=lastA>=0&&here<0&&lastA<st.length-1;
+  return {lastA,here,moving,next:lastA+1<st.length?lastA+1:-1,since:moving?(cm.d??cm.a):null}}
+function liveBoard(iso){const P={},now=nowMinutes(),ev=[];
+  const get=(s)=>{const key=placeKey(s);return P[key]=P[key]||{key,name:placeOf(s),k:s.k,here:[],coming:[],later:[],done:[]}};
+  tours().forEach(t=>{const x=dayOfTour(t,iso);if(!x)return;const st=x.day.s,ps=busPos(t,x.day);const pax=+t.pax||0;
+    st.forEach((s,i)=>{const m=stopState(t,s);
+      if(m.a!=null)ev.push({t,s,at:m.a,what:s.k==='start'?'выехал':'прибыл в'});if(m.d!=null)ev.push({t,s,at:m.d,what:'уехал из'});
+      if(!isStay(s.k))return;const p=get(s);
+      if(i===ps.here)p.here.push({t,pax,since:m.a,until:m.a+stayOf(p.key,s.k)});
+      else if(m.d!=null||m.a!=null&&i<ps.lastA)p.done.push({t,pax,a:m.a,d:m.d});
+      else if(ps.moving&&i===ps.next)p.coming.push({t,pax,since:ps.since});
+      else if(i>ps.lastA)p.later.push({t,pax,plan:s.t||s.m||''})})});
+  ev.sort((a,b)=>b.at-a.at);return {P,ev}}
+function busyFor(LB,t,s){const p=LB.P[placeKey(s)];if(!p)return null;const now=nowMinutes();
+  const here=p.here.filter(r=>r.t.id!==t.id),coming=p.coming.filter(r=>r.t.id!==t.id);
+  const until=Math.max(0,...here.map(r=>Math.max(r.until,now+10)),...coming.map(r=>Math.max(now,r.since+20)+stayOf(p.key,p.k)));
+  const pax=[...here,...coming].reduce((a,r)=>a+r.pax,0);const cap=+placeCfg(p.key).cap||0;
+  const busy=here.length+coming.length>0&&!(cap&&pax+(+t.pax||0)<=cap);
+  return {p,here,coming,until,pax,cap,busy}}
+const busNm=t=>t.bus||(t.guide||'?').split(' ')[0];
+function coordHint(LB,t,x){if(tDate!==isoToday())return '';const st=x.day.s,ps=busPos(t,x.day),now=nowMinutes();
+  const out=[];const who=(arr,f)=>arr.map(r=>`<b>${esc(busNm(r.t))}</b> (${r.pax})${f(r)}`).join(', ');
+  // where I am now: who is heading here after me
+  if(ps.here>=0){const p=LB.P[placeKey(st[ps.here])];const c=p?p.coming.filter(r=>r.t.id!==t.id):[];if(c.length)out.push(`<div class="ch info">🟡 Сюда за вами едут: ${who(c,r=>r.since!=null?' · выехал '+fmt(r.since):'')}</div>`)}
+  const ni=ps.here>=0?ps.here+1:Math.max(ps.next,0);const nx=st[ni];
+  if(!nx||!isStay(nx.k))return out.join('');
+  const b=busyFor(LB,t,nx);
+  if(!b||!b.busy){out.push(`<div class="ch ok">🟢 Следующая точка <b>${esc(nx.n)}</b> свободна${b&&b.cap?` · занято ${b.pax} из ${b.cap} мест`:''}</div>`);return out.join('')}
+  const wait=Math.max(0,b.until-now);
+  let h=`<div class="ch warn">🔴 В <b>${esc(nx.n)}</b> ${b.here.length?'сейчас '+who(b.here,r=>' с '+fmt(r.since)):''}${b.here.length&&b.coming.length?'; ':''}${b.coming.length?'едут '+who(b.coming,()=>''):''}${b.cap?` · ${b.pax} из ${b.cap} мест`:''}. Освободится ≈ <b>${fmt(b.until)}</b>.`;
+  if(ps.here>=0&&wait>5)h+=`<br>⏳ Можно задержаться здесь ещё ~${wait} мин.`;
+  // free stops later in the day that could go first
+  const alt=st.map((s,i)=>({s,i})).filter(o=>o.i>ni&&isStay(o.s.k)&&o.s.k!=='lunch'&&stopState(t,o.s).a==null&&!(busyFor(LB,t,o.s)||{}).busy).slice(0,2);
+  if(alt.length)h+=`<div class="ch-alt">${alt.map(o=>`<button type="button" class="btn sm" data-tswap="${esc(t.id)}|${x.i}|${o.i}|${ni}">↪ Сначала ${esc(o.s.n)} — свободно</button>`).join('')}</div>`;
+  out.push(h+'</div>');return out.join('')}
+function renderLive(LB){const el=$('#tourLive');if(!el)return;
+  if(tDate!==isoToday()){el.innerHTML='';return}
+  const act=Object.values(LB.P).filter(p=>p.here.length||p.coming.length).sort((a,b)=>b.here.length-a.here.length||b.coming.length-a.coming.length);
+  const now=nowMinutes();
+  el.innerHTML=`<h3>🧭 Где сейчас автобусы <small class="hint">обновляется само каждые 20 сек</small></h3>${act.length?`<div class="tplaces">${act.map(p=>`<div class="tpl ${p.here.length>1||p.here.length&&p.coming.length?'warn':''}"><div class="tpl-h"><span>${TK[p.k][0]} <b>${esc(p.name)}</b></span><span class="num">${p.here.reduce((a,r)=>a+r.pax,0)} чел.</span></div>
+    <div class="tpl-r">${p.here.map(r=>`<span class="chip lv-here">🔴 ${esc(busNm(r.t))} с ${fmt(r.since)} · ${r.until<now?'дольше плана на '+(now-r.until)+' мин':'до ≈'+fmt(r.until)}</span>`).join('')}${p.coming.map(r=>`<span class="chip lv-come">🟡 ${esc(busNm(r.t))} едет${r.since!=null?' с '+fmt(r.since):''}</span>`).join('')}</div>
+    ${p.later.length?`<div class="hint">потом ещё: ${p.later.map(r=>esc(busNm(r.t))).join(', ')}</div>`:''}${p.done.length?`<div class="hint">уже были: ${p.done.map(r=>esc(busNm(r.t))).join(', ')}</div>`:''}</div>`).join('')}</div>`:'<p class="hint">Пока никто не отметился на точках. Как только гид нажмёт «📍 Прибыли» или «🚌 Уехали», здесь увидят все.</p>'}
+  ${LB.ev.length?`<details class="tfeed"><summary>Лента отметок (${LB.ev.length})</summary><ul>${LB.ev.slice(0,30).map(e=>`<li><span class="num">${fmt(e.at)}</span> <b>${esc(busNm(e.t))}</b> ${e.what} ${esc(e.s.n)}</li>`).join('')}</ul></details>`:''}`}
+
 function renderTours(){
   const el=$('#tourList');if(!el)return;
   if(!tDate)tDate=isoToday();
+  renderSampleBtn();
   $('#tDateLbl').innerHTML=`<b>${isoDM(tDate)}</b> <small>${tDate===isoToday()?'сегодня':isoWd(tDate)}</small>`;
   if(tEdit){$('#tourEd').hidden=false;el.hidden=true;$('#tourPlaces').hidden=true;$('#tourSum').hidden=true;return}
   $('#tourEd').hidden=true;el.hidden=false;$('#tourPlaces').hidden=false;$('#tourSum').hidden=false;
@@ -3109,14 +3199,14 @@ function renderTours(){
   $('#tourSum').innerHTML=today.length?`<span class="chip">🚌 Автобусов: <b>${today.length}</b></span><span class="chip">👥 Гостей: <b>${pax}</b></span>${all.length>today.length?`<span class="hint">ещё программ в другие дни: ${all.length-today.length}</span>`:''}`:'';
   // restaurants and shops of the day
   const PL=placeLoad(tDate);
-  $('#tourPlaces').innerHTML=PL.length&&!cur?`<h3>Рестораны и магазины на ${isoDM(tDate)}</h3><div class="tplaces">${PL.map(p=>`<div class="tpl ${p.warn?'warn':''}"><div class="tpl-h"><span>${TK[p.k][0]} <b>${esc(p.key)}</b></span><span class="num">${p.pax} чел.</span></div>
+  $('#tourPlaces').innerHTML=PL.length&&!cur?`<h3>Рестораны и магазины на ${isoDM(tDate)}</h3><div class="tplaces">${PL.map(p=>`<div class="tpl ${p.warn?'warn':''}"><div class="tpl-h"><span>${TK[p.k][0]} <b>${esc(p.name)}</b></span><span class="num">${p.pax} чел.</span></div>
     <div class="tpl-r">${p.rows.map(r=>`<span class="chip">${esc(r.t.bus||'?')} · ${r.min!=null?fmt(r.min):'время ?'} · ${r.pax}</span>`).join('')}</div>
-    ${p.k==='lunch'?`<label class="tpl-cap">Мест в ресторане <input type="number" min="0" inputmode="numeric" value="${p.cap||''}" data-cap="${esc(p.key)}" placeholder="—"></label>`:''}
+    <div class="tpl-cfg">${p.k==='lunch'?`<label class="tpl-cap">Мест <input type="number" min="0" inputmode="numeric" value="${p.cap||''}" data-cap="${esc(p.key)}" placeholder="—"></label>`:''}<label class="tpl-cap">Стоянка, мин <input type="number" min="0" inputmode="numeric" value="${+placeCfg(p.key).stay||''}" data-stay="${esc(p.key)}" placeholder="${STAY[p.k]}"></label></div>
     ${p.warn?`<div class="tpl-w">⚠ ${esc(p.warn)}</div>`:''}${p.noTime?`<div class="hint">без времени: ${p.noTime}</div>`:''}</div>`).join('')}</div>`:'';
-  $('#tourPlaces').querySelectorAll('[data-cap]').forEach(i=>i.onchange=()=>{const P=Object.assign({places:{}},TOURS['~places']);P.id='~places';P.places=Object.assign({},P.places);const v=+i.value||0;if(v)P.places[i.dataset.cap]={cap:v};else delete P.places[i.dataset.cap];saveTour('~places',P);renderTours()});
-  if(!today.length){el.innerHTML=`<p class="hint">На ${isoDM(tDate)} экскурсий нет.${all.length?' Листайте даты стрелками.':' Нажмите «+ Программа» или загрузите Excel с программой.'}</p>${!all.length?`<p><button class="btn" type="button" id="tSample">Добавить программу с фото 22–27.10 (CAVİT / ELMİRA, 39 pax)</button></p>`:''}`;
-    const sb=$('#tSample');if(sb)sb.onclick=()=>{const t=sampleTour();saveTour(t.id,t);tDate=t.days[0].d;renderTours()};return}
-  const isToday=tDate===isoToday(),now=nowMinutes();
+  $('#tourPlaces').querySelectorAll('[data-cap]').forEach(i=>i.onchange=()=>{setPlaceCfg(i.dataset.cap,{cap:+i.value||0});renderTours()});
+  $('#tourPlaces').querySelectorAll('[data-stay]').forEach(i=>i.onchange=()=>{setPlaceCfg(i.dataset.stay,{stay:+i.value||0});renderTours()});
+  if(!today.length){renderLive({P:{},ev:[]});$('#tourLive').innerHTML='';el.innerHTML=`<p class="hint">На ${isoDM(tDate)} экскурсий нет.${all.length?' Листайте даты стрелками.':' Нажмите «+ Программа» или загрузите Excel с программой.'}</p>`;return}
+  const isToday=tDate===isoToday(),now=nowMinutes();const LB=liveBoard(tDate);renderLive(LB);
   el.innerHTML=list.map(t=>{const x=dayOfTour(t,tDate);const st=tourNow(t,x.day);let lastA=-1;x.day.s.forEach((s,i)=>{if(stopState(t,s).a!=null)lastA=i});const firstOpen=lastA+1;
     const rows=x.day.s.map((s,i)=>{const m=stopState(t,s);const key=t.id+'|'+s.id;const plan=s.t?toMin(s.t):null;
       const late=isToday&&i===firstOpen&&plan!=null&&now>plan+10;
@@ -3129,6 +3219,7 @@ function renderTours(){
     return `<article class="tcard"><header class="tch"><div><b class="tbus">${esc(t.bus||'BUS ?')}</b> ${t.name?`<span>${esc(t.name)}</span>`:''} <span class="chip">день ${x.i+1}/${t.days.length}</span> <span class="chip">👥 ${esc(t.pax||'?')}</span></div>
       <div class="tst-now ${st.cls}">${esc(st.txt)}</div></header>
       <div class="tppl">${t.guide?`<span>Гид отеля: ${gTag(t.guide)}</span>`:''}${t.kok?`<span>Кок гид: ${gTag(t.kok)}</span>`:''}${t.plate||t.driver?`<span>🚌 ${esc(t.plate||'')} ${esc(t.driver||'')}${t.dphone?` · <a class="tel" href="tel:${esc(t.dphone.replace(/\s/g,''))}">${esc(t.dphone)}</a>`:''}</span>`:''}${t.hotel?`<span>🏨 ${esc(t.hotel)}</span>`:''}</div>
+      ${coordHint(LB,t,x)}
       <ol class="tstops">${rows}</ol>
       <div class="tact"><button type="button" class="btn sm" data-twa="${esc(t.id)}">📋 Программа дня в WhatsApp</button><button type="button" class="btn sm" data-tedit="${esc(t.id)}">✎ Изменить</button><button type="button" class="btn sm" data-tcopy="${esc(t.id)}">⧉ Копия для другого автобуса</button></div></article>`}).join('');
   el.querySelectorAll('[data-ta]').forEach(b=>b.onclick=()=>{saveTM(b.dataset.ta,Object.assign({},TM[b.dataset.ta],{a:nowMinutes()}));renderTours()});
@@ -3137,6 +3228,7 @@ function renderTours(){
   el.querySelectorAll('[data-sale]').forEach(i=>i.onchange=()=>{saveTM(i.dataset.sale,Object.assign({},TM[i.dataset.sale],{s:i.value.trim()}));toast('Продажа записана')});
   el.querySelectorAll('[data-tedit]').forEach(b=>b.onclick=()=>openTourEd(JSON.parse(JSON.stringify(TOURS[b.dataset.tedit]))));
   el.querySelectorAll('[data-tcopy]').forEach(b=>b.onclick=()=>{const c=JSON.parse(JSON.stringify(TOURS[b.dataset.tcopy]));c.id=rid();c.bus='';c.guide='';c.kok='';c.plate='';c.driver='';c.dphone='';c.days.forEach(d=>d.s.forEach(s=>s.id=rid()));openTourEd(c,true)});
+  el.querySelectorAll('[data-tswap]').forEach(b=>b.onclick=()=>{const [id,di,from,to]=b.dataset.tswap.split('|');const t=JSON.parse(JSON.stringify(TOURS[id]));const a=t.days[+di].s;const [mv]=a.splice(+from,1);a.splice(+to,0,mv);saveTour(id,t);toast(`Порядок изменён: сначала ${mv.n}`);renderTours()});
   el.querySelectorAll('[data-twa]').forEach(b=>b.onclick=()=>copy(tourWa(TOURS[b.dataset.twa],tDate),true));
 }
 function tourWa(t,iso){const x=dayOfTour(t,iso);if(!x)return '';const tr=LANG==='tr';
@@ -3206,21 +3298,37 @@ async function importTourFiles(files){
     for(const sn of wb.SheetNames){const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:''});const t=parseTourSheet(rows,wb.SheetNames.length>1?sn:'');if(t){n++;if(n===1){openTourEd(t);toast('Программа прочитана — проверьте, впишите автобус и сохраните')}else saveTour(t.id,t)}}}catch(e){toast('Не удалось прочитать '+f.name+': '+e.message)}}
   if(!n)toast('В файле не нашёл программу (нужны колонки ÇIKIŞ, MAĞAZA GİRİŞ, PAX)');else if(n>1)toast(`Прочитано программ: ${n}. Первая открыта для проверки, остальные сохранены`)}
 
-// the program from the photo sent on 21.10 (CAVİT / ELMİRA, 39 pax), so the screen is not empty on day one
-function sampleTour(){const S=(t,n,m)=>{const k=stopKind(n,m);return {id:rid(),t:t||'',n,k,m:k==='shop'?(m||''):''}};
-  return {id:rid(),bus:'BUS ?',name:'Kapadokya 6 gün',pax:'39',hotel:'',guide:'CAVİT MUHAMED OĞLU',kok:'ELMİRA ARIKAN',plate:'',driver:'',dphone:'',days:[
-    {d:'2026-10-22',s:[S('08:00','OTELDEN ÇIKIŞ'),S('10:00','VIOLA','10:00'),S('11:00','PONTO ANTALYA','11:00'),S('','ÖĞLE YEMEĞİ BOHOMI'),S('','ŞELALE'),S('','City Şehir Turu Üçkapılar'),S('','PORTAKAL BAHÇE')]},
-    {d:'2026-10-23',s:[S('05:00','OTELDEN ÇIKIŞ'),S('','DIONIS'),S('','MODAL'),S('','ÖĞLE YEMEĞİ COLESSAI'),S('','DERVİŞ'),S('','OTELE GİRİŞ')]},
-    {d:'2026-10-24',s:[S('','OTEL ÇIKIŞ'),S('','KERVANSARAY'),S('','AKDENİZ MOLA'),S('','ÖĞLE YEMEĞİ ÖZKAN RESTORAN'),S('','PETROL OFİS 15 MIN'),S('','OTEL GİRİŞ')]},
-    {d:'2026-10-25',s:[S('','Otel\'den Çıkış Saati'),S('','SAYAN ONEX'),S('','ÇARDAK YER ALTI ŞEHİR'),S('','BEYZADE KURUYEMİŞ'),S('','ORTA HİSAR'),S('','DEVELİ'),S('','HİTİT SERAMİK'),S('','ÖĞLEN YEMEĞİ FLORYA'),S('','OTELE DÖNÜŞ')]},
-    {d:'2026-10-26',s:[S('','ANTALYA\'YA HAREKET'),S('','ANATOLYA BAZAR 15 MIN AKSARAY'),S('','BAY ÇITIR'),S('','CAFE MOLA AKSEKİ'),S('','HAMAM BİLDİRİLECEK'),S('','OTELE GİRİŞ')]},
-    {d:'2026-10-27',s:[S('','DÖNÜŞ TRANSFER')]}]}}
-
+// programs from the photos sent on 21.10, so the screen is not empty on day one (bus = guide's first name until renamed)
+function samplePrograms(){const S=x=>{const [t,n,m]=Array.isArray(x)?x:['',x,''];const k=stopKind(n,m);return {id:rid(),t:t||'',n,k,m:k==='shop'?(m||''):''}};
+  const D=(d,arr)=>({d,s:arr.map(S)});
+  const d19=(t,a,b,l,cafe)=>[[t,'OTELDEN ÇIKIŞ'],...(cafe?['KAFE MOLA']:[]),a,b,'ÖĞLE YEMEĞİ '+l,'DERVİŞ','OTELE GİRİŞ'];
+  const d20=onex=>['OTEL ÇIKIŞ',...(onex?['DOĞAN ONEX']:[]),'KERVANSARAY','AKDENİZ MOLA','ÖĞLE YEMEĞİ ÖZKAN RESTORAN','PETROL OFİS 15 MIN','OTEL GİRİŞ'];
+  const d21=pan=>["Otel'den Çıkış Saati",...(pan?['PANORAMA','GÜVERCİNLİK YER ALTI ŞEHRİ','CAPAZAR KURUYEMİŞ']:['SAYAN ONEX','ÇARDAK YER ALTI ŞEHRİ','BEYZADE KURUYEMİŞ']),'ORTA HİSAR','DEVELİ','HİTİT SERAMİK','ÖĞLEN YEMEĞİ FLORYA','OTELE DÖNÜŞ'];
+  const d22=["ANTALYA'YA HAREKET",'ANATOLYA BAZAR 15 MIN AKSARAY','BAY ÇITIR','CAFE MOLA AKSEKİ','HAMAM BİLDİRİLECEK','OTELE GİRİŞ'];
+  const K=(bus,guide,kok,pax,d18,a19,pan,onex,end23)=>({id:rid(),bus,name:'Kapadokya',pax:String(pax),hotel:'',guide,kok,plate:'',driver:'',dphone:'',
+    days:[D('2026-10-18',d18),D('2026-10-19',a19),D('2026-10-20',d20(onex)),D('2026-10-21',d21(pan)),D('2026-10-22',d22),...(end23?[D('2026-10-23',['DÖNÜŞ TRANSFER'])]:[])]});
+  const CITY='City Şehir Turu Üçkapılar';
+  return [
+    K('RAŞİD','RAŞİD CULFA','ADİLHAN ŞEVKET',39,[['08:30','OTELDEN ÇIKIŞ'],'PORTAKAL BAHÇE',['','PONTO VIP','11:00'],'ŞELALE','ÖĞLE YEMEĞİ BOHOMI',['','VIOLA','14:00'],CITY],d19('05:15','METİS ŞARAP','VAROL TEKSTİL','COLLESAI'),true,true),
+    K('KEMRAN','KEMRAN EYUP','İBRAHİM ASLAN',39,[['08:30','OTELDEN ÇIKIŞ'],'PORTAKAL BAHÇE',['','PONTO ANTALYA','11:30'],'ŞELALE','ÖĞLE YEMEĞİ BOHOMI',['','VIOLA','13:30'],CITY],d19('05:15','METİS ŞARAP','VAROL TEKSTİL','COLLESAI'),true,true,true),
+    K('MUSA','MUSA OSMANLI','BULENT AYAN',35,[['08:00','OTELDEN ÇIKIŞ'],CITY,['','PONTO ANTALYA','12:00'],'ÖĞLE YEMEĞİ BOHOMI','ŞELALE','PORTAKAL BAHÇE'],d19('05:30','METİS ŞARAP','VAROL TEKSTİL','OKALIPTUS'),false,false),
+    K('RAİM','RAİM YAHYA YASİN','RUSTEM ALİŞOĞLU',35,[['08:00','OTELDEN ÇIKIŞ'],CITY,['','PONTO VİP','12:15'],'ÖĞLE YEMEĞİ BOHOMI','ŞELALE','PORTAKAL BAHÇE'],d19('05:30','DİONİS ŞARAP','MODAL TEKSTİL','OKALIPTUS'),false,false),
+    K('ASLAN İ.','ASLAN İSMAİL','FERMAN YAĞMUR',38,[['08:00','OTELDEN ÇIKIŞ'],['','PONTO ANTALYA','09:30'],['','VIOLA','11:00'],'ŞELALE','ÖĞLE YEMEĞİ BOHOMI',CITY,'PORTAKAL BAHÇE'],d19('04:45','DIONIS','MODAL TEKSTİL','COLLESAI',true),true,true),
+    K('ASLAN A.','ASLAN ALISOY','RÜSTEM ALİGİL',37,[['08:00','OTELDEN ÇIKIŞ'],['','VIOLA','09:30'],['','PONTO ANTALYA','10:15'],'ÖĞLE YEMEĞİ BOHOMI','ŞELALE',CITY],d19('05:00','DIONIS ŞARAP','MODAL TEKSTİL','COLLESAI',true),true,true),
+    K('BALABEK','BALABEK DURSUN','MUHAMMED KİBAR',38,[['08:30','OTELDEN ÇIKIŞ'],['','VIOLA','10:00'],['','PONTO VİP','10:45'],'ÖĞLE YEMEĞİ BOHOMI','ŞELALE',CITY],d19('05:00','METİS ŞARAP','VAROL TEKSTİL','COLLESAI'),true,true),
+    K('BARIŞ','BARIŞ ÖZSOY','MİKAİL GÜLER',37,[['08:00','OTELDEN ÇIKIŞ'],['','PONTO VIP','09:30'],['','VIOLA','10:30'],'ŞELALE','ÖĞLE YEMEĞİ BOHOMI',CITY,'PORTAKAL BAHÇE'],d19('04:45','DIONIS','MODAL TEKSTİL','COLLESAI',true),true,true),
+    {id:rid(),bus:'CAVİT',name:'Kapadokya 6 gün',pax:'39',hotel:'',guide:'CAVİT MUHAMED OĞLU',kok:'ELMİRA ARIKAN',plate:'',driver:'',dphone:'',days:[
+      D('2026-10-22',[['08:00','OTELDEN ÇIKIŞ'],['','VIOLA','10:00'],['','PONTO ANTALYA','11:00'],'ÖĞLE YEMEĞİ BOHOMI','ŞELALE',CITY,'PORTAKAL BAHÇE']),
+      D('2026-10-23',[['05:00','OTELDEN ÇIKIŞ'],'DIONIS','MODAL','ÖĞLE YEMEĞİ COLESSAI','DERVİŞ','OTELE GİRİŞ']),
+      D('2026-10-24',d20(false)),D('2026-10-25',d21(false)),D('2026-10-26',d22),D('2026-10-27',['DÖNÜŞ TRANSFER'])]}]}
+const sampleMissing=()=>samplePrograms().filter(p=>!tours().some(t=>upTR(t.guide)===upTR(p.guide)&&t.days[0]&&t.days[0].d===p.days[0].d));
+function renderSampleBtn(){const b=$('#tSamples');if(!b)return;const n=sampleMissing().length;b.hidden=!n;b.textContent=`📥 Программы с фото (${n})`}
 /* ---- wiring ---- */
 $('#tPrev').onclick=()=>{tDate=isoAdd(tDate||isoToday(),-1);renderTours()};
 $('#tNext').onclick=()=>{tDate=isoAdd(tDate||isoToday(),1);renderTours()};
 $('#tToday').onclick=()=>{tDate=isoToday();renderTours()};
 $('#tNew').onclick=()=>openTourEd(blankTour());
+$('#tSamples').onclick=()=>{const add=sampleMissing();if(!add.length)return;if(!confirm(T('Добавить программы с фото')+`: ${add.map(p=>p.bus).join(', ')}?`))return;add.forEach(p=>saveTour(p.id,p));toast(`Добавлено программ: ${add.length}. Переименуйте их в номера автобусов через «✎ Изменить»`);renderTours()};
 $('#tBus').onchange=e=>{store.set('tourBus',e.target.value);renderTours()};
 $('#tXls').onchange=e=>{importTourFiles([...e.target.files]);e.target.value=''};
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b&&b.dataset.t==='tours'){renderTours();pullTours(true)}});
