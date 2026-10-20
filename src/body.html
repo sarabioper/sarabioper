@@ -1,5 +1,19 @@
 
 <style>
+.drumwrap{position:relative;display:inline-block;width:96px;height:78px;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden;flex:0 0 auto;vertical-align:middle}
+.drumwrap::before{content:"";position:absolute;left:4px;right:4px;top:26px;height:26px;border-radius:6px;background:var(--ink);pointer-events:none}
+.drum{position:relative;display:block;height:78px;overflow-y:auto;scroll-snap-type:y mandatory;scrollbar-width:none;perspective:220px;outline:none;overscroll-behavior:contain}
+.drum::-webkit-scrollbar{display:none}
+.drum .dpad{display:block;height:26px}
+.drum button{display:flex;align-items:baseline;justify-content:center;gap:5px;width:100%;height:26px;border:0;background:none;padding:0 6px;scroll-snap-align:center;font-variant-numeric:tabular-nums;color:var(--ink);transition:color .15s}
+.drum button b{font-size:14px}
+.drum button small{font-size:10px;color:var(--muted)}
+.drum button[aria-selected=true]{color:var(--bg)}
+.drum button[aria-selected=true] small{color:var(--bg);opacity:.75}
+.drum button.today b{text-decoration:underline;text-underline-offset:3px}
+.drum button.empty{color:var(--muted)}
+.drum button.empty[aria-selected=true]{color:var(--bg)}
+.drumwrap:focus-within{border-color:var(--ink)}
 .daysel{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow-x:auto;overflow-y:hidden;max-width:100%;scrollbar-width:thin}
 .daysel button{flex:0 0 auto}
 .daysel button{border:0;background:var(--surface);padding:5px 12px;font-size:13px;font-variant-numeric:tabular-nums}
@@ -269,7 +283,7 @@ mark{background:var(--signal-soft);color:inherit}
   <div class="wrap">
     <div class="brand">
       <h1>SARABI <b>OPS</b></h1>
-      <span class="daysel" id="daySel" role="group" aria-label="День"></span>
+      <span class="drumwrap"><span class="drum" id="daySel" role="listbox" tabindex="0" aria-label="День"></span></span>
       <span class="date" id="dateLbl"></span>
       <span class="demo-pill" id="modePill">Статусы рейсов в демо-режиме</span>
       <span class="livectl" id="liveCtl" hidden><button class="btn sm" id="liveBtn" type="button">⟳ Обновить рейсы</button><small class="hint" id="liveQuota"></small></span>

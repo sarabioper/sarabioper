@@ -81,7 +81,7 @@ async function serverBoot(){
     try{const st=await api('GET','/api/state?d=00.00&kind=settings');if(st.data&&st.data.termOk){SETTINGS=Object.assign({termOk:{}},st.data);store.set('settings',SETTINGS)}}catch(e){}
     try{const gp=await api('GET','/api/state?d=00.00&kind=guides');GP=Object.assign({},GP,gp.data||{});store.set('guidePhones',GP);renderGpImport()}catch(e){}
     const keys=dayKeys();
-    if(!DAYS[dayKey])dayKey=keys.includes(todayKey())?todayKey():keys.pop()||null;
+    if(keys.includes(todayKey()))dayKey=todayKey();else if(!DAYS[dayKey])dayKey=keys.pop()||null;
     loadDay(dayKey);
     await refreshLive();setInterval(refreshLive,5*60*1000);
   }catch(e){if(e.message!=='401'){$('#modePill').textContent='Нет связи с сервером. Проверьте интернет и обновите страницу.';loadDay(null);showLogin('Не удалось войти: '+e.message+'. Введите пароль ещё раз.')}}
@@ -209,7 +209,7 @@ $('#gpForm').addEventListener('submit',e=>{e.preventDefault();
 $('#gpCancel').onclick=gpReset;
 
 function loadDay(k){
-  if(!k||!DAYS[k]){DAY=null;$('#dateLbl').textContent='Операционный центр · день ещё не загружен';$('#daySel').innerHTML='';$('#board').innerHTML='<p class="hint">Пока нет ни одного дня. Откройте вкладку «Загрузить день» и перетащите Excel KAPAK.</p>';const tb=document.querySelector('.tab[data-t=data]');if(tb)tb.click();renderDayStatus();return}
+  if(!k||!DAYS[k]){DAY=null;$('#dateLbl').textContent='Операционный центр · день ещё не загружен';renderDaySel();$('#board').innerHTML='<p class="hint">Пока нет ни одного дня. Откройте вкладку «Загрузить день» и перетащите Excel KAPAK.</p>';const tb=document.querySelector('.tab[data-t=data]');if(tb)tb.click();renderDayStatus();return}
   dayKey=k;DAY=DAYS[k];store.set('day',k);
   assign=store.get('assign_'+k,k==='15.10'?{"BUS 10":{plate:"35 CVL 346",phone:"0553 573 61 69",driver:""},"BUS 12":{plate:"07 CJD 855",phone:"0554 407 82 82",driver:""},"BUS 13":{plate:"07 GLE 03",phone:"0552 169 14 75",driver:""},"BUS 6":{plate:"07 BJH 898",phone:"0533 680 38 05",driver:""},"MİNİ 4":{plate:"34 BK 1708",phone:"0532 515 44 65",driver:""},"MİNİ 10":{plate:"19 TT 077",phone:"0532 177 87 57",driver:""}}:{});
   met=store.get('met_'+k,{});contacts=store.get('contacts_'+k,null);SENT=store.get('sent_'+k,{});SENTD=store.get('sentd_'+k,{});
@@ -221,10 +221,30 @@ function loadDay(k){
   renderDaySel();renderVeh();runChecks();renderContacts();renderAll();renderDayStatus();
 }
 function nowMinutes(){const d=new Date();return d.getHours()*60+d.getMinutes()}
+// day picker as a drum: loaded days plus today (always present), scroll or tap to pick
+const DRUM_H=26;let drumKeys=[],drumT=0,drumQuiet=false;
+function drumList(){const ks=dayKeys(),t=todayKey();if(!ks.includes(t)){ks.push(t);ks.sort((a,b)=>dayIso(a)<dayIso(b)?-1:1)}return ks}
+function wday(k){const [y,m,d]=dayIso(k).split('-').map(Number);const w=new Date(y,m-1,d).getDay();return (LANG==='tr'?['Paz','Pzt','Sal','Çar','Per','Cum','Cmt']:['Вс','Пн','Вт','Ср','Чт','Пт','Сб'])[w]}
 function renderDaySel(){
-  $('#daySel').innerHTML=dayKeys().map(k=>`<button type="button" aria-pressed="${k===dayKey}" data-k="${k}">${k}</button>`).join('');
-  $('#daySel').querySelectorAll('button').forEach(b=>b.onclick=()=>loadDay(b.dataset.k));
+  const el=$('#daySel');if(!el)return;drumKeys=drumList();const t=todayKey();
+  el.innerHTML=`<i class="dpad"></i>${drumKeys.map(k=>`<button type="button" role="option" aria-selected="${k===dayKey}" class="${k===t?'today ':''}${DAYS[k]?'':'empty'}" data-k="${k}"><b>${k}</b><small>${k===t?'сегодня':wday(k)}</small></button>`).join('')}<i class="dpad"></i>`;
+  el.querySelectorAll('button').forEach(b=>b.onclick=()=>drumGo(drumKeys.indexOf(b.dataset.k),true));
+  const i=Math.max(0,drumKeys.indexOf(dayKey));drumQuiet=true;el.scrollTop=i*DRUM_H;drumPaint();requestAnimationFrame(()=>{el.scrollTop=i*DRUM_H;drumPaint();setTimeout(()=>drumQuiet=false,60)});
 }
+function drumPaint(){const el=$('#daySel');const c=el.scrollTop/DRUM_H;
+  el.querySelectorAll('button').forEach((b,i)=>{const d=Math.max(-2,Math.min(2,i-c));b.style.transform=`rotateX(${-d*28}deg) scale(${1-Math.abs(d)*.08})`;b.style.opacity=String(1-Math.abs(d)*.38)})}
+function drumGo(i,smooth){const el=$('#daySel');if(i<0||i>=drumKeys.length)return;el.scrollTo({top:i*DRUM_H,behavior:smooth?'smooth':'auto'});clearTimeout(drumT);drumT=setTimeout(drumPick,smooth?380:0)}
+function drumPick(){const el=$('#daySel');const i=Math.max(0,Math.min(drumKeys.length-1,Math.round(el.scrollTop/DRUM_H)));const k=drumKeys[i];if(!k)return;
+  el.querySelectorAll('button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.k===k)));
+  if(k===dayKey)return;
+  if(!DAYS[k]){toast(k+': '+trText('KAPAK ещё не загружен — загрузите его во вкладке «Загрузить день»'));setTimeout(()=>{if(dayKey)drumGo(drumKeys.indexOf(dayKey),true)},900);return}
+  loadDay(k)}
+(()=>{const el=$('#daySel');if(!el)return;
+  el.addEventListener('scroll',()=>{requestAnimationFrame(drumPaint);if(drumQuiet)return;clearTimeout(drumT);drumT=setTimeout(drumPick,160)},{passive:true});
+  el.addEventListener('keydown',e=>{const i=Math.round(el.scrollTop/DRUM_H);if(e.key==='ArrowUp'){e.preventDefault();drumGo(i-1,true)}if(e.key==='ArrowDown'){e.preventDefault();drumGo(i+1,true)}});
+  // coming back to the app on a new day jumps to today
+  let seen=todayKey();document.addEventListener('visibilitychange',()=>{if(document.hidden)return;const t=todayKey();if(t!==seen){seen=t;if(DAYS[t])loadDay(t);else renderDaySel()}});
+})();
 
 function buildFlights(){
   const map=new Map();

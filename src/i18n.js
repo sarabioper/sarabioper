@@ -690,6 +690,7 @@ const TR_DICT={
 "Заметка удалена":"Not silindi",
 "Заметка (например: ждёт жену с рейса PC 2010). Пусто — удалить.":"Not (örneğin: PC 2010 uçuşundan eşini bekliyor). Boş bırakırsanız silinir.",
 "Изменить заметку":"Notu düzenle",
+"KAPAK ещё не загружен — загрузите его во вкладке «Загрузить день»":"KAPAK henüz yüklenmedi — «Günü yükle» sekmesinden yükleyin",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",
