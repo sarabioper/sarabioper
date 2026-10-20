@@ -68,16 +68,18 @@ function guestCard(m){
       ${ex.type||ex.board?`<dt>Номер</dt><dd>${esc([ex.type,ex.board].filter(Boolean).join(' · '))}${ex.room?` <span class="hint">(комната ${esc(ex.room)})</span>`:''}</dd>`:''}
       ${ex.stay?`<dt>Проживание</dt><dd>${esc(ex.stay)}</dd>`:''}
       ${ex.note?`<dt>Примечание</dt><dd>${esc(ex.note)}</dd>`:''}
+      ${m.kind!=='h2h'&&noteOf(g.id,m.i)?`<dt>📝 Заметка</dt><dd><b>${esc(noteOf(g.id,m.i))}</b></dd>`:''}
       ${mates.length?`<dt>Вместе с ним</dt><dd>${mates.slice(0,6).map(esc).join(', ')}${mates.length>6?` <span class="hint">и ещё ${mates.length-6}</span>`:''}</dd>`:''}
     </dl>
     ${m.kind==='h2h'?'':`<div class="sc-act">${mark==='out'?`<span class="chip ok">✓ ${m.kind==='arr'?'Вышел':'Сел'} ${(met[g.id]||{})['@'+m.i]!=null?fmt((met[g.id]||{})['@'+m.i]):''}</span><button type="button" class="btn sm" data-scm="${esc(g.id)}|${m.i}|">Вернуть</button>`
-      :`<button type="button" class="btn primary" data-scm="${esc(g.id)}|${m.i}|out">✓ ${m.kind==='arr'?'Вышел':'Сел'}</button>${mark==='no'?'<span class="chip bad">не пришёл</span>':`<button type="button" class="btn" data-scm="${esc(g.id)}|${m.i}|no">✗ Не пришёл</button>`}`}</div>`}
+      :`<button type="button" class="btn primary" data-scm="${esc(g.id)}|${m.i}|out">✓ ${m.kind==='arr'?'Вышел':'Сел'}</button>${mark==='no'?'<span class="chip bad">не пришёл</span>':`<button type="button" class="btn" data-scm="${esc(g.id)}|${m.i}|no">✗ Не пришёл</button>`}`}<button type="button" class="btn sm" data-note="${esc(g.id)}|${m.i}">📝 ${noteOf(g.id,m.i)?'Изменить заметку':'Заметка'}</button></div>`}
   </article>`;
 }
 function showMatches(list,from){
   const box=$('#scRes');
   if(!list.length){box.innerHTML=from==='typed'?'<p class="hint">Никого не нашёл в списках этого дня.</p>':'';return}
   box.innerHTML=(list.length>1?`<p class="hint">Похожих: ${list.length}. Сверьте возраст и рейс.</p>`:'')+list.map(guestCard).join('');
+  box.querySelectorAll('[data-note]').forEach(b=>b.onclick=()=>{const [gid,i]=b.dataset.note.split('|');const v=prompt(T('Заметка (например: ждёт жену с рейса PC 2010). Пусто — удалить.'),noteOf(gid,+i));if(v===null)return;met[gid]=met[gid]||{};met[gid]['#'+i]=v.trim();saveMet();rerenderMarks();const toks=box.dataset.toks?JSON.parse(box.dataset.toks):[];showMatches(matchGuests(toks,box.dataset.typed||''),from)});
   box.querySelectorAll('[data-scm]').forEach(b=>b.onclick=()=>{const [gid,i,v]=b.dataset.scm.split('|');setMark(gid,+i,v||null);rerenderMarks();
     const toks=box.dataset.toks?JSON.parse(box.dataset.toks):[];showMatches(matchGuests(toks,box.dataset.typed||''),from)});
 }

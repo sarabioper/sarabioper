@@ -676,9 +676,11 @@ function taskHead(t,showGuide){
   return `<div class="tt num">${esc(g0.pu||g0.t)}<small>выезд</small></div><div><div class="kind dep">Сбор из отеля</div><div class="ttl">${esc(g0.h)}</div><div class="sub">→ ${/^[!?]/.test(g0.fl)?'рейс не указан':esc(normFl(g0.fl))} в ${esc(g0.t)} · ${termLbl(g0.term)} · ${esc(g0.v||'')}${g0.note?' · '+esc(g0.note):''}</div></div><span class="chip st">${t.groups.reduce((s,x)=>s+(+x.pax||0),0)} чел</span>`;
 }
 // passengers still expected first; the ones already marked go into a "Вышли" box with the time
+// a dispatcher's note on one guest ("waits for his wife on PC 2010"), shared like the marks
+const noteOf=(gid,i)=>(met[gid]||{})['#'+i]||'';
 function paxRows(g,kind){
   const okLbl=kind==='arr'?'Вышел':'Сел';
-  const row=(p,i)=>{const mk=markOf(g.id,i);const at=(met[g.id]||{})['@'+i];return `<div class="prow ${mk||''}"><span class="pn">${i+1}</span><span class="nm">${esc(p[0])} ${esc(p[1])}${p[2]?`<small>${esc(p[2])}</small>`:''}${mk&&at!=null?`<small class="at">${mk==='out'?'✓':'✗'} ${fmt(at)}</small>`:''}</span><span class="mk"><button type="button" class="ok" aria-pressed="${mk==='out'}" data-mk="${g.id}|${i}|out">✓ ${okLbl}</button><button type="button" class="no" aria-pressed="${mk==='no'}" data-mk="${g.id}|${i}|no" aria-label="Нет">✗</button></span></div>`};
+  const row=(p,i)=>{const mk=markOf(g.id,i);const at=(met[g.id]||{})['@'+i];const nt=noteOf(g.id,i);return `<div class="prow ${mk||''}"><span class="pn">${i+1}</span><span class="nm">${esc(p[0])} ${esc(p[1])}${p[2]?`<small>${esc(p[2])}</small>`:''}${mk&&at!=null?`<small class="at">${mk==='out'?'✓':'✗'} ${fmt(at)}</small>`:''}${nt?`<span class="gnote">📝 ${esc(nt)}</span>`:''}</span><span class="mk"><button type="button" class="nb${nt?' on':''}" data-note="${g.id}|${i}" title="Заметка" aria-label="Заметка">📝</button><button type="button" class="ok" aria-pressed="${mk==='out'}" data-mk="${g.id}|${i}|out">✓ ${okLbl}</button><button type="button" class="no" aria-pressed="${mk==='no'}" data-mk="${g.id}|${i}|no" aria-label="Нет">✗</button></span></div>`};
   if(g.p&&g.p.length){
     const pend=[],done=[];g.p.forEach((p,i)=>(markOf(g.id,i)?done:pend).push([p,i]));
     const nOut=done.filter(([,i])=>markOf(g.id,i)==='out').length,nNo=done.length-nOut;
@@ -711,6 +713,9 @@ function bindMarks(T){
   T.querySelectorAll('[data-clear]').forEach(b=>b.onclick=()=>{b.dataset.clear.split(',').forEach(gid=>{const g=allGroups().find(x=>x.id===gid);met[gid]={n:0,'@n':null};if(g.p)g.p.forEach((_,i)=>{met[gid][i]=null;met[gid]['@'+i]=null})});saveMet();rerenderMarks()});
   T.querySelectorAll('[data-wacopy]').forEach(b=>b.onclick=()=>{const txt=taskWa(b.dataset.wacopy);if(txt)copy(txt,true)});
   T.querySelectorAll('[data-wago]').forEach(a=>a.onclick=()=>{const txt=taskWa(a.dataset.wago);a.href='https://wa.me/?text='+encodeURIComponent(txt)});
+  T.querySelectorAll('[data-note]').forEach(b=>b.onclick=e=>{e.stopPropagation();const [gid,i]=b.dataset.note.split('|');const g=allGroups().find(x=>x.id===gid);const p=g&&g.p&&g.p[i];
+    const v=prompt(trText(`Заметка для ${p?p[0]+' '+p[1]:'гостя'}\n(например: ждёт жену с рейса PC 2010). Пусто — удалить.`),noteOf(gid,i));if(v===null)return;
+    met[gid]=met[gid]||{};met[gid]['#'+i]=v.trim();saveMet();rerenderMarks();toast(v.trim()?'Заметка сохранена':'Заметка удалена')});
   T.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{const el=document.getElementById('tg_'+b.dataset.open);el.hidden=!el.hidden;b.textContent=el.hidden?'Показать список':'Скрыть список'});
 }
 function renderGuide(){
@@ -836,7 +841,8 @@ function exitedText(tasks,o){
     t.groups.forEach(g=>{
       const outs=[],nos=[];
       if(g.p&&g.p.length)g.p.forEach((p,i)=>{const mk=markOf(g.id,i);if(!mk)return;if(o.onlyNew&&SENT[sentKey(g.id,i)])return;const at=(met[g.id]||{})['@'+i];
-        if(mk==='out'){outs.push(`${p[0]} ${p[1]}${o.time&&at!=null?' ('+fmt(at)+')':''}`);keys.push(sentKey(g.id,i))}else if(o.no){nos.push(`${p[0]} ${p[1]}`);keys.push(sentKey(g.id,i))}});
+        const nt=noteOf(g.id,i);
+        if(mk==='out'){outs.push(`${p[0]} ${p[1]}${o.time&&at!=null?' ('+fmt(at)+')':''}${nt?' — 📝 '+nt:''}`);keys.push(sentKey(g.id,i))}else if(o.no){nos.push(`${p[0]} ${p[1]}${nt?" — 📝 "+nt:""}`);keys.push(sentKey(g.id,i))}});
       else{const m=met[g.id]||{};const cnt=+m.n||0;const sentN=+SENT[sentKey(g.id,'n')]||0;const add=o.onlyNew?cnt-sentN:cnt;if(add>0){outs.push(`${add} ${L.noname}${o.time&&m['@n']!=null?' ('+fmt(m['@n'])+')':''}`);keys.push(sentKey(g.id,'n')+'='+cnt);n+=add}}
       if(!outs.length&&!nos.length)return;
       if(g.p&&g.p.length)n+=outs.length;
