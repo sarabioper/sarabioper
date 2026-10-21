@@ -218,6 +218,8 @@ tr.soon td.t{color:var(--signal-ink)}
 .drum button.empty[aria-selected=true]{color:var(--bg)}
 .drumwrap:focus-within{border-color:var(--ink)}
 .btn.ghost{background:transparent;border-color:transparent}
+.dtag{white-space:nowrap}
+.veh small .dtag{display:inline}
 .tbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 10px}
 .tbar .sp,.ted-act .sp{flex:1}
 .tdate{display:inline-flex;align-items:center;gap:6px}
@@ -2141,6 +2143,8 @@ function gMatch(n){if(!n)return '';if(n[0]!=='~'&&GP[n])return n;const k=gKey(n)
 const gpOff=()=>GP['~off']||(GP['~off']={});
 function notifyOn(n){const k=gMatch(n)||n;return !gpOff()[k]}
 // guide name with a tappable phone, for every place a guide is shown
+// driver line for a vehicle: "🚐 Murat · 0545 172 54 25" with a tap-to-call link
+function dTag(a){a=a||{};const ph=String(a.phone||'').trim();if(!ph&&!a.driver)return '';return `<span class="dtag">🚐 ${a.driver?esc(a.driver)+(ph?' · ':''):(ph?'водитель ':'')}${ph?`<a class="tel" href="tel:${esc(ph.replace(/[^\d+]/g,''))}">${esc(ph)}</a>`:''}</span>`}
 function gTag(g){if(!g)return '';const ph=gPhone(g);return esc(g)+(ph?` · <a class="tel" href="tel:${esc(ph.replace(/\s/g,''))}">${esc(ph)}</a>`:'')}
 // guide phone book: type a name and a number, edit or delete; saved on the server for everyone
 let gpEdit=null;
@@ -2319,7 +2323,7 @@ function renderBoard(){
         <span class="status ${st.k}"><span class="dot"></span>${st.lbl}</span>${liveNote(f)}
         ${f.unknown?'':`<div class="eta-btns"><button type="button" class="btn sm" data-eta="${esc(f.key)}">✎ Время THM</button>${st.k!=='land'||(f.live&&f.live.manual)?`<button type="button" class="btn sm" data-landed="${esc(f.key)}">✓ Сел</button>`:''}${ETA[f.key]?`<button type="button" class="btn sm" data-etaclr="${esc(f.key)}" title="Убрать ручное время">✕</button>`:''}</div>`}
         ${st.p!=null?`<div class="prog" aria-hidden="true"><i style="width:${Math.round(st.p*100)}%"></i></div>`:''}
-        ${vehs.map(v=>{const a=assign[v]||{};const g=(gs.find(x=>(x.v||'—')===v)||{}).g;return `<div class="veh">${esc(v)} · ${esc(a.plate||'номер не назначен')}<small>${g?gTag(g):'гид не указан'}</small></div>`}).join('')}
+        ${vehs.map(v=>{const a=assign[v]||{};const g=(gs.find(x=>(x.v||'—')===v)||{}).g;return `<div class="veh">${esc(v)} · ${esc(a.plate||'номер не назначен')}<small>${g?gTag(g):'гид не указан'}</small>${dTag(a)?`<small>${dTag(a)}</small>`:''}</div>`}).join('')}
       </div>
     </article>`;
     // the guests of this flight, opened by a tap on the flight: same rows and marks as on the guide screen
@@ -2359,7 +2363,7 @@ function renderDep(){
   $('#depTbl').innerHTML=`<thead><tr><th>Выезд</th><th>Отель</th><th class="n">Чел</th><th>Рейс</th><th>Вылет</th><th>Терминал</th><th>Машина</th><th>Гид</th><th>Опер.</th><th>Сели</th><th>Примечание</th></tr></thead><tbody>${rows.map(r=>{
     const pu=toMin(r.pu),cls=r.pu&&pu<NOW?'past':(r.pu&&pu-NOW<=60&&pu>=NOW?'soon':'');
     const a=assign[r.v]||{};const unk=/^[!?]/.test(r.fl);
-    return `<tr class="${cls}"><td class="t num">${r.pu||'—'}</td><td>${esc(r.h)}</td><td class="n">${r.pax}</td><td class="mono">${unk?'<span class="chip bad">рейс не указан</span>':esc(r.fl)} <span class="hint">${esc(CITY[r.dest]||r.dest)}</span></td><td class="num">${r.t}</td><td><span class="chip term">${r.term==='İÇ'?'İÇ HATLAR':r.term==='DIŞ'?'T2':'?'}</span></td><td class="mono">${esc(r.v||'—')}${a.plate?'<br><span class="hint">'+esc(a.plate)+'</span>':''}</td><td>${r.g?gTag(r.g):'—'}</td><td class="mono hint">${esc(r.op)}</td><td class="num">${marked(r)?`<span class="met">${marked(r)}/${groupTotal(r)}</span>`:'—'}</td><td>${r.note?`<span class="chip">${esc(r.note)}</span>`:''}</td></tr>`}).join('')}</tbody>`;
+    return `<tr class="${cls}"><td class="t num">${r.pu||'—'}</td><td>${esc(r.h)}</td><td class="n">${r.pax}</td><td class="mono">${unk?'<span class="chip bad">рейс не указан</span>':esc(r.fl)} <span class="hint">${esc(CITY[r.dest]||r.dest)}</span></td><td class="num">${r.t}</td><td><span class="chip term">${r.term==='İÇ'?'İÇ HATLAR':r.term==='DIŞ'?'T2':'?'}</span></td><td class="mono">${esc(r.v||'—')}${a.plate?'<br><span class="hint">'+esc(a.plate)+'</span>':''}${dTag(a)?'<br>'+dTag(a):''}</td><td>${r.g?gTag(r.g):'—'}</td><td class="mono hint">${esc(r.op)}</td><td class="num">${marked(r)?`<span class="met">${marked(r)}/${groupTotal(r)}</span>`:'—'}</td><td>${r.note?`<span class="chip">${esc(r.note)}</span>`:''}</td></tr>`}).join('')}</tbody>`;
   const tot=rows.reduce((s,r)=>s+r.pax,0),done=rows.filter(r=>r.pu&&toMin(r.pu)<NOW).reduce((s,r)=>s+r.pax,0);
   const next=rows.find(r=>r.pu&&toMin(r.pu)>=NOW);
   $('#sumDep').innerHTML=[
@@ -2490,7 +2494,7 @@ const VSEC={arr:'✈️ ARRIVAL · встречи',dep:'🛫 DEPAR · сборы
 function h2hVehHtml(){const L=(DAY.h2hList||[]).slice().sort((a,b)=>toMin(a.t)-toMin(b.t));
   if(!L.length)return '<p class="hint">Межотельных переездов в этом дне нет.</p>';
   return `<div class="panel" style="padding:0;overflow-x:auto"><table class="legs vtbl"><thead><tr><th>Время</th><th>Откуда → Куда</th><th class="n">Чел</th><th>Машина</th><th>Гид</th><th>Опер.</th></tr></thead><tbody>${L.map(x=>{const a=assign[x.v]||{};
-    return `<tr><td class="tm num">${esc(x.t||'—')}</td><td>${esc(x.from||'откуда не указано')} → <b>${esc(x.h||'')}</b>${x.note?`<br><span class="hint">${esc(x.note)}</span>`:''}${x.p&&x.p.length?`<details class="h2h-names"><summary>👥 ${x.p.length} имён</summary><ol>${x.p.map(p=>`<li>${esc(p[0])} ${esc(p[1])}${p[3]&&p[3].room?` <span class="hint">· комн. ${esc(p[3].room)} ${esc(p[3].type||'')} ${esc(p[3].board||'')}</span>`:''}</li>`).join('')}</ol></details>`:''}</td><td class="n num">${x.pax}</td><td>${x.v?`<b>${esc(x.v)}</b>${a.plate?'<br><span class="hint">'+esc(a.plate)+(a.phone?' · '+esc(a.phone):'')+'</span>':''}`:'<span class="chip bad">нет машины</span>'}</td><td>${x.g?gTag(x.g):'—'}</td><td>${esc(x.op||'')}</td></tr>`}).join('')}</tbody></table></div>`}
+    return `<tr><td class="tm num">${esc(x.t||'—')}</td><td>${esc(x.from||'откуда не указано')} → <b>${esc(x.h||'')}</b>${x.note?`<br><span class="hint">${esc(x.note)}</span>`:''}${x.p&&x.p.length?`<details class="h2h-names"><summary>👥 ${x.p.length} имён</summary><ol>${x.p.map(p=>`<li>${esc(p[0])} ${esc(p[1])}${p[3]&&p[3].room?` <span class="hint">· комн. ${esc(p[3].room)} ${esc(p[3].type||'')} ${esc(p[3].board||'')}</span>`:''}</li>`).join('')}</ol></details>`:''}</td><td class="n num">${x.pax}</td><td>${x.v?`<b>${esc(x.v)}</b>${a.plate?'<br><span class="hint">'+esc(a.plate)+'</span>':''}${dTag(a)?'<br>'+dTag(a):''}`:'<span class="chip bad">нет машины</span>'}</td><td>${x.g?gTag(x.g):'—'}</td><td>${esc(x.op||'')}</td></tr>`}).join('')}</tbody></table></div>`}
 function toursHtml(){const T=assign['~tours']||[];
   if(!T.length)return '<p class="hint">Туров пока нет. Вставьте сообщение «ДАТА - TUR» из группы в блок «Машины из WhatsApp» выше.</p>';
   const by=new Map();T.forEach(x=>{if(!by.has(x.tour))by.set(x.tour,[]);by.get(x.tour).push(x)});
@@ -2679,7 +2683,7 @@ function paxRows(g,kind){
 function grpHtml(t){return t.groups.map(x=>{const d=marked(x),n=groupTotal(x);return `<div class="tgrp"><div class="gh"><span><b>${esc(t.kind==='arr'?x.h:normFl(x.fl)+' '+x.t)}</b> <span class="hint">${esc(x.op||'')} · ${x.pax} чел</span></span><span style="display:flex;gap:8px;align-items:center"><span class="bar"><i style="width:${n?Math.round(d/n*100):0}%"></i></span><span class="num">${d}/${n}</span></span></div>${paxRows(x,t.kind)}</div>`}).join('')}
 function guideStrip(t){
   const vs=[...new Set(t.groups.map(g=>g.v).filter(Boolean))];
-  return `<div class="gstrip"><span class="gs-name">${esc(t.guide||'гид не указан')}</span><span class="gs-ph">${gPhone(t.guide)?`<a class="tel" href="tel:${esc(gPhone(t.guide).replace(/\s/g,''))}">${esc(gPhone(t.guide))}</a>`:'<span class="hint">телефон гида не указан</span>'}</span>${vs.map(v=>{const a=assign[v]||{};return `<span class="gs-veh"><b>${esc(v)}</b>${a.plate?' · '+esc(a.plate):''}${a.phone?' · водитель '+esc(a.phone):''}${a.driver?' ('+esc(a.driver)+')':''}</span>`}).join('')}</div>`;
+  return `<div class="gstrip"><span class="gs-name">${esc(t.guide||'гид не указан')}</span><span class="gs-ph">${gPhone(t.guide)?`<a class="tel" href="tel:${esc(gPhone(t.guide).replace(/\s/g,''))}">${esc(gPhone(t.guide))}</a>`:'<span class="hint">телефон гида не указан</span>'}</span>${vs.map(v=>{const a=assign[v]||{};return `<span class="gs-veh"><b>${esc(v)}</b>${a.plate?' · '+esc(a.plate):''} ${dTag(a)}</span>`}).join('')}</div>`;
 }
 // guide: copy the guests already out (or seated) for this one flight / pickup, ready for WhatsApp
 const TASKS={};
@@ -2711,7 +2715,7 @@ function renderGuide(){
   const tasks=guideTasks(g);
   const vehs=[...new Set(tasks.flatMap(t=>t.groups.map(x=>x.v)).filter(Boolean))];
   const tot=tasks.reduce((s,t)=>s+t.total,0),done=tasks.reduce((s,t)=>s+t.done,0);
-  $('#guideHead').innerHTML=`<div class="ghead"><div class="gname">${esc(g)}${gPhone(g)?` <a class="tel" style="font-size:.6em" href="tel:${esc(gPhone(g).replace(/\s/g,''))}">${esc(gPhone(g))}</a>`:''}</div><div class="gmeta">${vehs.map(v=>{const a=assign[v]||{};return `<span><b>${esc(v)}</b>${a.plate?' · '+esc(a.plate):''}${a.phone?' · водитель '+esc(a.phone):''}</span>`}).join('')}</div><div class="gmeta"><span><b>${tasks.filter(t=>t.kind==='arr').length}</b> встреч</span><span><b>${tasks.filter(t=>t.kind==='dep').length}</b> сборов</span><span><b>${tot}</b> гостей</span><span>отмечено <b>${done}</b></span></div></div>`;
+  $('#guideHead').innerHTML=`<div class="ghead"><div class="gname">${esc(g)}${gPhone(g)?` <a class="tel" style="font-size:.6em" href="tel:${esc(gPhone(g).replace(/\s/g,''))}">${esc(gPhone(g))}</a>`:''}</div><div class="gmeta">${vehs.map(v=>{const a=assign[v]||{};return `<span><b>${esc(v)}</b>${a.plate?' · '+esc(a.plate):''} ${dTag(a)}</span>`}).join('')}</div><div class="gmeta"><span><b>${tasks.filter(t=>t.kind==='arr').length}</b> встреч</span><span><b>${tasks.filter(t=>t.kind==='dep').length}</b> сборов</span><span><b>${tot}</b> гостей</span><span>отмечено <b>${done}</b></span></div></div>`;
   const hide=$('#hideDone').checked;
   const nextIdx=tasks.findIndex(t=>!t.complete&&t.time+60>=NOW);
   $('#tasks').innerHTML=tasks.map((t,ti)=>hide&&t.complete?'':taskCard(t,'g'+ti,{next:ti===nextIdx})).join('')||'<p class="hint">Все задания выполнены.</p>';
