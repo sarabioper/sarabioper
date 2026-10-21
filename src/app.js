@@ -389,17 +389,36 @@ function renderH2H(){
   $('#h2hTbl').innerHTML=sides.map(sd=>{const rows=L.filter(x=>(x.side||'')===sd);const byFrom=new Map();rows.forEach(x=>{const k=x.from||'откуда не указано';if(!byFrom.has(k))byFrom.set(k,[]);byFrom.get(k).push(x)});
     return `<thead><tr><th colspan="6">${sd==='dep'?'В колонке вылетов':sd==='arr'?'В колонке прилётов':'Межотельные переезды'} · ${rows.reduce((a,x)=>a+x.pax,0)} чел</th></tr><tr><th>Откуда</th><th>Куда</th><th class="n">Чел</th><th>Опер.</th><th>Машина · гид</th><th>Время</th></tr></thead><tbody>${[...byFrom.entries()].map(([f,xs])=>xs.map((x,i)=>`<tr><td>${i?'':`<b>${esc(f)}</b>${xs.length>1?`<br><span class="hint">${xs.reduce((a,y)=>a+y.pax,0)} чел всего</span>`:''}`}</td><td>→ ${esc(x.h)}</td><td class="n num">${x.pax}</td><td class="mono hint">${esc(x.op)}</td><td>${x.v||x.g?esc([x.v,x.g].filter(Boolean).join(' · ')):'<span class="chip bad">не назначено</span>'}</td><td class="num">${esc(x.t||'—')}</td></tr>`).join('')).join('')}</tbody>`}).join('');
 }
+// pickup status of a departure group from the guide's marks: ok / part / late (time passed, nobody marked) / due / soon
+function depState(r){const tot=groupTotal(r),ok=marked(r);let no=0;if(r.p&&r.p.length)r.p.forEach((_,i)=>{if(markOf(r.id,i)==='no')no++});
+  const pu=r.pu?toMin(r.pu):null,left=Math.max(0,tot-ok-no);
+  const st=tot&&!left?'ok':pu!=null&&NOW>=pu+10?(ok?'part':'late'):pu!=null&&NOW>=pu?'due':pu!=null&&pu-NOW<=60&&pu>NOW?'soon':'wait';
+  return {tot,ok,no,left,st,over:pu!=null?NOW-pu:0}}
+function depChip(d){
+  if(d.st==='ok')return `<span class="dchip ok">✓ ${d.ok}/${d.tot}${d.no?` · ✗ ${d.no}`:''}</span>`;
+  if(d.st==='late')return `<span class="dchip late">⚠ не отмечены · ${d.tot} чел.<small>${d.over} мин после выезда</small></span>`;
+  if(d.st==='part')return `<span class="dchip part">${d.ok}/${d.tot}${d.no?` · ✗ ${d.no}`:''}<small>не отмечено ${d.left}</small></span>`;
+  if(d.st==='due')return `<span class="dchip due">идёт сбор · ${d.ok}/${d.tot}</span>`;
+  return d.ok?`<span class="dchip">${d.ok}/${d.tot}</span>`:'—'}
+let depProblems=store.get('depProblems',false);
 function renderDep(){
-  const rows=DAY.dep.slice().sort((a,b)=>toMin(a.pu)-toMin(b.pu)||toMin(a.t)-toMin(b.t));
-  $('#depTbl').innerHTML=`<thead><tr><th>Выезд</th><th>Отель</th><th class="n">Чел</th><th>Рейс</th><th>Вылет</th><th>Терминал</th><th>Машина</th><th>Гид</th><th>Опер.</th><th>Сели</th><th>Примечание</th></tr></thead><tbody>${rows.map(r=>{
-    const pu=toMin(r.pu),cls=r.pu&&pu<NOW?'past':(r.pu&&pu-NOW<=60&&pu>=NOW?'soon':'');
+  const all=DAY.dep.slice().sort((a,b)=>toMin(a.pu)-toMin(b.pu)||toMin(a.t)-toMin(b.t));
+  const DS=new Map(all.map(r=>[r,depState(r)]));
+  const rows=depProblems?all.filter(r=>['late','part','due'].includes(DS.get(r).st)):all;
+  $('#depTbl').innerHTML=`<thead><tr><th>Выезд</th><th>Отель</th><th class="n">Чел</th><th>Рейс</th><th>Вылет</th><th>Терминал</th><th>Машина</th><th>Гид</th><th>Опер.</th><th>Сели в машину</th><th>Примечание</th></tr></thead><tbody>${rows.map(r=>{
+    const d=DS.get(r);const cls='d-'+d.st;
     const a=assign[r.v]||{};const unk=/^[!?]/.test(r.fl);
-    return `<tr class="${cls}"><td class="t num">${r.pu||'—'}</td><td>${esc(r.h)}</td><td class="n">${r.pax}</td><td class="mono">${unk?'<span class="chip bad">рейс не указан</span>':esc(r.fl)} <span class="hint">${esc(CITY[r.dest]||r.dest)}</span></td><td class="num">${r.t}</td><td><span class="chip term">${r.term==='İÇ'?'İÇ HATLAR':r.term==='DIŞ'?'T2':'?'}</span></td><td class="mono">${esc(r.v||'—')}${a.plate?'<br><span class="hint">'+esc(a.plate)+'</span>':''}${dTag(a)?'<br>'+dTag(a):''}</td><td>${r.g?gTag(r.g):'—'}</td><td class="mono hint">${esc(r.op)}</td><td class="num">${marked(r)?`<span class="met">${marked(r)}/${groupTotal(r)}</span>`:'—'}</td><td>${r.note?`<span class="chip">${esc(r.note)}</span>`:''}</td></tr>`}).join('')}</tbody>`;
-  const tot=rows.reduce((s,r)=>s+r.pax,0),done=rows.filter(r=>r.pu&&toMin(r.pu)<NOW).reduce((s,r)=>s+r.pax,0);
-  const next=rows.find(r=>r.pu&&toMin(r.pu)>=NOW);
+    return `<tr class="${cls}"><td class="t num">${r.pu||'—'}</td><td>${esc(r.h)}</td><td class="n">${r.pax}</td><td class="mono">${unk?'<span class="chip bad">рейс не указан</span>':esc(r.fl)} <span class="hint">${esc(CITY[r.dest]||r.dest)}</span></td><td class="num">${r.t}</td><td><span class="chip term">${r.term==='İÇ'?'İÇ HATLAR':r.term==='DIŞ'?'T2':'?'}</span></td><td class="mono">${esc(r.v||'—')}${a.plate?'<br><span class="hint">'+esc(a.plate)+'</span>':''}${dTag(a)?'<br>'+dTag(a):''}</td><td>${r.g?gTag(r.g):'—'}</td><td class="mono hint">${esc(r.op)}</td><td class="num">${depChip(d)}</td><td>${r.note?`<span class="chip">${esc(r.note)}</span>`:''}</td></tr>`}).join('')}</tbody>`;
+  if(!rows.length&&depProblems)$('#depTbl').innerHTML+=`<tbody><tr><td colspan="11" class="hint" style="padding:14px">Проблемных выездов нет — все вовремя отмечены 👍</td></tr></tbody>`;
+  const tot=all.reduce((s,r)=>s+r.pax,0),took=all.reduce((s,r)=>s+DS.get(r).ok,0);
+  const late=all.filter(r=>DS.get(r).st==='late'),part=all.filter(r=>DS.get(r).st==='part');
+  const next=all.find(r=>r.pu&&toMin(r.pu)>=NOW);
+  $('#depBar').innerHTML=`<span class="dchip ok">✓ Забрали: ${all.filter(r=>DS.get(r).st==='ok').length} выездов</span>${late.length?`<span class="dchip late">⚠ Не отмечены вовремя: ${late.length} (${late.reduce((s,r)=>s+DS.get(r).tot,0)} чел.)</span>`:''}${part.length?`<span class="dchip part">Отмечены не все: ${part.length}</span>`:''}
+    <label class="depf"><input type="checkbox" id="depOnly" ${depProblems?'checked':''}> только проблемные</label>`;
+  $('#depOnly').onchange=e=>{depProblems=e.target.checked;store.set('depProblems',depProblems);renderDep()};
   $('#sumDep').innerHTML=[
     ['Гостей на вылет',tot,'по трансферам из отелей'],
-    ['Уже выехали',done,'из отелей'],
+    ['Сели в машину',took,'по отметкам гидов'],
     ['Следующий выезд',next?next.pu:'—',next?next.h+' · '+next.v:'на сегодня всё'],
     ['Машин',new Set(rows.map(r=>r.v).filter(Boolean)).size,'на вылеты']
   ].map(([k,v,s])=>`<div class="stat"><div class="k">${k}</div><div class="v num">${v}</div><div class="s">${esc(s)}</div></div>`).join('');

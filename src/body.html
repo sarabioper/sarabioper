@@ -17,6 +17,24 @@
 .btn.ghost{background:transparent;border-color:transparent}
 .dtag{white-space:nowrap}
 .veh small .dtag{display:inline}
+.depbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 6px}
+.depf{display:inline-flex;gap:6px;align-items:center;font-size:13px;margin-left:auto}
+.dchip{display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px;font-size:12px;font-weight:600;padding:3px 8px;border-radius:6px;border:1px solid var(--line);background:var(--sunk);white-space:nowrap;line-height:1.25}
+.dchip small{font-weight:400;font-size:10px;opacity:.85}
+.dchip.ok{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.dchip.part{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
+.dchip.due{background:var(--info-soft);color:var(--info);border-color:transparent}
+.dchip.late{background:var(--crit);color:#fff;border-color:var(--crit);animation:dpulse 1.4s ease-in-out infinite}
+@keyframes dpulse{50%{box-shadow:0 0 0 4px var(--crit-soft)}}
+@media (prefers-reduced-motion:reduce){.dchip.late{animation:none}}
+#depTbl tr.d-late td{background:var(--crit-soft)}
+#depTbl tr.d-late td:first-child{box-shadow:inset 4px 0 0 var(--crit);color:var(--crit);font-weight:700}
+#depTbl tr.d-part td{background:var(--warn-soft)}
+#depTbl tr.d-part td:first-child{box-shadow:inset 4px 0 0 var(--warn)}
+#depTbl tr.d-due td:first-child{box-shadow:inset 4px 0 0 var(--info)}
+#depTbl tr.d-soon td.t{color:var(--signal-ink)}
+#depTbl tr.d-ok td{color:var(--muted)}
+#depTbl tr.d-ok td:first-child{box-shadow:inset 4px 0 0 var(--ok)}
 .tbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 10px}
 .tbar .sp,.ted-act .sp{flex:1}
 .tdate{display:inline-flex;align-items:center;gap:6px}
@@ -437,7 +455,8 @@ mark{background:var(--signal-soft);color:inherit}
 
   <section id="v-dep" hidden>
     <div class="summary" id="sumDep"></div>
-    <p class="hint">Выезды из отелей по времени. Строка подсвечивается, когда до выезда меньше часа.</p>
+    <div class="depbar" id="depBar"></div>
+    <p class="hint">Гид отмечает гостей «✓ Сел». Если время выезда прошло больше 10 минут, а никто не отмечен, строка горит красным. Зелёным — всех забрали.</p>
     <div class="tbl-wrap"><table id="depTbl"></table></div>
   </section>
 
