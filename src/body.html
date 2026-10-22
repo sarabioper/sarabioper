@@ -35,6 +35,16 @@
 #depTbl tr.d-soon td.t{color:var(--signal-ink)}
 #depTbl tr.d-ok td{color:var(--muted)}
 #depTbl tr.d-ok td:first-child{box-shadow:inset 4px 0 0 var(--ok)}
+.xform{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:12px;margin:0 0 12px}
+.xform h3{font-size:15px;margin:0 0 10px}
+.xg{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.xg label{display:grid;gap:3px;font-size:12px;color:var(--muted)}
+.xg .xw{grid-column:1/-1}
+.xg input,.xg select,.xg textarea{padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--sunk);color:var(--ink);font-size:14px;min-width:0;font-family:inherit}
+.xact{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 0}.xact .sp{flex:1}
+.xacts{display:flex;flex-wrap:wrap;gap:6px 14px;margin:8px 0 4px;padding-top:8px;border-top:1px dashed var(--line);font-size:12px}
+.xa{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip.man{border-color:var(--info);background:var(--info-soft);color:var(--info)}
 .tbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 10px}
 .tbar .sp,.ted-act .sp{flex:1}
 .tdate{display:inline-flex;align-items:center;gap:6px}
@@ -398,7 +408,8 @@ mark{background:var(--signal-soft);color:inherit}
       <select id="fOp" aria-label="Оператор"><option value="">Все операторы</option></select>
       <input id="fQ" placeholder="Поиск: рейс, гид, фамилия…" aria-label="Поиск">
     </div>
-    <div class="board-actions"><button class="btn" type="button" id="boardLateCopy">✈ Скопировать задержки для WhatsApp</button></div>
+    <div class="board-actions"><button class="btn primary" type="button" id="xAdd">+ Добавить гостей на рейс</button><button class="btn" type="button" id="boardLateCopy">✈ Скопировать задержки для WhatsApp</button></div>
+    <div class="xform" id="xForm" hidden></div>
     <div class="board" id="board"></div>
     <details class="ops-box" id="h2hBox" hidden open><summary>🏨 Межотельные переезды (без рейса) · <span id="h2hN"></span></summary><div class="tbl-wrap" style="border:0;border-radius:0"><table id="h2hTbl"></table></div></details>
   </section>

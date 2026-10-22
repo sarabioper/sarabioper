@@ -217,6 +217,7 @@ function loadDay(k){
   met=store.get('met_'+k,{});contacts=store.get('contacts_'+k,null);SENT=store.get('sent_'+k,{});SENTD=store.get('sentd_'+k,{});
   if(DAY.assign)assign=Object.assign({},assign,DAY.assign);if(DAY.met)met=Object.assign({},met,DAY.met);
   ETA=Object.assign({},store.get('eta_'+k,{}),DAY.eta||{});
+  EXTRA=Object.assign({},store.get('extra_'+k,{}),DAY.manual||{});if(typeof xClose==='function'&&xEdit)xClose();applyExtra();
   NOW=SERVER?nowMinutes():store.get('now_'+k,k==='15.10'?nowMinutes():540);followNow=SERVER;
   buildFlights();fillFilters();
   $('#dateLbl').textContent='Операционный центр · '+DAY.title+' · '+DAY.source;
@@ -348,7 +349,7 @@ function renderBoard(){
         <div class="fl-head"><span class="fl-code">${esc([...f.codes].join(' / '))}</span><span class="fl-from">${esc(CITY[f.org]||f.org||'город вылета не указан')}</span>
         ${f.to==='GZP'?'<span class="chip gzp">Аэропорт Газипаша</span>':terms.map(t=>{const bad=t&&f.org&&t!==expected;const ok=bad&&f.groups.some(g=>g.term===t&&termOk(g.fl,t));const soft=bad&&!ok&&expected==='İÇ';return `<span class="chip term ${bad&&!ok&&!soft||!t?'bad':''}">${termLbl(t)}${bad&&!ok?(soft?' ?':' ⚠'):''}</span>`}).join('')}</div>
         <button type="button" class="fl-toggle" data-fk="${esc(f.key)}" aria-expanded="${open}">👥 ${open?'Скрыть гостей':'Гости'} · ${doneG}/${totG} ${open?'▴':'▾'}</button>
-        ${gs.map(g=>{const mc=metCount(g);return `<div class="grp"><span class="h">${esc(g.h)} <span class="op">${esc(g.op)}</span>${mc?` <span class="met">вышли ${mc}/${groupTotal(g)}</span>`:''}${g.note?` <span class="op">· ${esc(g.note)}</span>`:''}</span><span class="chip">${esc(g.v||'нет машины')}</span><span class="px">${g.pax} чел</span></div>`}).join('')}
+        ${gs.map(g=>{const mc=metCount(g);return `<div class="grp"><span class="h">${esc(g.h)} <span class="op">${esc(g.op)}</span>${g.manual?' <span class="chip man">✍ вручную</span>':''}${mc?` <span class="met">вышли ${mc}/${groupTotal(g)}</span>`:''}${g.note?` <span class="op">· ${esc(g.note)}</span>`:''}</span><span class="chip">${esc(g.v||'нет машины')}</span><span class="px">${g.pax} чел</span></div>`}).join('')}
       </div>
       <div class="side">
         <span class="status ${st.k}"><span class="dot"></span>${st.lbl}</span>${liveNote(f)}
@@ -359,10 +360,11 @@ function renderBoard(){
     </article>`;
     // the guests of this flight, opened by a tap on the flight: same rows and marks as on the guide screen
     if(open){const key='b_'+f.key;const t={kind:'arr',groups:gs,guide:(gs.find(g=>g.g)||{}).g||'',done:doneG,total:totG};TASKS[key]=t;const ids=gs.map(x=>x.id).join(',');
-      html+=`<div class="fl-guests" data-fk="${esc(f.key)}">${grpHtml(t)}<div class="tf"><button class="btn primary" type="button" data-allk="${ids}">Все вышли</button><button class="btn" type="button" data-clear="${ids}">Сбросить</button>${waBtns(t,key)}</div></div>`}
+      html+=`<div class="fl-guests" data-fk="${esc(f.key)}">${grpHtml(t)}${xActs(gs)}<div class="tf"><button class="btn primary" type="button" data-allk="${ids}">Все вышли</button><button class="btn" type="button" data-clear="${ids}">Сбросить</button>${waBtns(t,key)}</div></div>`}
   });
   if(!nowPlaced)html+=`<div class="nowline">СЕЙЧАС ${fmt(NOW)}</div>`;
   $('#board').innerHTML=html||'<p class="hint">Ничего не найдено.</p>';
+  bindXActs($('#board'));
   $('#board').querySelectorAll('.fl-toggle').forEach(b=>b.onclick=e=>{e.stopPropagation();const k=b.dataset.fk;OPENF.has(k)?OPENF.delete(k):OPENF.add(k);renderBoard()});
   $('#board').querySelectorAll('article.flight .mid').forEach(m=>m.onclick=e=>{if(e.target.closest('a,button'))return;const k=m.closest('article').dataset.fk;OPENF.has(k)?OPENF.delete(k):OPENF.add(k);renderBoard()});
   bindMarks($('#board'));
@@ -1013,7 +1015,7 @@ async function readRows(file){
   let rows=[];wb.SheetNames.forEach(n=>rows=rows.concat(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:false})));
   return rows;
 }
-async function saveDay(key,d){if(SERVER)return api('PUT','/api/day?d='+encodeURIComponent(key),d);const imp=store.get('imported',{});imp[key]=d;store.set('imported',imp);return null}
+async function saveDay(key,d){if(d&&(d._base||(d.arr||[]).some(g=>g.manual)))d=Object.assign({},d,{arr:(d._base||d.arr).filter(g=>!g.manual)});if(SERVER)return api('PUT','/api/day?d='+encodeURIComponent(key),d);const imp=store.get('imported',{});imp[key]=d;store.set('imported',imp);return null}
 async function importKapak(rows,file){
   const flat=rows.slice(0,40).map(r=>(r||[]).join(' ')).join(' ');
   const dm=flat.match(/Tarih\s*:\s*(\d\d)\/(\d\d)\/(\d{4})/)||file.name.match(/(\d\d)[._](\d\d)[._](\d{4})/);

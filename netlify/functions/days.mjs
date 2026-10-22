@@ -26,13 +26,14 @@ export default async (req) => {
       if (!d) continue;
       const iso = isoOf(d, k, today);
       if (Date.parse(iso + "T00:00:00Z") < cutoff) {
-        await Promise.all(["day/" + k, "state/" + k + "/assign", "state/" + k + "/met", "state/" + k + "/eta", "watch/" + iso, "live/" + iso].map((x) => s.delete(x).catch(() => {})));
+        await Promise.all(["day/" + k, "state/" + k + "/assign", "state/" + k + "/met", "state/" + k + "/eta", "state/" + k + "/extra", "watch/" + iso, "live/" + iso].map((x) => s.delete(x).catch(() => {})));
         continue;
       }
       d.iso = d.iso || iso;
       d.assign = (await s.get("state/" + k + "/assign", { type: "json" })) || d.assign || {};
       d.met = (await s.get("state/" + k + "/met", { type: "json" })) || {};
       d.eta = (await s.get("state/" + k + "/eta", { type: "json" })) || {};
+      d.manual = (await s.get("state/" + k + "/extra", { type: "json" })) || {};
       days.push(d);
     }
     days.sort((a, b) => (a.iso < b.iso ? 1 : -1));
@@ -60,14 +61,32 @@ export default async (req) => {
 
   if (req.method === "GET" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
-    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks"].includes(kind)) return json({ error: "Неверный тип" }, 400);
+    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     return json({ data: (await s.get("state/" + d + "/" + kind, { type: "json" })) || {} });
   }
 
   if (req.method === "PUT" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
-    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks"].includes(kind)) return json({ error: "Неверный тип" }, 400);
+    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     const body = await req.json();
+    if (kind === "extra") {
+      // guests added by hand on the arrivals board (late booking, moved to another flight); one key per group
+      const prev = (await s.get("state/" + d + "/extra", { type: "json" })) || {};
+      for (const [k, v] of Object.entries(body || {})) { if (v == null) delete prev[k]; else prev[k] = v; }
+      await s.setJSON("state/" + d + "/extra", prev);
+      // follow the new flights too (without forcing a poll, so no extra API requests)
+      const iso = url.searchParams.get("iso") || "";
+      if (/^\d{4}-\d\d-\d\d$/.test(iso)) {
+        const add = watchFromDay({ arr: Object.values(prev).filter((g) => g && g.fl), dep: [] });
+        if (Object.keys(add).length) {
+          const watch = (await s.get("watch/" + iso, { type: "json" })) || {};
+          let ch = false;
+          for (const [k, w] of Object.entries(add)) if (!watch[k]) { watch[k] = w; ch = true; }
+          if (ch) await s.setJSON("watch/" + iso, watch);
+        }
+      }
+      return json({ ok: true });
+    }
     if (kind === "tours" || kind === "tourmarks") {
       // excursion programs and guide check-ins: one key per bus program / per stop, null removes it,
       // so a guide ticking a stop never overwrites an operator editing another program
