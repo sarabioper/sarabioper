@@ -134,7 +134,11 @@ function renderTours(){
   $('#tourPlaces').querySelectorAll('[data-stay]').forEach(i=>i.onchange=()=>{setPlaceCfg(i.dataset.stay,{stay:+i.value||0});renderTours()});
   if(!today.length){renderLive({P:{},ev:[]});$('#tourLive').innerHTML='';el.innerHTML=`<p class="hint">На ${isoDM(tDate)} экскурсий нет.${all.length?' Листайте даты стрелками.':' Нажмите «+ Программа» или загрузите Excel с программой.'}</p>`;return}
   const isToday=tDate===isoToday(),now=nowMinutes();const LB=liveBoard(tDate);renderLive(LB);
-  el.innerHTML=list.map(t=>{const x=dayOfTour(t,tDate);const st=tourNow(t,x.day);let lastA=-1;x.day.s.forEach((s,i)=>{if(stopState(t,s).a!=null)lastA=i});const firstOpen=lastA+1;
+  el.innerHTML=list.map(t=>tourCardHtml(t,tDate,LB)).join('');
+  bindTourCards(el);
+}
+function tourCardHtml(t,iso,LB,o={}){const tDateSave=tDate;tDate=iso;try{const isToday=iso===isoToday(),now=nowMinutes();
+const x=dayOfTour(t,iso);const st=tourNow(t,x.day);let lastA=-1;x.day.s.forEach((s,i)=>{if(stopState(t,s).a!=null)lastA=i});const firstOpen=lastA+1;
     const rows=x.day.s.map((s,i)=>{const m=stopState(t,s);const key=t.id+'|'+s.id;const plan=s.t?toMin(s.t):null;
       const late=isToday&&i===firstOpen&&plan!=null&&now>plan+10;
       return `<li class="tst k-${s.k} ${m.a!=null?(m.d!=null?'done':'here'):''} ${late?'late':''}">
@@ -148,15 +152,17 @@ function renderTours(){
       <div class="tppl">${t.guide?`<span>Гид отеля: ${gTag(t.guide)}</span>`:''}${t.kok?`<span>Кок гид: ${gTag(t.kok)}</span>`:''}${t.plate||t.driver?`<span>🚌 ${esc(t.plate||'')} ${esc(t.driver||'')}${t.dphone?` · <a class="tel" href="tel:${esc(t.dphone.replace(/\s/g,''))}">${esc(t.dphone)}</a>`:''}</span>`:''}${t.hotel?`<span>🏨 ${esc(t.hotel)}</span>`:''}</div>
       ${coordHint(LB,t,x)}
       <ol class="tstops">${rows}</ol>
-      <div class="tact"><button type="button" class="btn sm" data-twa="${esc(t.id)}">📋 Программа дня в WhatsApp</button><button type="button" class="btn sm" data-tedit="${esc(t.id)}">✎ Изменить</button><button type="button" class="btn sm" data-tcopy="${esc(t.id)}">⧉ Копия для другого автобуса</button></div></article>`}).join('');
-  el.querySelectorAll('[data-ta]').forEach(b=>b.onclick=()=>{saveTM(b.dataset.ta,Object.assign({},TM[b.dataset.ta],{a:nowMinutes()}));renderTours()});
-  el.querySelectorAll('[data-td]').forEach(b=>b.onclick=()=>{saveTM(b.dataset.td,Object.assign({},TM[b.dataset.td],{d:nowMinutes()}));renderTours()});
-  el.querySelectorAll('[data-tu]').forEach(b=>b.onclick=()=>{const m=Object.assign({},TM[b.dataset.tu]);if(m.d!=null)delete m.d;else delete m.a;saveTM(b.dataset.tu,Object.keys(m).length&&(m.a!=null||m.s)?m:null);renderTours()});
+      <div class="tact"><button type="button" class="btn sm" data-twa="${esc(t.id)}" data-tiso="${iso}">📋 Программа дня в WhatsApp</button>${o.guide?'':`<button type="button" class="btn sm" data-tedit="${esc(t.id)}">✎ Изменить</button><button type="button" class="btn sm" data-tcopy="${esc(t.id)}">⧉ Копия для другого автобуса</button>`}</div></article>`}finally{tDate=tDateSave}}
+function tourRefresh(){renderTours();if(typeof renderGuide==='function'&&!$('#v-guide').hidden)renderGuide()}
+function bindTourCards(el){
+  el.querySelectorAll('[data-ta]').forEach(b=>b.onclick=()=>{saveTM(b.dataset.ta,Object.assign({},TM[b.dataset.ta],{a:nowMinutes()}));tourRefresh()});
+  el.querySelectorAll('[data-td]').forEach(b=>b.onclick=()=>{saveTM(b.dataset.td,Object.assign({},TM[b.dataset.td],{d:nowMinutes()}));tourRefresh()});
+  el.querySelectorAll('[data-tu]').forEach(b=>b.onclick=()=>{const m=Object.assign({},TM[b.dataset.tu]);if(m.d!=null)delete m.d;else delete m.a;saveTM(b.dataset.tu,Object.keys(m).length&&(m.a!=null||m.s)?m:null);tourRefresh()});
   el.querySelectorAll('[data-sale]').forEach(i=>i.onchange=()=>{saveTM(i.dataset.sale,Object.assign({},TM[i.dataset.sale],{s:i.value.trim()}));toast('Продажа записана')});
   el.querySelectorAll('[data-tedit]').forEach(b=>b.onclick=()=>openTourEd(JSON.parse(JSON.stringify(TOURS[b.dataset.tedit]))));
   el.querySelectorAll('[data-tcopy]').forEach(b=>b.onclick=()=>{const c=JSON.parse(JSON.stringify(TOURS[b.dataset.tcopy]));c.id=rid();c.bus='';c.guide='';c.kok='';c.plate='';c.driver='';c.dphone='';c.days.forEach(d=>d.s.forEach(s=>s.id=rid()));openTourEd(c,true)});
-  el.querySelectorAll('[data-tswap]').forEach(b=>b.onclick=()=>{const [id,di,from,to]=b.dataset.tswap.split('|');const t=JSON.parse(JSON.stringify(TOURS[id]));const a=t.days[+di].s;const [mv]=a.splice(+from,1);a.splice(+to,0,mv);saveTour(id,t);toast(`Порядок изменён: сначала ${mv.n}`);renderTours()});
-  el.querySelectorAll('[data-twa]').forEach(b=>b.onclick=()=>copy(tourWa(TOURS[b.dataset.twa],tDate),true));
+  el.querySelectorAll('[data-tswap]').forEach(b=>b.onclick=()=>{const [id,di,from,to]=b.dataset.tswap.split('|');const t=JSON.parse(JSON.stringify(TOURS[id]));const a=t.days[+di].s;const [mv]=a.splice(+from,1);a.splice(+to,0,mv);saveTour(id,t);toast(`Порядок изменён: сначала ${mv.n}`);tourRefresh()});
+  el.querySelectorAll('[data-twa]').forEach(b=>b.onclick=()=>copy(tourWa(TOURS[b.dataset.twa],b.dataset.tiso||tDate),true));
 }
 function tourWa(t,iso){const x=dayOfTour(t,iso);if(!x)return '';const tr=LANG==='tr';
   const L=[`*${isoDM(iso)} · ${t.bus||'BUS'}${t.name?' · '+t.name:''}*`,`${tr?'Rehber':'Гид'}: ${t.guide||'-'}${gPhone(t.guide)?' ('+gPhone(t.guide)+')':''}`,t.kok?`${tr?'Kok rehber':'Кок гид'}: ${t.kok}${gPhone(t.kok)?' ('+gPhone(t.kok)+')':''}`:'',`PAX: ${t.pax||'-'}`,''];
@@ -261,3 +267,11 @@ $('#tXls').onchange=e=>{importTourFiles([...e.target.files]);e.target.value=''};
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b&&b.dataset.t==='tours'){renderTours();pullTours(true)}});
 setInterval(()=>{if(!$('#v-tours').hidden&&!tEdit&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#tourList')))renderTours()},60000);
 if(!$('#v-tours').hidden){renderTours();pullTours(true)}
+
+// guide screen, "Экскурсия" mode: today's bus programs where this person is the hotel guide or the kok guide
+function tourGuidesOn(iso){const S=new Set();tours().forEach(t=>{if(dayOfTour(t,iso)){if(t.guide)S.add(t.guide);if(t.kok)S.add(t.kok)}});return [...S]}
+function toursOfGuide(g,iso){const k=gKey(g);return tours().filter(t=>dayOfTour(t,iso)&&(gKey(t.guide||'')===k||gKey(t.kok||'')===k))}
+function guideTourHtml(g){const iso=isoToday();const list=toursOfGuide(g,iso);
+  if(!list.length)return `<p class="hint">Сегодня (${isoDM(iso)}) экскурсий у ${esc(g)} нет.</p>`;
+  const LB=liveBoard(iso);return list.map(t=>tourCardHtml(t,iso,LB,{guide:true})).join('')}
+if(!$('#v-guide').hidden){renderGuidePick();renderGuide()}
