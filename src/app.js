@@ -326,7 +326,9 @@ const DONEF=new Set();
 function renderBoard(){
   const fv=$('#fVeh').value,fh=$('#fHotel').value,fo=$('#fOp').value,q=$('#fQ').value.trim().toUpperCase();
   let html='',nowPlaced=false,land=0,air=0,late=0,paxLanded=0,paxMet=0;
-  flights.forEach(f=>{
+  // order by the time the plane really lands (delays move a flight down), schedule as tie-break
+  const landAt=f=>f.unknown?f.sched:f.live?(f.live.act?toMin(f.live.act):f.eta):(f.delay&&NOW>=f.delayKnownAt?f.eta:f.sched);
+  flights.slice().sort((a,b)=>landAt(a)-landAt(b)||a.sched-b.sched||a.code.localeCompare(b.code)).forEach(f=>{
     const st=fStatus(f,NOW);
     if(st.k==='land'){land++;paxLanded+=f.pax}else if(st.k==='late')late++;else if(st.k==='air')air++;
     f.groups.forEach(g=>paxMet+=metCount(g));
