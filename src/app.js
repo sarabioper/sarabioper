@@ -322,6 +322,7 @@ function fillFilters(){
 }
 const metCount=g=>marked(g);
 const OPENF=new Set();
+const DONEF=new Set();
 function renderBoard(){
   const fv=$('#fVeh').value,fh=$('#fHotel').value,fo=$('#fOp').value,q=$('#fQ').value.trim().toUpperCase();
   let html='',nowPlaced=false,land=0,air=0,late=0,paxLanded=0,paxMet=0;
@@ -342,7 +343,16 @@ function renderBoard(){
       ?`<span class="sch struck num">${f.t}</span><span class="eta num">${fmt(etaShown)}</span><span class="hint" style="font-size:11px">${st.k==='land'?'сел':'расч. посадка'}</span>`
       :overdue?`<span class="sch num" style="color:var(--warn)">${f.t}</span><span class="hint" style="font-size:11px;color:var(--warn)">ещё не сел</span>`
       :`<span class="sch num">${f.t}</span><span class="hint" style="font-size:11px">${st.k==='land'?'сел':'посадка'}</span>`;
-    const open=OPENF.has(f.key);const totG=gs.reduce((a,g)=>a+groupTotal(g),0),doneG=gs.reduce((a,g)=>a+marked(g),0);
+    let open=OPENF.has(f.key);const totG=gs.reduce((a,g)=>a+groupTotal(g),0),doneG=gs.reduce((a,g)=>a+marked(g),0);
+    // every guest of this flight is marked: fold the card to one line (tap to open it again)
+    {const noG=gs.reduce((a,g)=>a+(g.p&&g.p.length?g.p.reduce((b,_,i)=>b+(markOf(g.id,i)==='no'?1:0),0):0),0);
+      const full=totG&&doneG+noG>=totG;
+      // the last guest just got marked with the list open: fold it now; reopened later by hand, it stays open
+      if(full&&open&&DONEF.ready&&!DONEF.has(f.key)){OPENF.delete(f.key);open=false}
+      if(full)DONEF.add(f.key);else DONEF.delete(f.key);
+      if(full&&!open){
+        html+=`<article class="flight fl-done" data-fk="${esc(f.key)}" role="button" tabindex="0" aria-label="${esc(f.code)}"><span class="fd-t num">${fmt(st.k==='land'?st.eta:f.eta)}</span><span class="fd-c">${esc([...f.codes].join(' / '))}</span><span class="fd-f">${esc(CITY[f.org]||f.org||'')}</span><span class="dchip ok">✓ все вышли · ${doneG}/${totG}</span>${noG?`<span class="dchip part">✗ не пришли: ${noG}</span>`:''}<span class="fd-h hint">${esc([...new Set(gs.map(g=>g.v).filter(Boolean))].join(', '))}</span><span class="fd-x" aria-hidden="true">▾</span></article>`;
+        return}}
     html+=`<article class="flight${open?' open':''}" data-fk="${esc(f.key)}">
       <div class="time">${timeCol}</div>
       <div class="mid">
@@ -364,7 +374,9 @@ function renderBoard(){
   });
   if(!nowPlaced)html+=`<div class="nowline">СЕЙЧАС ${fmt(NOW)}</div>`;
   $('#board').innerHTML=html||'<p class="hint">Ничего не найдено.</p>';
+  DONEF.ready=true;
   bindXActs($('#board'));
+  $('#board').querySelectorAll('article.fl-done').forEach(el=>{const go=()=>{OPENF.add(el.dataset.fk);renderBoard()};el.onclick=go;el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go()}}});
   $('#board').querySelectorAll('.fl-toggle').forEach(b=>b.onclick=e=>{e.stopPropagation();const k=b.dataset.fk;OPENF.has(k)?OPENF.delete(k):OPENF.add(k);renderBoard()});
   $('#board').querySelectorAll('article.flight .mid').forEach(m=>m.onclick=e=>{if(e.target.closest('a,button'))return;const k=m.closest('article').dataset.fk;OPENF.has(k)?OPENF.delete(k):OPENF.add(k);renderBoard()});
   bindMarks($('#board'));

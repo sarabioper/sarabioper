@@ -805,6 +805,8 @@ const TR_DICT={
 "Удалено":"Silindi",
 "🗑 Удалить":"🗑 Sil",
 "На табло этот рейс в":"Panoda bu uçuş saat","проверьте время":"saati kontrol edin",
+"✓ все вышли":"✓ hepsi çıktı",
+"✗ не пришли:":"✗ gelmeyen:",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",
