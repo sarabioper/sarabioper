@@ -66,6 +66,8 @@ article.flight.fl-done:hover{opacity:1}
 .prow .gmk{display:inline-block;margin-left:6px;font-size:11px;font-weight:600;color:var(--ok)}
 .prow .gmk.no{color:var(--crit)}
 .met.gm{color:var(--info)}
+.who{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted)}
+body.role-guide .eta-btns,body.role-guide #xAdd,body.role-guide #xForm,body.role-guide #liveCtl,body.role-guide .xacts,body.role-guide #gpForm,body.role-guide [data-gped],body.role-guide [data-gpdel],body.role-guide [data-gpfill],body.role-guide [data-gpon],body.role-guide #scanBtn{display:none!important}
 .tbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 10px}
 .tbar .sp,.ted-act .sp{flex:1}
 .tdate{display:inline-flex;align-items:center;gap:6px}
@@ -395,6 +397,7 @@ mark{background:var(--signal-soft);color:inherit}
       <h1>SARABI <b>OPS</b></h1>
       <span class="drumwrap"><span class="drum" id="daySel" role="listbox" tabindex="0" aria-label="День"></span></span>
       <span class="date" id="dateLbl"></span>
+      <span class="who"><small id="whoAmI"></small><button type="button" class="btn sm ghost" id="logoutBtn">Выйти</button></span>
       <span class="demo-pill" id="modePill">Статусы рейсов в демо-режиме</span>
       <span class="livectl" id="liveCtl" hidden><button class="btn sm" id="liveBtn" type="button">⟳ Обновить рейсы</button><small class="hint" id="liveQuota"></small></span>
     </div>
@@ -599,7 +602,7 @@ mark{background:var(--signal-soft);color:inherit}
 <div class="login" id="login" hidden>
   <form class="panel login-card" id="loginForm">
     <h2 style="margin:0">SARABI OPS</h2>
-    <p class="hint">Введите пароль, который выдал операционный отдел.</p>
+    <p class="hint">Введите пароль: операционного отдела — откроется всё, гида — откроются прилёты, вылеты, экран гида и уведомления.</p>
     <label class="hint" for="loginPass">Пароль</label>
     <input id="loginPass" type="password" autocomplete="current-password" required>
     <button class="btn primary" type="submit">Войти</button>

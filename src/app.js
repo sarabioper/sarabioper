@@ -73,10 +73,20 @@ let lastAssignSave=0;function saveAssign(){lastAssignSave=Date.now();store.set('
 function saveMet(){lastLocalMark=Date.now();store.set('met_'+dayKey,met);saveRemote('met',met)}
 function showLogin(err){$('#login').hidden=false;$('#loginErr').textContent=err||'';$('#loginPass').focus()}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();store.set('pass',$('#loginPass').value.trim().normalize('NFC'));$('#login').hidden=true;await serverBoot()});
+// two logins: operations see everything; guides see arrivals, departures, the guide screen and notifications
+let ROLE=store.get('role','ops');
+const GUIDE_TABS=['board','dep','guide','contacts'];
+function setRole(r){ROLE=r==='guide'?'guide':'ops';store.set('role',ROLE);document.body.classList.toggle('role-guide',ROLE==='guide');
+  document.querySelectorAll('.tab').forEach(t=>{t.hidden=ROLE==='guide'&&!GUIDE_TABS.includes(t.dataset.t)});
+  const cur=document.querySelector('.tab[aria-selected="true"]');if(ROLE==='guide'&&(!cur||cur.hidden)){const g=document.querySelector('.tab[data-t="guide"]');if(g)g.click()}
+  const who=$('#whoAmI');if(who)who.textContent=ROLE==='guide'?'Вход: гид':'Вход: операционный отдел';
+  if(DAY)renderAll()}
+const isOps=()=>ROLE!=='guide';
 async function serverBoot(){
   if(!pass()){showLogin();return}
   try{
     const res=await api('GET','/api/days');
+    setRole(res.role||'ops');
     res.days.forEach(d=>{DAYS[d.key]=d});
     try{const st=await api('GET','/api/state?d=00.00&kind=settings');if(st.data&&st.data.termOk){SETTINGS=Object.assign({termOk:{}},st.data);store.set('settings',SETTINGS)}}catch(e){}
     try{const gp=await api('GET','/api/state?d=00.00&kind=guides');GP=Object.assign({},GP,gp.data||{});store.set('guidePhones',GP);renderGpImport()}catch(e){}
@@ -372,6 +382,7 @@ function renderBoard(){
     </article>`;
     // the guests of this flight, opened by a tap on the flight: same rows and marks as on the guide screen
     if(open){const key='b_'+f.key;const t={kind:'arr',L:'o',groups:gs,guide:(gs.find(g=>g.g)||{}).g||'',done:doneG,total:totG};TASKS[key]=t;const ids=gs.map(x=>x.id).join(',');
+      if(!isOps())html+=`<div class="fl-guests" data-fk="${esc(f.key)}">${grpHtml(Object.assign({},t,{L:undefined}),true)}<div class="tf"><span class="hint">Отмечайте гостей во вкладке «Гид»</span></div></div>`;else
       html+=`<div class="fl-guests" data-fk="${esc(f.key)}">${grpHtml(t)}${xActs(gs)}<div class="tf"><button class="btn primary" type="button" data-allk="${ids}" data-l="o">Все вышли</button><button class="btn" type="button" data-clear="${ids}" data-l="o">Сбросить</button>${waBtns(t,key)}</div></div>`}
   });
   if(!nowPlaced)html+=`<div class="nowline">СЕЙЧАС ${fmt(NOW)}</div>`;
@@ -1155,7 +1166,7 @@ $('#nowBtn').onclick=()=>{followNow=true;NOW=nowMinutes();store.set('now_'+dayKe
 ['#fVeh','#fHotel','#fOp'].forEach(s=>$(s).addEventListener('change',()=>DAY&&renderBoard()));$('#fQ').addEventListener('input',()=>DAY&&renderBoard());
 $('#copyWa').onclick=()=>copy($('#waMsg').textContent);
 const views=['board','ops','dep','veh','tours','guide','checks','contacts','data'];
-$('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b)return;
+$('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b||b.hidden)return;
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t===b));
   views.forEach(v=>$('#v-'+v).hidden=v!==b.dataset.t);if(b.dataset.t==='guide'){renderGuidePick();renderGuide()}store.set('tab',b.dataset.t);$('#scanBtn').hidden=b.dataset.t!=='ops'});
 document.querySelector('header .brand').appendChild(langSwitch());$('#loginForm').prepend(langSwitch());
@@ -1164,3 +1175,5 @@ i18nStart();
 if(SERVER)serverBoot();else loadDay(dayKey);
 setGuideMode(guideMode);
 const lastTab=store.get('tab','board');const tb=document.querySelector(`.tab[data-t="${lastTab}"]`);if(tb)tb.click();
+setRole(ROLE);
+$('#logoutBtn').onclick=()=>{if(!confirm(T('Выйти и войти с другим паролем?')))return;store.set('pass','');store.set('role','ops');location.reload()};

@@ -8,16 +8,20 @@ export const json = (data, status = 200) =>
     headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
   });
 
-// Every API call carries the shared password in the x-ops-key header.
+// Every API call carries a password in the x-ops-key header.
+// OPS_PASSWORD = operations (everything); GUIDE_PASSWORD (optional) = guides (arrivals, departures, guide screen, notifications).
 export function authorized(req) {
   const want = process.env.OPS_PASSWORD;
   if (!want) return { ok: false, res: json({ error: "На сервере не задан пароль OPS_PASSWORD" }, 500) };
   let got = req.headers.get("x-ops-key") || "";
   try { got = decodeURIComponent(got); } catch (e) { /* old clients sent it unencoded */ }
   const norm = (x) => String(x).trim().normalize("NFC");
-  if (norm(got) !== norm(want)) return { ok: false, res: json({ error: "Неверный пароль" }, 401) };
-  return { ok: true };
+  if (norm(got) === norm(want)) return { ok: true, role: "ops" };
+  const guide = process.env.GUIDE_PASSWORD;
+  if (guide && norm(guide) !== norm(want) && norm(got) === norm(guide)) return { ok: true, role: "guide" };
+  return { ok: false, res: json({ error: "Неверный пароль" }, 401) };
 }
+export const forbidden = () => json({ error: "Это может делать только операционный отдел" }, 403);
 
 // Current date and time in Istanbul.
 export function istanbulNow() {

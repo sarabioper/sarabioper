@@ -1,4 +1,4 @@
-import { store, json, authorized, istanbulNow } from "../lib/common.mjs";
+import { store, json, authorized, forbidden, istanbulNow } from "../lib/common.mjs";
 import { watchFromDay } from "../lib/watch.mjs";
 import { poll } from "../lib/poll.mjs";
 
@@ -37,13 +37,14 @@ export default async (req) => {
       days.push(d);
     }
     days.sort((a, b) => (a.iso < b.iso ? 1 : -1));
-    return json({ days, keepDays: keep });
+    return json({ days, keepDays: keep, role: auth.role });
   }
 
   const d = url.searchParams.get("d") || "";
   if (!/^\d\d\.\d\d$/.test(d)) return json({ error: "Неверная дата" }, 400);
 
   if (req.method === "PUT" && path === "/api/day") {
+    if (auth.role !== "ops") return forbidden();
     const body = await req.json();
     if (!body || !Array.isArray(body.arr) || !Array.isArray(body.dep)) return json({ error: "Неверный формат дня" }, 400);
     body.key = d;
@@ -67,6 +68,8 @@ export default async (req) => {
 
   if (req.method === "PUT" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
+    // guides may only save their check-ins (and guest notes, kept with them) and excursion stops
+    if (auth.role !== "ops" && !["met", "tourmarks"].includes(kind)) return forbidden();
     if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     const body = await req.json();
     if (kind === "extra") {
