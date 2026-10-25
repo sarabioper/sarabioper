@@ -105,3 +105,38 @@ export async function aviationstackFlight(key, code, today) {
   const recs = (body.data || []).map(fromAvsRow).filter((x) => !today || x.date === today);
   return recs[0] || null;
 }
+
+// Departures from AYT (one request = the airport's departure board). Times are Antalya local.
+const fromAirLabsDep = (x) => ({
+  rich: !!(x.status || x.dep_estimated || x.dep_actual || x.dep_delayed != null),
+  status: x.status === "en-route" ? "active" : x.status || null,
+  sch: hhmm(x.dep_time),
+  est: hhmm(x.dep_estimated),
+  act: hhmm(x.dep_actual),
+  delay: x.dep_delayed ?? x.delayed ?? null,
+  to: x.arr_iata || "",
+  term: x.dep_terminal || "",
+  gate: x.dep_gate || "",
+  date: String(x.dep_time || "").slice(0, 10),
+});
+export async function airLabsDepartures(key, watch, pages = 1, today) {
+  let flights = {}, requests = 0;
+  for (let page = 0; page < pages; page++) {
+    const r = await fetch(`https://airlabs.co/api/v9/schedules?dep_iata=${AIRPORT}&limit=${LIM()}&offset=${page * LIM()}&api_key=${encodeURIComponent(key)}`);
+    requests++;
+    const body = await r.json();
+    if (body.error) throw new Error("AirLabs: " + (body.error.message || JSON.stringify(body.error)));
+    const rows = body.response || [];
+    Object.assign(flights, collect(rows, fromAirLabsDep, (x) => x.flight_iata, (x) => x.cs_flight_iata, watch, today));
+    if (rows.length < LIM()) break;
+  }
+  return { flights, requests };
+}
+export async function airLabsDepFlight(key, code) {
+  const r = await fetch(`https://airlabs.co/api/v9/flight?flight_iata=${encodeURIComponent(code)}&api_key=${encodeURIComponent(key)}`);
+  const body = await r.json();
+  if (body.error) throw new Error("AirLabs: " + (body.error.message || JSON.stringify(body.error)));
+  const x = body.response;
+  if (!x || (x.dep_iata && x.dep_iata !== AIRPORT)) return null;
+  return fromAirLabsDep(x);
+}

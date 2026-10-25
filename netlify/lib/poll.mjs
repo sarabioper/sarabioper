@@ -1,6 +1,6 @@
 import { store, istanbulNow } from "./common.mjs";
-import { airLabsAirport, airLabsFlight, aviationstackAirport, aviationstackFlight } from "./providers.mjs";
-import { activeFlights, missingSoon, toMin } from "./watch.mjs";
+import { airLabsAirport, airLabsFlight, aviationstackAirport, aviationstackFlight, airLabsDepartures, airLabsDepFlight } from "./providers.mjs";
+import { activeFlights, missingSoon, toMin, watchDepFromDay, activeDeps } from "./watch.mjs";
 
 // The flight list comes from the uploaded KAPAK. No KAPAK for today -> no requests at all.
 // A request is made only while at least one of our flights is in the air or about to land.
@@ -13,8 +13,15 @@ export async function poll({ force = false } = {}) {
   const s = store();
   const now = istanbulNow();
   const nowMin = now.hour * 60 + now.minute;
-  const watch = await s.get("watch/" + now.date, { type: "json" });
-  if (!watch || !Object.keys(watch).length) return { skipped: "На сегодня Капак не загружен, рейсы не отслеживаются" };
+  const watch = (await s.get("watch/" + now.date, { type: "json" })) || {};
+  // departures: built from today's KAPAK if this day was uploaded before departures were followed
+  let watchDep = await s.get("watchdep/" + now.date, { type: "json" });
+  if (!watchDep) {
+    const day = await s.get("day/" + now.date.slice(8, 10) + "." + now.date.slice(5, 7), { type: "json" });
+    watchDep = day ? watchDepFromDay(day) : {};
+    if (day) await s.setJSON("watchdep/" + now.date, watchDep);
+  }
+  if (!Object.keys(watch).length && !Object.keys(watchDep).length) return { skipped: "На сегодня Капак не загружен, рейсы не отслеживаются" };
 
   const airlabsKey = process.env.AIRLABS_KEY;
   const avsKey = process.env.AVIATIONSTACK_KEY;
@@ -29,8 +36,10 @@ export async function poll({ force = false } = {}) {
   if (meta.day !== now.date) { meta.day = now.date; meta.today = {}; }
   meta.used = meta.used || {}; meta.today = meta.today || {};
 
+  snap.dep = snap.dep || {};
   const active = activeFlights(watch, snap.flights, nowMin);
-  if (!active.length && !force) return { skipped: "Сейчас ни один наш рейс не в пути", watched: Object.keys(watch).length };
+  const activeD = activeDeps(watchDep, snap.dep, nowMin);
+  if (!active.length && !activeD.length && !force) return { skipped: "Сейчас ни один наш рейс не в пути", watched: Object.keys(watch).length };
 
   const minsSince = (p) => (meta["last" + p] ? (Date.now() - Date.parse(meta["last" + p])) / 60000 : Infinity);
   const count = (p, n) => { meta.used[p] = (meta.used[p] || 0) + n; meta.today[p] = (meta.today[p] || 0) + n; };
@@ -38,7 +47,7 @@ export async function poll({ force = false } = {}) {
 
   // 1) AirLabs. On the Free plan it has no live times: detected once, then skipped for a day.
   const airlabsBasic = meta.airlabsBasicAt && Date.now() - Date.parse(meta.airlabsBasicAt) < 24 * 3600 * 1000;
-  if (airlabsKey && !airlabsBasic && (force || minsSince("AirLabs") >= Number(process.env.AIRLABS_EVERY_MIN || 20) - 1)) {
+  if (airlabsKey && !airlabsBasic && (active.length || force) && (force || minsSince("AirLabs") >= Number(process.env.AIRLABS_EVERY_MIN || 20) - 1)) {
     try {
       const r = await airLabsAirport(airlabsKey, watch, Number(process.env.AIRLABS_PAGES || 1), now.date);
       count("AirLabs", r.requests); meta.lastAirLabs = new Date().toISOString();
@@ -56,7 +65,7 @@ export async function poll({ force = false } = {}) {
   }
 
   // 2) Aviationstack (main if no AirLabs, fallback if AirLabs failed)
-  const avsWanted = avsKey && (!airlabsKey || errors.length || airlabsBasic);
+  const avsWanted = avsKey && active.length && (!airlabsKey || errors.length || airlabsBasic);
   if (avsWanted) {
     const left = Number(process.env.AVS_MONTHLY_LIMIT || 100) - (meta.used.Aviationstack || 0);
     const leftToday = Number(process.env.AVS_PER_DAY || 3) - (meta.today.Aviationstack || 0);
@@ -85,6 +94,38 @@ export async function poll({ force = false } = {}) {
     }
   }
 
+  // 3) departures from AYT: one AirLabs request every AIRLABS_DEP_EVERY_MIN (60) while a pick-up or take-off is near
+  let depFound = 0;
+  if (airlabsKey && !airlabsBasic && (activeD.length || (force && Object.keys(watchDep).length)) && (force || minsSince("AirLabsDep") >= Number(process.env.AIRLABS_DEP_EVERY_MIN || 60) - 1)) {
+    try {
+      const r = await airLabsDepartures(airlabsKey, watchDep, Number(process.env.AIRLABS_PAGES || 1), now.date);
+      count("AirLabs", r.requests); meta.lastAirLabsDep = new Date().toISOString();
+      const st = new Date().toISOString();
+      for (const [k, v] of Object.entries(r.flights)) {
+        const old = snap.dep[k];
+        if (v.rich === false && old && old.rich !== false) continue;
+        snap.dep[k] = { ...v, at: st, src: "AirLabs" };
+        depFound++;
+      }
+      // ours missing from the board whose pick-up is within 2 hours: ask by flight number (max AIRLABS_DEP_SINGLE, 2)
+      snap.depChecked = snap.depChecked || {};
+      const miss = activeD.filter((w) => !snap.dep[w.code] && w.pu != null && w.pu - nowMin <= 120 && (snap.depChecked[w.code] || 0) < 2).slice(0, Number(process.env.AIRLABS_DEP_SINGLE || 2));
+      for (const w of miss) {
+        snap.depChecked[w.code] = (snap.depChecked[w.code] || 0) + 1;
+        const rec = await airLabsDepFlight(airlabsKey, w.code); count("AirLabs", 1);
+        if (rec && (!rec.date || rec.date === now.date)) { snap.dep[w.code] = { ...rec, at: st, src: "AirLabs" }; depFound++; }
+      }
+      snap.depUpdated = st;
+    } catch (e) { errors.push(String(e.message || e)); }
+  }
+
+  if (!provider && depFound) {
+    snap.updated = snap.updated || null;
+    await s.setJSON(snapKey, snap);
+    meta.lastError = errors.length ? errors.join(" / ") : null;
+    await s.setJSON("live/meta", meta);
+    return { ok: true, provider: "AirLabs", found: 0, depFound, active: active.length, used: meta.used };
+  }
   if (!provider) {
     if (errors.length) { meta.lastError = errors.join(" / "); await s.setJSON("live/meta", meta); return { error: meta.lastError }; }
     return { skipped: "Не время для запроса", active: active.length, used: meta.used };
@@ -101,5 +142,5 @@ export async function poll({ force = false } = {}) {
   await s.setJSON(snapKey, snap);
   meta.lastError = errors.length ? errors.join(" / ") : null;
   await s.setJSON("live/meta", meta);
-  return { ok: true, provider, found: Object.keys(found).length, active: active.length, used: meta.used };
+  return { ok: true, provider, found: Object.keys(found).length, depFound, active: active.length, used: meta.used };
 }

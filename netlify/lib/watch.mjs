@@ -27,6 +27,35 @@ export function watchFromDay(day) {
   return list;
 }
 
+// Departures from AYT in the KAPAK: followed from 2 hours before the first hotel pick-up until take-off,
+// so an airline moving the flight earlier is caught while the guests are still in the hotel.
+export function watchDepFromDay(day) {
+  const list = {};
+  for (const g of day.dep || []) {
+    if (!g.fl || /^[!?]/.test(g.fl)) continue;
+    const sch = toMin(g.t);
+    if (sch == null) continue;
+    const key = flKey(g.fl);
+    const w = list[key] || (list[key] = { code: key, sch: g.t, to: g.dest || "", pax: 0, pu: null });
+    w.pax += Number(g.pax) || 0;
+    const pu = toMin(g.pu);
+    if (pu != null && (w.pu == null || pu < w.pu)) w.pu = pu;
+  }
+  for (const w of Object.values(list)) {
+    const s = toMin(w.sch);
+    w.winStart = (w.pu != null ? Math.min(w.pu, s - 180) : s - 300) - 120;
+    w.winEnd = s + 20;
+  }
+  return list;
+}
+export function activeDeps(watch, live, now) {
+  return Object.values(watch || {}).filter((w) => {
+    const l = live[w.code];
+    if (l && (l.act || ["active", "landed", "cancelled"].includes(l.status))) return false;
+    return now >= w.winStart && now <= w.winEnd;
+  });
+}
+
 // Flights we still need news about at minute `now` (Istanbul): inside their window and not landed yet.
 export function activeFlights(watch, live, now) {
   return Object.values(watch || {}).filter((w) => {

@@ -1,5 +1,5 @@
 import { store, json, authorized, forbidden, istanbulNow } from "../lib/common.mjs";
-import { watchFromDay } from "../lib/watch.mjs";
+import { watchFromDay, watchDepFromDay } from "../lib/watch.mjs";
 import { poll } from "../lib/poll.mjs";
 
 // Shared day storage, so every dispatcher and guide sees the same list.
@@ -26,7 +26,7 @@ export default async (req) => {
       if (!d) continue;
       const iso = isoOf(d, k, today);
       if (Date.parse(iso + "T00:00:00Z") < cutoff) {
-        await Promise.all(["day/" + k, "state/" + k + "/assign", "state/" + k + "/met", "state/" + k + "/eta", "state/" + k + "/extra", "watch/" + iso, "live/" + iso].map((x) => s.delete(x).catch(() => {})));
+        await Promise.all(["day/" + k, "state/" + k + "/assign", "state/" + k + "/met", "state/" + k + "/eta", "state/" + k + "/extra", "watch/" + iso, "watchdep/" + iso, "live/" + iso].map((x) => s.delete(x).catch(() => {})));
         continue;
       }
       d.iso = d.iso || iso;
@@ -55,6 +55,7 @@ export default async (req) => {
     let started = null;
     if (/^\d{4}-\d\d-\d\d$/.test(body.iso || "")) {
       await s.setJSON("watch/" + body.iso, watch);
+      await s.setJSON("watchdep/" + body.iso, watchDepFromDay(body));
       if (body.iso === istanbulNow().date) started = await poll({ force: true }).catch((e) => ({ error: String(e.message || e) }));
     }
     return json({ ok: true, watched: Object.keys(watch).length, poll: started });

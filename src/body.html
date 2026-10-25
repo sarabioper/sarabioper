@@ -68,6 +68,14 @@ article.flight.fl-done:hover{opacity:1}
 .met.gm{color:var(--info)}
 .who{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted)}
 body.role-guide .eta-btns,body.role-guide #xAdd,body.role-guide #xForm,body.role-guide #liveCtl,body.role-guide .xacts,body.role-guide #gpForm,body.role-guide [data-gped],body.role-guide [data-gpdel],body.role-guide [data-gpfill],body.role-guide [data-gpon],body.role-guide #scanBtn{display:none!important}
+#depTbl tr.d-risk td{background:var(--crit-soft)}
+#depTbl tr.d-risk td:first-child{box-shadow:inset 6px 0 0 var(--crit);color:var(--crit);font-weight:700}
+#depTbl .dtime small{display:block;font-size:11px}
+.dearly{color:var(--crit);font-weight:700}.dlate{color:var(--warn);font-weight:700}.dok{color:var(--ok)}
+#depTbl tr.d-fold{cursor:pointer}
+#depTbl tr.d-fold td{padding-top:5px;padding-bottom:5px;background:var(--sunk)}
+.dfold{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}.dfold .fd-x{margin-left:auto;color:var(--muted)}
+#depTbl tr[data-did]:not(.d-fold){cursor:pointer}
 .tbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 10px}
 .tbar .sp,.ted-act .sp{flex:1}
 .tdate{display:inline-flex;align-items:center;gap:6px}
@@ -412,7 +420,7 @@ mark{background:var(--signal-soft);color:inherit}
     <nav class="tabs" role="tablist" id="tabs">
       <button class="tab" role="tab" data-t="board" aria-selected="true">Прилёты</button>
       <button class="tab" role="tab" data-t="ops">Контроль</button>
-      <button class="tab" role="tab" data-t="dep">Вылеты</button>
+      <button class="tab" role="tab" data-t="dep">Вылеты<span class="cnt" id="depCnt" hidden>0</span></button>
       <button class="tab" role="tab" data-t="veh">Машины</button>
       <button class="tab" role="tab" data-t="tours">Экскурсии</button>
       <button class="tab" role="tab" data-t="guide">Гид</button>
@@ -491,7 +499,7 @@ mark{background:var(--signal-soft);color:inherit}
   <section id="v-dep" hidden>
     <div class="summary" id="sumDep"></div>
     <div class="depbar" id="depBar"></div>
-    <p class="hint">Гид отмечает гостей «✓ Сел». Если время выезда прошло больше 10 минут, а никто не отмечен, строка горит красным. Зелёным — всех забрали.</p>
+    <p class="hint">Гид отмечает гостей «✓ Сел». Если время выезда прошло больше 10 минут, а никто не отмечен, строка горит красным. Когда все сели — строка сворачивается. Сервер следит за табло вылетов Антальи: если рейс перенесли раньше и с этим выездом гости не успевают (в аэропорту за 2 ч, внутренние за 1,5 ч, плюс дорога), строка загорится «⚠ выезд не позже …».</p>
     <div class="tbl-wrap"><table id="depTbl"></table></div>
   </section>
 

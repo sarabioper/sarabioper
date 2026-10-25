@@ -428,19 +428,36 @@ function depChip(d){
   if(d.st==='due')return `<span class="dchip due">идёт сбор · ${d.ok}/${d.tot}</span>`;
   return d.ok?`<span class="dchip">${d.ok}/${d.tot}</span>`:'—'}
 let depProblems=store.get('depProblems',false);
+const DEPOPEN=new Set();
+// live departure board from AYT (server follows our departures from 2 h before the first pick-up)
+function depLive(r){if(!LIVE||!LIVE.dep||!DAY||LIVE.date!==DAY.iso||/^[!?]/.test(r.fl))return null;const x=LIVE.dep[normFl(r.fl).replace(' ','')];return x&&x.rich!==false?x:null}
+// when the plane really leaves, and whether the pick-up still makes it: at AYT 2 h before (1.5 h domestic) + the drive
+function depRisk(r){const L=depLive(r);const sch=toMin(r.t);if(!r.t)return null;
+  const nt=L&&(L.act||L.est||L.sch)?toMin(L.act||L.est||L.sch):sch;const chg=nt-sch;
+  const need=r.term==='İÇ'?90:120,drive=TRAVEL(r.h||'');const latest=nt-need-drive;const pu=r.pu?toMin(r.pu):null;
+  return {L,nt,chg,latest,late:pu!=null&&pu>latest,status:L&&L.status,act:L&&L.act}}
 function renderDep(){
   const all=DAY.dep.slice().sort((a,b)=>toMin(a.pu)-toMin(b.pu)||toMin(a.t)-toMin(b.t));
   const DS=new Map(all.map(r=>[r,depState(r)]));
-  const rows=depProblems?all.filter(r=>['late','part','due'].includes(DS.get(r).st)):all;
+  const RISK=all.filter(r=>{const R=depRisk(r),d=DS.get(r);return R&&R.late&&d.st!=='ok'&&!R.act});
+  const EARLY=all.filter(r=>{const R=depRisk(r);return R&&R.chg<0});
+  const rows=depProblems?all.filter(r=>['late','part','due'].includes(DS.get(r).st)||RISK.includes(r)):all;
+  const dc=$('#depCnt');if(dc){dc.textContent=RISK.length;dc.hidden=!RISK.length}
   $('#depTbl').innerHTML=`<thead><tr><th>Выезд</th><th>Отель</th><th class="n">Чел</th><th>Рейс</th><th>Вылет</th><th>Терминал</th><th>Машина</th><th>Гид</th><th>Опер.</th><th>Сели в машину</th><th>Примечание</th></tr></thead><tbody>${rows.map(r=>{
-    const d=DS.get(r);const cls='d-'+d.st;
+    const d=DS.get(r);const R=depRisk(r);const risk=R&&R.late&&d.st!=='ok'&&!R.act;const cls='d-'+d.st+(risk?' d-risk':'');
+    // all guests aboard: one short line, tap to open
+    if(d.st==='ok'&&!DEPOPEN.has(r.id))return `<tr class="d-ok d-fold" data-did="${esc(r.id)}"><td class="t num">${r.pu||'—'}</td><td colspan="10"><span class="dfold"><b>${esc(r.h)}</b> <span class="mono">${esc(normFl(r.fl))} ${esc(R&&R.chg?fmt(R.nt):r.t)}</span> ${depChip(d)} <span class="hint">${esc(r.v||'')}${r.g?' · '+esc(r.g):''}</span><span class="fd-x">▾</span></span></td></tr>`;
+    const tCell=R&&R.chg?`<s class="hint">${r.t}</s> <b class="${R.chg<0?'dearly':'dlate'}">${fmt(R.nt)}</b><small class="${R.chg<0?'dearly':'hint'}">${R.chg<0?'раньше на '+(-R.chg)+' мин':'задержка '+R.chg+' мин'}</small>`:`${r.t}`;
+    const stTxt=R&&R.L?(R.act?`<small class="dok">вылетел ${R.act}</small>`:R.status==='cancelled'?'<small class="dearly">рейс отменён</small>':''):'';
+    const riskTxt=risk?`<span class="dchip late">⚠ ${R.chg<0?'Рейс раньше! ':''}выезд не позже ${fmt(R.latest)}<small>в аэропорту за ${r.term==='İÇ'?'1,5':'2'} ч + дорога ${TRAVEL(r.h||'')} мин</small></span>`:'';
     const a=assign[r.v]||{};const unk=/^[!?]/.test(r.fl);
-    return `<tr class="${cls}"><td class="t num">${r.pu||'—'}</td><td>${esc(r.h)}</td><td class="n">${r.pax}</td><td class="mono">${unk?'<span class="chip bad">рейс не указан</span>':esc(r.fl)} <span class="hint">${esc(CITY[r.dest]||r.dest)}</span></td><td class="num">${r.t}</td><td><span class="chip term">${r.term==='İÇ'?'İÇ HATLAR':r.term==='DIŞ'?'T2':'?'}</span></td><td class="mono">${esc(r.v||'—')}${a.plate?'<br><span class="hint">'+esc(a.plate)+'</span>':''}${dTag(a)?'<br>'+dTag(a):''}</td><td>${r.g?gTag(r.g):'—'}</td><td class="mono hint">${esc(r.op)}</td><td class="num">${depChip(d)}</td><td>${r.note?`<span class="chip">${esc(r.note)}</span>`:''}</td></tr>`}).join('')}</tbody>`;
+    return `<tr class="${cls}"${d.st==='ok'?` data-did="${esc(r.id)}"`:''}><td class="t num">${r.pu||'—'}</td><td>${esc(r.h)}</td><td class="n">${r.pax}</td><td class="mono">${unk?'<span class="chip bad">рейс не указан</span>':esc(r.fl)} <span class="hint">${esc(CITY[r.dest]||r.dest)}</span></td><td class="num dtime">${tCell}${stTxt}</td><td><span class="chip term">${r.term==='İÇ'?'İÇ HATLAR':r.term==='DIŞ'?'T2':'?'}</span></td><td class="mono">${esc(r.v||'—')}${a.plate?'<br><span class="hint">'+esc(a.plate)+'</span>':''}${dTag(a)?'<br>'+dTag(a):''}</td><td>${r.g?gTag(r.g):'—'}</td><td class="mono hint">${esc(r.op)}</td><td class="num">${depChip(d)}</td><td>${riskTxt}${r.note?`<span class="chip">${esc(r.note)}</span>`:''}</td></tr>`}).join('')}</tbody>`;
+  $('#depTbl').querySelectorAll('tr[data-did]').forEach(tr=>tr.onclick=e=>{if(e.target.closest('a,button,input'))return;const id=tr.dataset.did;DEPOPEN.has(id)?DEPOPEN.delete(id):DEPOPEN.add(id);renderDep()});
   if(!rows.length&&depProblems)$('#depTbl').innerHTML+=`<tbody><tr><td colspan="11" class="hint" style="padding:14px">Проблемных выездов нет — все вовремя отмечены 👍</td></tr></tbody>`;
   const tot=all.reduce((s,r)=>s+r.pax,0),took=all.reduce((s,r)=>s+DS.get(r).ok,0);
   const late=all.filter(r=>DS.get(r).st==='late'),part=all.filter(r=>DS.get(r).st==='part');
   const next=all.find(r=>r.pu&&toMin(r.pu)>=NOW);
-  $('#depBar').innerHTML=`<span class="dchip ok">✓ Забрали: ${all.filter(r=>DS.get(r).st==='ok').length} выездов</span>${late.length?`<span class="dchip late">⚠ Не отмечены вовремя: ${late.length} (${late.reduce((s,r)=>s+DS.get(r).tot,0)} чел.)</span>`:''}${part.length?`<span class="dchip part">Отмечены не все: ${part.length}</span>`:''}
+  $('#depBar').innerHTML=`${RISK.length?`<span class="dchip late">⚠ Не успевают к вылету: ${RISK.length} (${RISK.reduce((s,r)=>s+(+r.pax||0),0)} чел.)</span>`:''}${EARLY.length?`<span class="dchip part">✈ Рейс перенесли раньше: ${[...new Set(EARLY.map(r=>normFl(r.fl)))].join(', ')}</span>`:''}${LIVE&&LIVE.depUpdated?`<span class="hint">табло вылетов: ${hm(LIVE.depUpdated)}</span>`:''}<span class="dchip ok">✓ Забрали: ${all.filter(r=>DS.get(r).st==='ok').length} выездов</span>${late.length?`<span class="dchip late">⚠ Не отмечены вовремя: ${late.length} (${late.reduce((s,r)=>s+DS.get(r).tot,0)} чел.)</span>`:''}${part.length?`<span class="dchip part">Отмечены не все: ${part.length}</span>`:''}
     <label class="depf"><input type="checkbox" id="depOnly" ${depProblems?'checked':''}> только проблемные</label>`;
   $('#depOnly').onchange=e=>{depProblems=e.target.checked;store.set('depProblems',depProblems);renderDep()};
   $('#sumDep').innerHTML=[
