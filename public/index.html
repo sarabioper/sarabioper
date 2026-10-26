@@ -279,6 +279,11 @@ body.role-guide .eta-btns,body.role-guide #xAdd,body.role-guide #xForm,body.role
 #depTbl tr.d-fold td{padding-top:5px;padding-bottom:5px;background:var(--sunk)}
 .dfold{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}.dfold .fd-x{margin-left:auto;color:var(--muted)}
 #depTbl tr[data-did]:not(.d-fold){cursor:pointer}
+.dalerts{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:8px;margin:0 0 10px}
+.dalert{border:2px solid var(--crit);background:var(--crit-soft);border-radius:10px;padding:10px 12px;display:grid;gap:6px;cursor:pointer;font-size:13px}
+.da-h{font-size:15px}.da-w{color:var(--crit);font-weight:700}
+.da-g{display:grid;gap:3px}.da-b{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+#depTbl tr.flash td{outline:3px solid var(--crit);outline-offset:-3px}
 .tbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 10px}
 .tbar .sp,.ted-act .sp{flex:1}
 .tdate{display:inline-flex;align-items:center;gap:6px}
@@ -702,6 +707,7 @@ mark{background:var(--signal-soft);color:inherit}
   <section id="v-dep" hidden>
     <div class="summary" id="sumDep"></div>
     <div class="depbar" id="depBar"></div>
+    <div class="dalerts" id="depAlerts"></div>
     <p class="hint">Гид отмечает гостей «✓ Сел». Если время выезда прошло больше 10 минут, а никто не отмечен, строка горит красным. Когда все сели — строка сворачивается. Сервер следит за табло вылетов Антальи: если рейс перенесли раньше и с этим выездом гости не успевают (в аэропорту за 2 ч, внутренние за 1,5 ч, плюс дорога), строка загорится «⚠ выезд не позже …».</p>
     <div class="tbl-wrap"><table id="depTbl"></table></div>
   </section>
@@ -1680,6 +1686,15 @@ const TR_DICT={
 "⚠ Не успевают к вылету:":"⚠ Uçuşa yetişemiyor:",
 "✈ Рейс перенесли раньше:":"✈ Uçuş öne alındı:",
 "табло вылетов:":"kalkış panosu:",
+"рейс перенесли раньше:":"uçuş öne alındı:",
+"выезд в KAPAK слишком поздний для этого рейса":"KAPAK'taki çıkış bu uçuş için çok geç",
+"но выезд всё равно поздно":"ama çıkış yine de geç",
+"выезд по плану":"planlanan çıkış",
+"нужно не позже":"en geç",
+"опоздание":"gecikme",
+"машина не указана":"araç belirtilmemiş",
+"📋 Текст для WhatsApp":"📋 WhatsApp metni",
+"нажмите карточку — покажу строку в таблице":"karta dokunun — tablodaki satırı gösteririm",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",
@@ -2558,12 +2573,28 @@ function renderDep(){
     const stTxt=R&&R.L?(R.act?`<small class="dok">вылетел ${R.act}</small>`:R.status==='cancelled'?'<small class="dearly">рейс отменён</small>':''):'';
     const riskTxt=risk?`<span class="dchip late">⚠ ${R.chg<0?'Рейс раньше! ':''}выезд не позже ${fmt(R.latest)}<small>в аэропорту за ${r.term==='İÇ'?'1,5':'2'} ч + дорога ${TRAVEL(r.h||'')} мин</small></span>`:'';
     const a=assign[r.v]||{};const unk=/^[!?]/.test(r.fl);
-    return `<tr class="${cls}"${d.st==='ok'?` data-did="${esc(r.id)}"`:''}><td class="t num">${r.pu||'—'}</td><td>${esc(r.h)}</td><td class="n">${r.pax}</td><td class="mono">${unk?'<span class="chip bad">рейс не указан</span>':esc(r.fl)} <span class="hint">${esc(CITY[r.dest]||r.dest)}</span></td><td class="num dtime">${tCell}${stTxt}</td><td><span class="chip term">${r.term==='İÇ'?'İÇ HATLAR':r.term==='DIŞ'?'T2':'?'}</span></td><td class="mono">${esc(r.v||'—')}${a.plate?'<br><span class="hint">'+esc(a.plate)+'</span>':''}${dTag(a)?'<br>'+dTag(a):''}</td><td>${r.g?gTag(r.g):'—'}</td><td class="mono hint">${esc(r.op)}</td><td class="num">${depChip(d)}</td><td>${riskTxt}${r.note?`<span class="chip">${esc(r.note)}</span>`:''}</td></tr>`}).join('')}</tbody>`;
+    return `<tr id="dep_${esc(r.id)}" class="${cls}"${d.st==='ok'?` data-did="${esc(r.id)}"`:''}><td class="t num">${r.pu||'—'}</td><td>${esc(r.h)}</td><td class="n">${r.pax}</td><td class="mono">${unk?'<span class="chip bad">рейс не указан</span>':esc(r.fl)} <span class="hint">${esc(CITY[r.dest]||r.dest)}</span></td><td class="num dtime">${tCell}${stTxt}</td><td><span class="chip term">${r.term==='İÇ'?'İÇ HATLAR':r.term==='DIŞ'?'T2':'?'}</span></td><td class="mono">${esc(r.v||'—')}${a.plate?'<br><span class="hint">'+esc(a.plate)+'</span>':''}${dTag(a)?'<br>'+dTag(a):''}</td><td>${r.g?gTag(r.g):'—'}</td><td class="mono hint">${esc(r.op)}</td><td class="num">${depChip(d)}</td><td>${riskTxt}${r.note?`<span class="chip">${esc(r.note)}</span>`:''}</td></tr>`}).join('')}</tbody>`;
   $('#depTbl').querySelectorAll('tr[data-did]').forEach(tr=>tr.onclick=e=>{if(e.target.closest('a,button,input'))return;const id=tr.dataset.did;DEPOPEN.has(id)?DEPOPEN.delete(id):DEPOPEN.add(id);renderDep()});
   if(!rows.length&&depProblems)$('#depTbl').innerHTML+=`<tbody><tr><td colspan="11" class="hint" style="padding:14px">Проблемных выездов нет — все вовремя отмечены 👍</td></tr></tbody>`;
   const tot=all.reduce((s,r)=>s+r.pax,0),took=all.reduce((s,r)=>s+DS.get(r).ok,0);
   const late=all.filter(r=>DS.get(r).st==='late'),part=all.filter(r=>DS.get(r).st==='part');
   const next=all.find(r=>r.pu&&toMin(r.pu)>=NOW);
+  // each flight at risk spelled out: which flight, hotel, people, why, by when to leave, who drives
+  const why=(r,R)=>R.chg<0?`рейс перенесли раньше: ${r.t} → ${fmt(R.nt)} (на ${-R.chg} мин)`:R.chg>0?`вылет ${fmt(R.nt)} (задержка ${R.chg} мин), но выезд всё равно поздно`:'выезд в KAPAK слишком поздний для этого рейса';
+  $('#depAlerts').innerHTML=RISK.map(r=>{const R=depRisk(r),a=assign[r.v]||{};const pu=toMin(r.pu);const gap=pu-R.latest;
+    return `<div class="dalert" data-goto="${esc(r.id)}" role="button" tabindex="0">
+      <div class="da-h">⚠ <b>${esc(normFl(r.fl))}</b> ${esc(CITY[r.dest]||r.dest||'')} · ${termLbl(r.term)} · вылет <b>${fmt(R.nt)}</b>${R.chg?` <s class="hint">${r.t}</s>`:''}</div>
+      <div class="da-w">${esc(why(r,R))}</div>
+      <div class="da-g"><span>🏨 <b>${esc(r.h)}</b> · ${r.pax} чел. · ${esc(r.op||'')}</span>
+        <span>🕒 выезд по плану <b>${r.pu}</b> → нужно не позже <b class="dearly">${fmt(R.latest)}</b> (опоздание ${gap} мин)</span>
+        <span>🚌 ${esc(r.v||'машина не указана')}${a.plate?' · '+esc(a.plate):''} ${dTag(a)}</span>
+        <span>👤 ${r.g?gTag(r.g):'гид не указан'}</span></div>
+      <div class="da-b"><button type="button" class="btn sm" data-dawa="${esc(r.id)}">📋 Текст для WhatsApp</button><span class="hint">нажмите карточку — покажу строку в таблице</span></div></div>`}).join('');
+  $('#depAlerts').querySelectorAll('[data-goto]').forEach(el=>el.onclick=e=>{if(e.target.closest('a,button'))return;const tr=document.getElementById('dep_'+el.dataset.goto);if(tr){tr.scrollIntoView({behavior:'smooth',block:'center'});tr.classList.add('flash');setTimeout(()=>tr.classList.remove('flash'),1800)}});
+  $('#depAlerts').querySelectorAll('[data-dawa]').forEach(b=>b.onclick=()=>{const r=all.find(x=>x.id===b.dataset.dawa);const R=depRisk(r),a=assign[r.v]||{};const tr=LANG==='tr';
+    copy([`⚠ *${normFl(r.fl)}* ${tr?(CITY_TR[r.dest]||r.dest||''):(CITY[r.dest]||r.dest||'')} · ${tr?'kalkış':'вылет'} *${fmt(R.nt)}*${R.chg?` (${tr?'eski':'было'} ${r.t})`:''}`,
+      `${r.h} · ${r.pax} ${tr?'kişi':'чел.'}`,`${tr?'Planlanan çıkış':'Выезд по плану'} ${r.pu} → ${tr?'en geç':'не позже'} *${fmt(R.latest)}*`,
+      `${r.v||''}${a.plate?' · '+a.plate:''}${a.phone?' · '+(tr?'şoför ':'водитель ')+a.phone:''}`,r.g?`${tr?'Rehber':'Гид'}: ${r.g}${gPhone(r.g)?' '+gPhone(r.g):''}`:''].filter(Boolean).join('\n'),true)});
   $('#depBar').innerHTML=`${RISK.length?`<span class="dchip late">⚠ Не успевают к вылету: ${RISK.length} (${RISK.reduce((s,r)=>s+(+r.pax||0),0)} чел.)</span>`:''}${EARLY.length?`<span class="dchip part">✈ Рейс перенесли раньше: ${[...new Set(EARLY.map(r=>normFl(r.fl)))].join(', ')}</span>`:''}${LIVE&&LIVE.depUpdated?`<span class="hint">табло вылетов: ${hm(LIVE.depUpdated)}</span>`:''}<span class="dchip ok">✓ Забрали: ${all.filter(r=>DS.get(r).st==='ok').length} выездов</span>${late.length?`<span class="dchip late">⚠ Не отмечены вовремя: ${late.length} (${late.reduce((s,r)=>s+DS.get(r).tot,0)} чел.)</span>`:''}${part.length?`<span class="dchip part">Отмечены не все: ${part.length}</span>`:''}
     <label class="depf"><input type="checkbox" id="depOnly" ${depProblems?'checked':''}> только проблемные</label>`;
   $('#depOnly').onchange=e=>{depProblems=e.target.checked;store.set('depProblems',depProblems);renderDep()};
