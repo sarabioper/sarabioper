@@ -43,7 +43,7 @@ function parseTourists(rows){
     g.dir=h.type==='ARA'&&!g.fl?'h2h':listDir||(g.fTo==='AYT'?'arr':g.fFrom==='AYT'?'dep':h.type==='ARA'?'h2h':'arr');
     if(listDir==='arr'&&g.fFrom==='AYT'){g.routeFlip=g.fFrom+'-'+g.fTo;g.fFrom=g.fTo;g.fTo='AYT'}
     // people
-    const pr=/(\d{1,3})-\s+(Mr|Mrs|Ms|Miss|Chd|Inf)\s*\.?\s+(?:\?\s+)?/g;const anchors=[];let p;
+    const pr=/(\d{1,3})-\s*(Mr|Mrs|Ms|Miss|Chd|Inf)\s*(?:\.\s*|\s+)(?:\?\s+)?(?=[A-ZÇĞİÖŞÜ?])/g;const anchors=[];let p;
     while((p=pr.exec(seg)))anchors.push({start:p.index,end:pr.lastIndex,title:p[2]});
     let room=null,roomNo=0;
     anchors.forEach((a,j)=>{

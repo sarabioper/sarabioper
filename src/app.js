@@ -722,6 +722,7 @@ function runChecks(){
     if(gap<need)out.push(['crit',`Поздний выезд: ${r.fl} ${r.t}`,`Выезд из ${r.h} в ${r.pu}, до вылета ${Math.floor(gap/60)} ч ${gap%60} мин. На дорогу и регистрацию нужно около ${Math.floor(need/60)} ч ${need%60} мин.`]);
     else if(gap>420)out.push(['info',`Очень ранний выезд: ${r.fl} ${r.t}`,`Выезд из ${r.h} в ${r.pu}, за ${Math.floor(gap/60)} ч ${gap%60} мин до вылета (${r.pax} чел, ${r.v}). Возможно, так собрана общая машина.`])});
   // free-text notes
+  [...A,...D].filter(x=>x.p&&x.p.length&&unnamed(x)>0).forEach(x=>out.push(['warn',`Имён меньше, чем людей: ${normFl(x.fl)} ${x.t} — ${x.p.length} из ${x.pax}`,`${x.h} · ${x.op||''}. В списке туристов не хватает ${unnamed(x)} имён. Гости посчитаны все (${x.pax}), у гида для них есть счётчик «без имён». Проверьте список GENEL / Araç.`]));
   const notes=[...A,...D].filter(x=>x.note&&!/^[!?]/.test(x.fl)&&x.to!=='GZP');
   if(notes.length)out.push(['info','Пометки диспетчера в списке',notes.map(x=>`${x.fl} ${x.t}: «${x.note}»`).join(' · ')]);
   if(DAY.self)out.push(['info',`${DAY.self} гостей едут сами`,'Записи с пометкой «Kendi gider». Машина и гид не нужны.']);
@@ -746,10 +747,12 @@ const guides=()=>[...new Set([...DAY.arr,...DAY.dep].map(x=>x.g).filter(Boolean)
 // two separate layers of marks: L undefined/'g' = the guide's own marks, L 'o' = the office (arrivals board, scanner)
 const LKEY=(L,i)=>L==='o'?'o'+i:String(i),LAT=(L,i)=>L==='o'?'o@'+i:'@'+i;
 const markOf=(gid,i,L)=>{const v=(met[gid]||{})[LKEY(L,i)];return v===true?'out':v||null};
-function marked(g,L){const m=met[g.id]||{};if(g.p&&g.p.length)return g.p.reduce((s,_,i)=>s+(markOf(g.id,i,L)==='out'?1:0),0);return Math.min(+m[LKEY(L,'n')]||0,+g.pax||0)}
+function marked(g,L){const m=met[g.id]||{};if(g.p&&g.p.length)return g.p.reduce((s,_,i)=>s+(markOf(g.id,i,L)==='out'?1:0),0)+Math.min(unnamed(g),+m[LKEY(L,'n')]||0);return Math.min(+m[LKEY(L,'n')]||0,+g.pax||0)}
 function noCount(g,L){return g.p&&g.p.length?g.p.reduce((s,_,i)=>s+(markOf(g.id,i,L)==='no'?1:0),0):0}
-function groupTotal(g){return g.p&&g.p.length?g.p.length:(+g.pax||0)}
-function resolved(g,L){if(g.p&&g.p.length)return g.p.reduce((s,_,i)=>s+(markOf(g.id,i,L)?1:0),0);return marked(g,L)}
+// never fewer people than the KAPAK says, even if the name list came short (the rest are counted without names)
+function groupTotal(g){return g.p&&g.p.length?Math.max(g.p.length,+g.pax||0):(+g.pax||0)}
+const unnamed=g=>g.p&&g.p.length?Math.max(0,(+g.pax||0)-g.p.length):(+g.pax||0);
+function resolved(g,L){if(g.p&&g.p.length)return g.p.reduce((s,_,i)=>s+(markOf(g.id,i,L)?1:0),0)+Math.min(unnamed(g),+(met[g.id]||{})[LKEY(L,'n')]||0);return marked(g,L)}
 const stamp=()=>nowMinutes();
 function setMark(gid,i,val,L){met[gid]=met[gid]||{};met[gid][LKEY(L,i)]=val;met[gid][LAT(L,i)]=val?stamp():null;saveMet()}
 const allGroups=()=>[...DAY.arr,...DAY.dep];
@@ -802,7 +805,9 @@ function paxRows(g,kind,L,ro){
   if(g.p&&g.p.length){
     const pend=[],done=[];g.p.forEach((p,i)=>(markOf(g.id,i,L)?done:pend).push([p,i]));
     const nOut=done.filter(([,i])=>markOf(g.id,i,L)==='out').length,nNo=done.length-nOut;
-    return pend.map(([p,i])=>row(p,i)).join('')+(done.length?`<details class="donebox"${pend.length?'':' open'}><summary><span class="met">✓ ${kind==='arr'?'Вышли':'Сели'}: ${nOut}</span>${nNo?` <span class="nos">✗ не пришли: ${nNo}</span>`:''}</summary>${done.map(([p,i])=>row(p,i)).join('')}</details>`:'');
+    const un=unnamed(g),nu=Math.min(un,+(met[g.id]||{})[LKEY(L,'n')]||0);
+    const cnt=un?`<div class="counter un"><span class="hint">⚠ ещё ${un} чел. без имён в списке:</span>${ro?'':`<button type="button" data-cnt="${g.id}|-1${lp}" aria-label="Минус">−</button>`}<output>${nu} / ${un}</output>${ro?'':`<button type="button" data-cnt="${g.id}|1${lp}" aria-label="Плюс">+</button>`}</div>`:'';
+    return cnt+pend.map(([p,i])=>row(p,i)).join('')+(done.length?`<details class="donebox"${pend.length?'':' open'}><summary><span class="met">✓ ${kind==='arr'?'Вышли':'Сели'}: ${nOut}</span>${nNo?` <span class="nos">✗ не пришли: ${nNo}</span>`:''}</summary>${done.map(([p,i])=>row(p,i)).join('')}</details>`:'');
   }
   const n=marked(g,L);
   if(ro)return `<div class="counter"><output>${n} / ${g.pax}</output><span class="hint">без имён</span></div>`;
@@ -828,8 +833,8 @@ function taskCard(t,key,o={}){
 }
 function bindMarks(T){
   T.querySelectorAll('[data-mk]').forEach(b=>b.onclick=()=>{const [gid,i,val,L]=b.dataset.mk.split('|');setMark(gid,i,markOf(gid,i,L)===val?null:val,L);rerenderMarks()});
-  T.querySelectorAll('[data-cnt]').forEach(b=>b.onclick=()=>{const [gid,d,L]=b.dataset.cnt.split('|');const g=allGroups().find(x=>x.id===gid);met[gid]=met[gid]||{};const k=LKEY(L,'n');met[gid][k]=Math.max(0,Math.min(+g.pax||0,(+met[gid][k]||0)+(+d)));met[gid][LAT(L,'n')]=stamp();saveMet();rerenderMarks()});
-  T.querySelectorAll('[data-allk]').forEach(b=>b.onclick=()=>{const L=b.dataset.l;const now=stamp();b.dataset.allk.split(',').forEach(gid=>{const g=allGroups().find(x=>x.id===gid);met[gid]=met[gid]||{};if(g.p&&g.p.length)g.p.forEach((_,i)=>{if(!markOf(gid,i,L)){met[gid][LKEY(L,i)]='out';met[gid][LAT(L,i)]=now}});else{met[gid][LKEY(L,'n')]=+g.pax||0;met[gid][LAT(L,'n')]=now}});saveMet();rerenderMarks();toast(L==='o'?'Отмечено в офисе (отметки гида отдельно)':'Отмечено, операционщик это видит')});
+  T.querySelectorAll('[data-cnt]').forEach(b=>b.onclick=()=>{const [gid,d,L]=b.dataset.cnt.split('|');const g=allGroups().find(x=>x.id===gid);met[gid]=met[gid]||{};const k=LKEY(L,'n');met[gid][k]=Math.max(0,Math.min(unnamed(g),(+met[gid][k]||0)+(+d)));met[gid][LAT(L,'n')]=stamp();saveMet();rerenderMarks()});
+  T.querySelectorAll('[data-allk]').forEach(b=>b.onclick=()=>{const L=b.dataset.l;const now=stamp();b.dataset.allk.split(',').forEach(gid=>{const g=allGroups().find(x=>x.id===gid);met[gid]=met[gid]||{};if(g.p&&g.p.length){g.p.forEach((_,i)=>{if(!markOf(gid,i,L)){met[gid][LKEY(L,i)]='out';met[gid][LAT(L,i)]=now}});if(unnamed(g)){met[gid][LKEY(L,'n')]=unnamed(g);met[gid][LAT(L,'n')]=now}}else{met[gid][LKEY(L,'n')]=+g.pax||0;met[gid][LAT(L,'n')]=now}});saveMet();rerenderMarks();toast(L==='o'?'Отмечено в офисе (отметки гида отдельно)':'Отмечено, операционщик это видит')});
   // reset only this layer: the other side's marks and the notes stay
   T.querySelectorAll('[data-clear]').forEach(b=>b.onclick=()=>{const L=b.dataset.l;b.dataset.clear.split(',').forEach(gid=>{const g=allGroups().find(x=>x.id===gid);met[gid]=met[gid]||{};met[gid][LKEY(L,'n')]=0;met[gid][LAT(L,'n')]=null;if(g.p)g.p.forEach((_,i)=>{met[gid][LKEY(L,i)]=null;met[gid][LAT(L,i)]=null})});saveMet();rerenderMarks()});
   T.querySelectorAll('[data-wacopy]').forEach(b=>b.onclick=()=>{const txt=taskWa(b.dataset.wacopy);if(txt)copy(txt,true)});
@@ -968,6 +973,7 @@ function exitedText(tasks,o){
       if(g.p&&g.p.length)g.p.forEach((p,i)=>{const mk=markOf(g.id,i,t.L);if(!mk)return;if(o.onlyNew&&SENT[sentKey(g.id,i)])return;const at=(met[g.id]||{})[LAT(t.L,i)];
         const nt=noteOf(g.id,i);
         if(mk==='out'){outs.push(`${p[0]} ${p[1]}${o.time&&at!=null?' ('+fmt(at)+')':''}${nt?' — 📝 '+nt:''}`);keys.push(sentKey(g.id,i))}else if(o.no){nos.push(`${p[0]} ${p[1]}${nt?" — 📝 "+nt:""}`);keys.push(sentKey(g.id,i))}});
+      if(g.p&&g.p.length&&unnamed(g)){const m=met[g.id]||{};const cnt=Math.min(unnamed(g),+m[LKEY(t.L,'n')]||0);const sentN=+SENT[sentKey(g.id,'n')]||0;const add=o.onlyNew?cnt-sentN:cnt;if(add>0){outs.push(`${add} ${L.noname}`);keys.push(sentKey(g.id,'n')+'='+cnt)}}
       else{const m=met[g.id]||{};const cnt=+m[LKEY(t.L,'n')]||0;const sentN=+SENT[sentKey(g.id,'n')]||0;const add=o.onlyNew?cnt-sentN:cnt;if(add>0){outs.push(`${add} ${L.noname}${o.time&&m[LAT(t.L,'n')]!=null?' ('+fmt(m[LAT(t.L,'n')])+')':''}`);keys.push(sentKey(g.id,'n')+'='+cnt);n+=add}}
       if(!outs.length&&!nos.length)return;
       if(g.p&&g.p.length)n+=outs.length;
