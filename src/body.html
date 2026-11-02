@@ -81,6 +81,18 @@ body.role-guide .eta-btns,body.role-guide #xAdd,body.role-guide #xForm,body.role
 .da-h{font-size:15px}.da-w{color:var(--crit);font-weight:700}
 .da-g{display:grid;gap:3px}.da-b{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 #depTbl tr.flash td{outline:3px solid var(--crit);outline-offset:-3px}
+.rep-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;margin:0 0 10px}
+.rep-nav{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0}.rep-nav .sp{flex:1}
+.rep-nav #repDate small{color:var(--muted)}
+#repList,.rep-my{display:grid;gap:8px}
+.rep{border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:8px;background:var(--surface);padding:8px 10px;display:grid;gap:5px}
+.rep-h{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.rep-t{border-color:var(--warn);background:var(--warn-soft)}
+.rep-m{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted)}
+.rep-x{white-space:pre-wrap;font-size:14px}.rep-a{display:flex;gap:6px}
+.rep-my summary{cursor:pointer;font-size:13px;color:var(--muted)}
+.scrollfab{position:fixed;left:calc(12px + env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:39;display:grid;gap:6px}
+.scrollfab button{width:42px;height:42px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,.18);cursor:pointer}
+.scrollfab button:disabled{opacity:.35;cursor:default}
 .tbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 10px}
 .tbar .sp,.ted-act .sp{flex:1}
 .tdate{display:inline-flex;align-items:center;gap:6px}
@@ -424,7 +436,7 @@ mark{background:var(--signal-soft);color:inherit}
     </div>
     <nav class="tabs" role="tablist" id="tabs">
       <button class="tab" role="tab" data-t="board" aria-selected="true">Прилёты</button>
-      <button class="tab" role="tab" data-t="ops">Контроль</button>
+      <button class="tab" role="tab" data-t="ops">Контроль<span class="cnt" id="repCnt" hidden>0</span></button>
       <button class="tab" role="tab" data-t="dep">Вылеты<span class="cnt" id="depCnt" hidden>0</span></button>
       <button class="tab" role="tab" data-t="veh">Машины</button>
       <button class="tab" role="tab" data-t="tours">Экскурсии</button>
@@ -453,6 +465,9 @@ mark{background:var(--signal-soft);color:inherit}
 
   <section id="v-ops" hidden>
     <div class="summary" id="opsSum"></div>
+    <details class="ops-box rep-box" id="repBox"><summary>📝 Рапорты гидов · <span id="repN">0</span></summary>
+      <div class="rep-nav"><button type="button" class="btn sm" id="repPrev" aria-label="Предыдущий день">‹</button><span id="repDate"></span><button type="button" class="btn sm" id="repNext" aria-label="Следующий день">›</button><button type="button" class="btn sm" id="repToday">Сегодня</button><span class="sp"></span><button type="button" class="btn sm" id="repNewOps">+ Рапорт</button></div>
+      <div id="repList"></div></details>
     <div class="filters">
       <select id="opsGuide" aria-label="Гид"><option value="">Все гиды</option></select>
       <select id="opsKind" aria-label="Тип"><option value="">Встречи и сборы</option><option value="arr">Только встречи</option><option value="dep">Только сборы</option></select>
@@ -556,6 +571,8 @@ mark{background:var(--signal-soft);color:inherit}
     <div class="gkinds" id="gKind" role="tablist" aria-label="Тип задачи"></div>
     <div class="guide-pick" id="guidePick"></div>
     <div id="guideHead"></div>
+    <div class="rep-bar"><button type="button" class="btn" id="repNew">📝 Написать рапорт</button><span id="repMine"></span></div>
+    <div class="xform" id="repForm" hidden></div>
     <div class="gmode" role="tablist"><button type="button" class="gm" data-gm="tasks" aria-pressed="true">Задания и отметки</button><button type="button" class="gm" data-gm="guests" aria-pressed="false">Мои гости</button></div>
     <div id="gmTasks">
       <div class="gfilters"><label><input type="checkbox" id="hideDone"> скрыть выполненные</label></div>
@@ -613,6 +630,7 @@ mark{background:var(--signal-soft);color:inherit}
     </div>
   </section>
 </main>
+<div class="scrollfab" id="scrollFab" hidden><button type="button" id="toTop" aria-label="Наверх">↑</button><button type="button" id="toBottom" aria-label="Вниз">↓</button></div>
 <div class="login" id="login" hidden>
   <form class="panel login-card" id="loginForm">
     <h2 style="margin:0">SARABI OPS</h2>

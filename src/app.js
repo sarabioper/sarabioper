@@ -859,6 +859,7 @@ function renderGuide(){
   const nextIdx=tasks.findIndex(t=>!t.complete&&t.time+60>=NOW);
   $('#tasks').innerHTML=tasks.map((t,ti)=>hide&&t.complete?'':taskCard(t,'g'+ti,{next:ti===nextIdx})).join('')||'<p class="hint">Все задания выполнены.</p>';
   bindMarks($('#tasks'));
+  try{renderReports()}catch(e){}
 }
 $('#hideDone').addEventListener('change',renderGuide);
 

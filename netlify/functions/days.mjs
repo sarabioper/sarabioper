@@ -63,15 +63,15 @@ export default async (req) => {
 
   if (req.method === "GET" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
-    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra"].includes(kind)) return json({ error: "Неверный тип" }, 400);
+    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra", "reports"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     return json({ data: (await s.get("state/" + d + "/" + kind, { type: "json" })) || {} });
   }
 
   if (req.method === "PUT" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
     // guides may only save their check-ins (and guest notes, kept with them) and excursion stops
-    if (auth.role !== "ops" && !["met", "tourmarks"].includes(kind)) return forbidden();
-    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra"].includes(kind)) return json({ error: "Неверный тип" }, 400);
+    if (auth.role !== "ops" && !["met", "tourmarks", "reports"].includes(kind)) return forbidden();
+    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra", "reports"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     const body = await req.json();
     if (kind === "extra") {
       // guests added by hand on the arrivals board (late booking, moved to another flight); one key per group
@@ -89,6 +89,17 @@ export default async (req) => {
           if (ch) await s.setJSON("watch/" + iso, watch);
         }
       }
+      return json({ ok: true });
+    }
+    if (kind === "reports") {
+      // incident reports from guides and the office, one key per report; only the office may delete one
+      const prev = (await s.get("state/" + d + "/reports", { type: "json" })) || {};
+      for (const [k, v] of Object.entries(body || {})) {
+        if (v == null) { if (auth.role === "ops") delete prev[k]; continue; }
+        if (typeof v !== "object" || String(v.text || "").length > 5000) continue;
+        prev[k] = { ...v, by: auth.role, savedAt: prev[k] ? prev[k].savedAt : new Date().toISOString() };
+      }
+      await s.setJSON("state/" + d + "/reports", prev);
       return json({ ok: true });
     }
     if (kind === "tours" || kind === "tourmarks") {
