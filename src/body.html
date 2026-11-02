@@ -607,7 +607,7 @@ mark{background:var(--signal-soft);color:inherit}
       <span class="tdate"><button type="button" class="btn sm" id="tPrev" aria-label="Предыдущий день">‹</button><span id="tDateLbl"></span><button type="button" class="btn sm" id="tNext" aria-label="Следующий день">›</button><button type="button" class="btn sm" id="tToday">Сегодня</button></span>
       <select id="tBus" aria-label="Автобус"></select>
       <span class="sp"></span>
-      <label class="btn sm">⬆ Программы и списки групп<input type="file" id="tXls" accept=".xlsx,.xls,.xlsm,.pdf,image/*" multiple hidden></label>
+      <label class="btn sm">⬆ Программы и списки групп<input type="file" id="tXls" accept=".xlsx,.xls,.xlsm,.csv,.pdf,image/*" multiple hidden></label>
       <button type="button" class="btn sm" id="tSamples" hidden></button>
       <button type="button" class="btn sm primary" id="tNew">+ Программа</button>
     </div>
@@ -679,10 +679,14 @@ mark{background:var(--signal-soft);color:inherit}
           <label class="drop" id="dropA" for="xlsA"><span class="step">2</span><b>Машины</b><span class="hint">PDF, Word или Excel · Araç Transfer Listesi</span><span class="hint">кто в какой машине, гиды, имена с возрастом</span></label>
           <label class="drop" id="dropT" for="xlsT"><span class="step">3</span><b>Имена туристов</b><span class="hint">PDF, Word или Excel · Genel Geliş</span><span class="hint">если Araç Listesi нет</span></label>
           <label class="drop" id="dropD" for="xlsD"><span class="step">4</span><b>Вылеты (DEPAR)</b><span class="hint">PDF, Word или Excel · Dönüş / Gidiş listesi, лист машин на вылет</span><span class="hint">всё, что сюда, считается вылетом</span></label>
+          <label class="drop" id="dropG" for="xlsG"><span class="step">5</span><b>Списки групп</b><span class="hint">Excel, CSV или PDF · экскурсии</span><span class="hint">можно все группы сразу — сайт сам найдёт автобус по имени гида и дате</span></label>
+          <label class="drop" id="dropP" for="xlsP"><span class="step">6</span><b>Фото программ</b><span class="hint">скриншоты или фото таблиц · Excel</span><span class="hint">программы автобусов (ÇIKIŞ, MAĞAZA, REHBER, PAX)</span></label>
         </div>
-        <input type="file" id="xlsK" accept=".xlsx,.xls,.xlsm,.pdf,.docx,image/*" multiple hidden>
-        <input type="file" id="xlsA" accept=".xlsx,.xls,.xlsm,.pdf,.docx,.doc,image/*" multiple hidden>
-        <input type="file" id="xlsT" accept=".xlsx,.xls,.xlsm,.pdf,.docx,.doc,image/*" multiple hidden>
+        <input type="file" id="xlsG" accept=".xlsx,.xls,.xlsm,.csv,.pdf" multiple hidden>
+        <input type="file" id="xlsP" accept="image/*,.xlsx,.xls,.xlsm" multiple hidden>
+        <input type="file" id="xlsK" accept=".xlsx,.xls,.xlsm,.csv,.pdf,.docx,image/*" multiple hidden>
+        <input type="file" id="xlsA" accept=".xlsx,.xls,.xlsm,.csv,.pdf,.docx,.doc,image/*" multiple hidden>
+        <input type="file" id="xlsT" accept=".xlsx,.xls,.xlsm,.csv,.pdf,.docx,.doc,image/*" multiple hidden>
         <input type="file" id="xlsD" accept=".pdf,.docx,.doc,.xlsx,.xls" multiple hidden>
         <p class="hint">Нажмите на окно или перетащите в него файлы. Можно выбрать или перетащить сразу все файлы в любое окно (1–3): сайт сам поймёт, где Капак, лист машин, имена, вылеты, программы автобусов (Excel или фото) и списки групп для экскурсий. В окно 4 — только вылеты.</p>
         <div id="xlsMsg" class="res"></div>

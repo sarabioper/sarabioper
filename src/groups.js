@@ -5,8 +5,34 @@ const usDate=s=>{const iso=String(s||'').match(/(\d{4})-(\d\d)-(\d\d)(?:[ T](\d{
   const us=/\//.test(m[0]);let d=+(us?m[2]:m[1]),mo=+(us?m[1]:m[2]),y=+m[3];if(y<100)y+=y>40?1900:2000;if(mo>12&&d<=12){const x=d;d=mo;mo=x}
   return {iso:`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`,t:m[4]?m[4].padStart(2,'0')+':'+m[5]:''}};
 const flNorm=f=>String(f||'').toUpperCase().replace(/[\s-]+/g,'').replace(/^([A-Z0-9]{2})0*(\d+)$/,'$1 $2');
-function isGroupList(rows){const S=rows.slice(0,6).map(r=>(r||[]).join(' ')).join(' ');return /Фамилия/i.test(S)&&/(Имя|Name)/i.test(S)&&/(Рейс|Flight)/i.test(S)}
-function parseGroupList(rows){
+function isGroupList(rows){const S=rows.slice(0,6).map(r=>(r||[]).join(' ')).join(' ');return /Фамилия/i.test(S)&&/(Имя|Name)/i.test(S)&&/(Рейс|Flight)/i.test(S)||isGroupListTR(rows)}
+// the Turkish layout: № | voucher | phone | booking | "Adı, Soyadı" (surname | name) | sex | Doğum Tarihi | passport (series | number | valid) |
+// Geliş Tarihi | Geliş Yeri (flight) | Geliş saatı ("13:00-15:00") | Transfer ucreti | Dönüş Tarihi | Dönüş Yeri | Dönüş Saatı | Diğer odeme | comment
+const grpHdrTR=rows=>rows.slice(0,8).findIndex(r=>{const u=(r||[]).map(c=>upTR(c)).join('|');return /ADI/.test(u)&&/GEL[İI]Ş/.test(u)&&/(DÖNÜŞ|DONUS)/.test(u)});
+function isGroupListTR(rows){return grpHdrTR(rows)>=0}
+const lat=s=>String(s||'').replace(/[АВЕКМНОРСТХУ]/g,c=>({А:'A',В:'B',Е:'E',К:'K',М:'M',Н:'H',О:'O',Р:'P',С:'C',Т:'T',Х:'X',У:'Y'})[c]);
+function parseGroupListTR(rows){const h=grpHdrTR(rows),H=(rows[h]||[]).map(c=>upTR(c).replace(/\s+/g,' ').trim());const col=re=>H.findIndex(c=>re.test(c));
+  const ni=col(/^ADI/),sx=col(/SEX|CİNS|CINS/),db=col(/DOĞUM|DOGUM/),ps=col(/ASAPORT|PASAPORT|PASSPORT/),ad=col(/GEL[İI]Ş TAR/),af=col(/GEL[İI]Ş YER/),at=col(/GEL[İI]Ş SAAT/),tf=col(/TRANSFER/),rd=col(/(DÖNÜŞ|DONUS) TAR/),rf=col(/(DÖNÜŞ|DONUS) YER/),rt=col(/(DÖNÜŞ|DONUS) SAAT/),ot=col(/D[İI]ĞER|DIGER/);
+  const out={code:'',hotels:[],guests:[]};const cell=(r,i)=>i>=0&&r[i]!=null?String(r[i]).replace(/\s+/g,' ').trim():'';
+  rows.slice(0,h).forEach(r=>{const L=(r||[]).map(c=>String(c||'').trim()).filter(Boolean).join(' ');if(L&&!out.code&&!/^\d+\.?$/.test(L))out.code=L});
+  let fam=null;
+  rows.slice(h+1).forEach(r=>{r=r||[];const L=r.map(c=>String(c==null?'':c).trim()).filter(Boolean).join(' ');if(!L)return;
+    const hs=L.match(/^(\d{1,2}\.\d{1,2})\s*-\s*(\d{1,2}\.\d{1,2})\s*-\s*(.+)$/);if(hs){out.hotels.push(`${hs[1]}–${hs[2]} ${hs[3].trim()}`);return}
+    const sur=cell(r,ni),nm=cell(r,ni+1).replace(/\s+\d+$/,'');if(!sur&&!nm)return;
+    const no=+cell(r,0)||out.guests.length+1,v=cell(r,1),ph=cell(r,2);
+    // the first row of a family has the voucher / phone / booking; the rows under it are the same family
+    if(v||ph||cell(r,3)||!fam)fam={v,phone:ph.replace(/\D/g,'').length>=10?'+'+ph.replace(/\D/g,'').replace(/^8(\d{10})$/,'7$1'):ph,code:cell(r,3),c:''};
+    const fl=lat(cell(r,af).toUpperCase()),self=/KEND[İI]|KENDI/i.test(fl);const tm=cell(r,at).match(/(\d{1,2}:\d\d)\s*$/);
+    const pass=ps>=0?[cell(r,ps),cell(r,ps+1)].filter(Boolean).join(' '):'';
+    const fee=cell(r,tf),oth=cell(r,ot),com=cell(r,ot>=0?ot+1:-1);if(com)fam.c=fam.c?fam.c+' '+com:com;
+    const A=usDate(cell(r,ad)),R=usDate(cell(r,rd));const rfl=lat(cell(r,rf).toUpperCase());
+    out.guests.push({no,n:(sur+' '+nm).trim(),sex:cell(r,sx).toUpperCase(),dob:(usDate(cell(r,db))||{}).iso||'',phone:fam.phone,trf:[fee?fee+(/\D/.test(fee)?'':' USD'):'',oth].filter(Boolean).join(' · '),pass,
+      af:self?'':flNorm(fl),ad:A?A.iso:'',at:tm?tm[1].padStart(5,'0'):'',rf:/^[A-Z0-9]{2}[\s-]?\d/.test(rfl)?flNorm(rfl):'',rd:R?R.iso:'',rt:(cell(r,rt).match(/\d{1,2}:\d\d/)||[''])[0].padStart(5,'0').replace(/^0+$/,''),
+      v:fam.v||fam.code,c:'',self,_f:fam})});
+  // comments and the family key are shared by the family (same layout as the Russian lists)
+  out.guests.forEach(x=>{const f=x._f;delete x._f;x.fam=f.phone.replace(/\D/g,'')||f.v||f.code||String(x.no);x.c=[x.self?'До отеля сами (KENDİ GİDER).':'',f.c].filter(Boolean).join(' ');delete x.self});
+  return out}
+function parseGroupList(rows){if(isGroupListTR(rows))return parseGroupListTR(rows);
   const lines=rows.map(r=>(r||[]).filter(c=>c!=null&&String(c).trim()!=='').map(c=>String(c).replace(/\s+/g,' ').trim()).join('  ')).filter(Boolean);
   const out={code:'',hotels:[],guests:[]};const loose=[];
   const G=/^(\d{1,3})\s+(?:([A-Z]{2,6}-[A-Z]{1,5}-\d{2,8})\s+)?(.+?)\s+(F|M|CHD|INF|Ж|М)\s+(\d{1,2}[\/.]\d{1,2}[\/.]\d{2,4}|\d{4}-\d\d-\d\d)\s*(.*)$/;

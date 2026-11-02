@@ -1141,6 +1141,10 @@ async function readRows(file){
   if(ext==='docx'){if(!window.JSZip)await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');return docxToRows(await file.arrayBuffer())}
   if(ext==='doc')throw new Error('это старый формат Word (.doc). Откройте файл в Word и сохраните как .docx или PDF');
   if(typeof XLSX==='undefined')throw new Error('библиотека Excel не загрузилась, обновите страницу');
+  if(ext==='csv'||ext==='txt'){const buf=await file.arrayBuffer();let txt=new TextDecoder('utf-8').decode(buf);
+    // saved from an old Excel: Windows Cyrillic, or Windows Turkish when there is no Cyrillic in it
+    if(/\uFFFD/.test(txt)){const ru=new TextDecoder('windows-1251').decode(buf);txt=/[а-яА-Я]{3}/.test(ru)?ru:new TextDecoder('windows-1254').decode(buf)}
+    const wb=XLSX.read(txt.replace(/^\uFEFF/,''),{type:'string',raw:true});return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false,defval:''})}
   const wb=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array'});
   let rows=[];wb.SheetNames.forEach(n=>rows=rows.concat(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:false})));
   return rows;
@@ -1231,8 +1235,8 @@ async function importFiles(files,opt={}){
 }
 // kept for older callers and tests
 const importFile=f=>importFiles([f]);
-['#xlsK','#xlsA','#xlsT','#xlsD'].forEach(id=>$(id).addEventListener('change',e=>{if(e.target.files.length)importFiles([...e.target.files],id==='#xlsD'?{dir:'dep'}:{});e.target.value=''}));
-['#dropK','#dropA','#dropT','#dropD'].forEach(id=>{const drop=$(id);
+['#xlsK','#xlsA','#xlsT','#xlsD','#xlsG','#xlsP'].forEach(id=>$(id).addEventListener('change',e=>{if(e.target.files.length)importFiles([...e.target.files],id==='#xlsD'?{dir:'dep'}:{});e.target.value=''}));
+['#dropK','#dropA','#dropT','#dropD','#dropG','#dropP'].forEach(id=>{const drop=$(id);
   ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
   ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
   drop.addEventListener('drop',e=>{const f=[...e.dataTransfer.files];if(f.length)importFiles(f,id==='#dropD'?{dir:'dep'}:{})})});

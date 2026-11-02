@@ -810,7 +810,7 @@ mark{background:var(--signal-soft);color:inherit}
       <span class="tdate"><button type="button" class="btn sm" id="tPrev" aria-label="Предыдущий день">‹</button><span id="tDateLbl"></span><button type="button" class="btn sm" id="tNext" aria-label="Следующий день">›</button><button type="button" class="btn sm" id="tToday">Сегодня</button></span>
       <select id="tBus" aria-label="Автобус"></select>
       <span class="sp"></span>
-      <label class="btn sm">⬆ Программы и списки групп<input type="file" id="tXls" accept=".xlsx,.xls,.xlsm,.pdf,image/*" multiple hidden></label>
+      <label class="btn sm">⬆ Программы и списки групп<input type="file" id="tXls" accept=".xlsx,.xls,.xlsm,.csv,.pdf,image/*" multiple hidden></label>
       <button type="button" class="btn sm" id="tSamples" hidden></button>
       <button type="button" class="btn sm primary" id="tNew">+ Программа</button>
     </div>
@@ -882,10 +882,14 @@ mark{background:var(--signal-soft);color:inherit}
           <label class="drop" id="dropA" for="xlsA"><span class="step">2</span><b>Машины</b><span class="hint">PDF, Word или Excel · Araç Transfer Listesi</span><span class="hint">кто в какой машине, гиды, имена с возрастом</span></label>
           <label class="drop" id="dropT" for="xlsT"><span class="step">3</span><b>Имена туристов</b><span class="hint">PDF, Word или Excel · Genel Geliş</span><span class="hint">если Araç Listesi нет</span></label>
           <label class="drop" id="dropD" for="xlsD"><span class="step">4</span><b>Вылеты (DEPAR)</b><span class="hint">PDF, Word или Excel · Dönüş / Gidiş listesi, лист машин на вылет</span><span class="hint">всё, что сюда, считается вылетом</span></label>
+          <label class="drop" id="dropG" for="xlsG"><span class="step">5</span><b>Списки групп</b><span class="hint">Excel, CSV или PDF · экскурсии</span><span class="hint">можно все группы сразу — сайт сам найдёт автобус по имени гида и дате</span></label>
+          <label class="drop" id="dropP" for="xlsP"><span class="step">6</span><b>Фото программ</b><span class="hint">скриншоты или фото таблиц · Excel</span><span class="hint">программы автобусов (ÇIKIŞ, MAĞAZA, REHBER, PAX)</span></label>
         </div>
-        <input type="file" id="xlsK" accept=".xlsx,.xls,.xlsm,.pdf,.docx,image/*" multiple hidden>
-        <input type="file" id="xlsA" accept=".xlsx,.xls,.xlsm,.pdf,.docx,.doc,image/*" multiple hidden>
-        <input type="file" id="xlsT" accept=".xlsx,.xls,.xlsm,.pdf,.docx,.doc,image/*" multiple hidden>
+        <input type="file" id="xlsG" accept=".xlsx,.xls,.xlsm,.csv,.pdf" multiple hidden>
+        <input type="file" id="xlsP" accept="image/*,.xlsx,.xls,.xlsm" multiple hidden>
+        <input type="file" id="xlsK" accept=".xlsx,.xls,.xlsm,.csv,.pdf,.docx,image/*" multiple hidden>
+        <input type="file" id="xlsA" accept=".xlsx,.xls,.xlsm,.csv,.pdf,.docx,.doc,image/*" multiple hidden>
+        <input type="file" id="xlsT" accept=".xlsx,.xls,.xlsm,.csv,.pdf,.docx,.doc,image/*" multiple hidden>
         <input type="file" id="xlsD" accept=".pdf,.docx,.doc,.xlsx,.xls" multiple hidden>
         <p class="hint">Нажмите на окно или перетащите в него файлы. Можно выбрать или перетащить сразу все файлы в любое окно (1–3): сайт сам поймёт, где Капак, лист машин, имена, вылеты, программы автобусов (Excel или фото) и списки групп для экскурсий. В окно 4 — только вылеты.</p>
         <div id="xlsMsg" class="res"></div>
@@ -1905,6 +1909,7 @@ const TR_DICT={
 "Списки загружены:":"Listeler yüklendi:",
 "не похоже ни на программу, ни на список группы":"ne programa ne de grup listesine benziyor",
 "на этот же автобус выбран ещё один файл — выберите для одного из них другой автобус":"bu otobüs için başka bir dosya da seçili — birine başka otobüs seçin",
+"Списки групп":"Grup listeleri","Excel, CSV или PDF · экскурсии":"Excel, CSV veya PDF · turlar","можно все группы сразу — сайт сам найдёт автобус по имени гида и дате":"tüm gruplar aynı anda olabilir — site otobüsü rehber adı ve tarihe göre kendisi bulur","Фото программ":"Program fotoğrafları","скриншоты или фото таблиц · Excel":"tablo ekran görüntüsü veya fotoğrafı · Excel","программы автобусов (ÇIKIŞ, MAĞAZA, REHBER, PAX)":"otobüs programları (ÇIKIŞ, MAĞAZA, REHBER, PAX)",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",
@@ -3477,6 +3482,10 @@ async function readRows(file){
   if(ext==='docx'){if(!window.JSZip)await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');return docxToRows(await file.arrayBuffer())}
   if(ext==='doc')throw new Error('это старый формат Word (.doc). Откройте файл в Word и сохраните как .docx или PDF');
   if(typeof XLSX==='undefined')throw new Error('библиотека Excel не загрузилась, обновите страницу');
+  if(ext==='csv'||ext==='txt'){const buf=await file.arrayBuffer();let txt=new TextDecoder('utf-8').decode(buf);
+    // saved from an old Excel: Windows Cyrillic, or Windows Turkish when there is no Cyrillic in it
+    if(/\uFFFD/.test(txt)){const ru=new TextDecoder('windows-1251').decode(buf);txt=/[а-яА-Я]{3}/.test(ru)?ru:new TextDecoder('windows-1254').decode(buf)}
+    const wb=XLSX.read(txt.replace(/^\uFEFF/,''),{type:'string',raw:true});return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false,defval:''})}
   const wb=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array'});
   let rows=[];wb.SheetNames.forEach(n=>rows=rows.concat(XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:false})));
   return rows;
@@ -3567,8 +3576,8 @@ async function importFiles(files,opt={}){
 }
 // kept for older callers and tests
 const importFile=f=>importFiles([f]);
-['#xlsK','#xlsA','#xlsT','#xlsD'].forEach(id=>$(id).addEventListener('change',e=>{if(e.target.files.length)importFiles([...e.target.files],id==='#xlsD'?{dir:'dep'}:{});e.target.value=''}));
-['#dropK','#dropA','#dropT','#dropD'].forEach(id=>{const drop=$(id);
+['#xlsK','#xlsA','#xlsT','#xlsD','#xlsG','#xlsP'].forEach(id=>$(id).addEventListener('change',e=>{if(e.target.files.length)importFiles([...e.target.files],id==='#xlsD'?{dir:'dep'}:{});e.target.value=''}));
+['#dropK','#dropA','#dropT','#dropD','#dropG','#dropP'].forEach(id=>{const drop=$(id);
   ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
   ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
   drop.addEventListener('drop',e=>{const f=[...e.dataTransfer.files];if(f.length)importFiles(f,id==='#dropD'?{dir:'dep'}:{})})});
@@ -4054,8 +4063,34 @@ const usDate=s=>{const iso=String(s||'').match(/(\d{4})-(\d\d)-(\d\d)(?:[ T](\d{
   const us=/\//.test(m[0]);let d=+(us?m[2]:m[1]),mo=+(us?m[1]:m[2]),y=+m[3];if(y<100)y+=y>40?1900:2000;if(mo>12&&d<=12){const x=d;d=mo;mo=x}
   return {iso:`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`,t:m[4]?m[4].padStart(2,'0')+':'+m[5]:''}};
 const flNorm=f=>String(f||'').toUpperCase().replace(/[\s-]+/g,'').replace(/^([A-Z0-9]{2})0*(\d+)$/,'$1 $2');
-function isGroupList(rows){const S=rows.slice(0,6).map(r=>(r||[]).join(' ')).join(' ');return /Фамилия/i.test(S)&&/(Имя|Name)/i.test(S)&&/(Рейс|Flight)/i.test(S)}
-function parseGroupList(rows){
+function isGroupList(rows){const S=rows.slice(0,6).map(r=>(r||[]).join(' ')).join(' ');return /Фамилия/i.test(S)&&/(Имя|Name)/i.test(S)&&/(Рейс|Flight)/i.test(S)||isGroupListTR(rows)}
+// the Turkish layout: № | voucher | phone | booking | "Adı, Soyadı" (surname | name) | sex | Doğum Tarihi | passport (series | number | valid) |
+// Geliş Tarihi | Geliş Yeri (flight) | Geliş saatı ("13:00-15:00") | Transfer ucreti | Dönüş Tarihi | Dönüş Yeri | Dönüş Saatı | Diğer odeme | comment
+const grpHdrTR=rows=>rows.slice(0,8).findIndex(r=>{const u=(r||[]).map(c=>upTR(c)).join('|');return /ADI/.test(u)&&/GEL[İI]Ş/.test(u)&&/(DÖNÜŞ|DONUS)/.test(u)});
+function isGroupListTR(rows){return grpHdrTR(rows)>=0}
+const lat=s=>String(s||'').replace(/[АВЕКМНОРСТХУ]/g,c=>({А:'A',В:'B',Е:'E',К:'K',М:'M',Н:'H',О:'O',Р:'P',С:'C',Т:'T',Х:'X',У:'Y'})[c]);
+function parseGroupListTR(rows){const h=grpHdrTR(rows),H=(rows[h]||[]).map(c=>upTR(c).replace(/\s+/g,' ').trim());const col=re=>H.findIndex(c=>re.test(c));
+  const ni=col(/^ADI/),sx=col(/SEX|CİNS|CINS/),db=col(/DOĞUM|DOGUM/),ps=col(/ASAPORT|PASAPORT|PASSPORT/),ad=col(/GEL[İI]Ş TAR/),af=col(/GEL[İI]Ş YER/),at=col(/GEL[İI]Ş SAAT/),tf=col(/TRANSFER/),rd=col(/(DÖNÜŞ|DONUS) TAR/),rf=col(/(DÖNÜŞ|DONUS) YER/),rt=col(/(DÖNÜŞ|DONUS) SAAT/),ot=col(/D[İI]ĞER|DIGER/);
+  const out={code:'',hotels:[],guests:[]};const cell=(r,i)=>i>=0&&r[i]!=null?String(r[i]).replace(/\s+/g,' ').trim():'';
+  rows.slice(0,h).forEach(r=>{const L=(r||[]).map(c=>String(c||'').trim()).filter(Boolean).join(' ');if(L&&!out.code&&!/^\d+\.?$/.test(L))out.code=L});
+  let fam=null;
+  rows.slice(h+1).forEach(r=>{r=r||[];const L=r.map(c=>String(c==null?'':c).trim()).filter(Boolean).join(' ');if(!L)return;
+    const hs=L.match(/^(\d{1,2}\.\d{1,2})\s*-\s*(\d{1,2}\.\d{1,2})\s*-\s*(.+)$/);if(hs){out.hotels.push(`${hs[1]}–${hs[2]} ${hs[3].trim()}`);return}
+    const sur=cell(r,ni),nm=cell(r,ni+1).replace(/\s+\d+$/,'');if(!sur&&!nm)return;
+    const no=+cell(r,0)||out.guests.length+1,v=cell(r,1),ph=cell(r,2);
+    // the first row of a family has the voucher / phone / booking; the rows under it are the same family
+    if(v||ph||cell(r,3)||!fam)fam={v,phone:ph.replace(/\D/g,'').length>=10?'+'+ph.replace(/\D/g,'').replace(/^8(\d{10})$/,'7$1'):ph,code:cell(r,3),c:''};
+    const fl=lat(cell(r,af).toUpperCase()),self=/KEND[İI]|KENDI/i.test(fl);const tm=cell(r,at).match(/(\d{1,2}:\d\d)\s*$/);
+    const pass=ps>=0?[cell(r,ps),cell(r,ps+1)].filter(Boolean).join(' '):'';
+    const fee=cell(r,tf),oth=cell(r,ot),com=cell(r,ot>=0?ot+1:-1);if(com)fam.c=fam.c?fam.c+' '+com:com;
+    const A=usDate(cell(r,ad)),R=usDate(cell(r,rd));const rfl=lat(cell(r,rf).toUpperCase());
+    out.guests.push({no,n:(sur+' '+nm).trim(),sex:cell(r,sx).toUpperCase(),dob:(usDate(cell(r,db))||{}).iso||'',phone:fam.phone,trf:[fee?fee+(/\D/.test(fee)?'':' USD'):'',oth].filter(Boolean).join(' · '),pass,
+      af:self?'':flNorm(fl),ad:A?A.iso:'',at:tm?tm[1].padStart(5,'0'):'',rf:/^[A-Z0-9]{2}[\s-]?\d/.test(rfl)?flNorm(rfl):'',rd:R?R.iso:'',rt:(cell(r,rt).match(/\d{1,2}:\d\d/)||[''])[0].padStart(5,'0').replace(/^0+$/,''),
+      v:fam.v||fam.code,c:'',self,_f:fam})});
+  // comments and the family key are shared by the family (same layout as the Russian lists)
+  out.guests.forEach(x=>{const f=x._f;delete x._f;x.fam=f.phone.replace(/\D/g,'')||f.v||f.code||String(x.no);x.c=[x.self?'До отеля сами (KENDİ GİDER).':'',f.c].filter(Boolean).join(' ');delete x.self});
+  return out}
+function parseGroupList(rows){if(isGroupListTR(rows))return parseGroupListTR(rows);
   const lines=rows.map(r=>(r||[]).filter(c=>c!=null&&String(c).trim()!=='').map(c=>String(c).replace(/\s+/g,' ').trim()).join('  ')).filter(Boolean);
   const out={code:'',hotels:[],guests:[]};const loose=[];
   const G=/^(\d{1,3})\s+(?:([A-Z]{2,6}-[A-Z]{1,5}-\d{2,8})\s+)?(.+?)\s+(F|M|CHD|INF|Ж|М)\s+(\d{1,2}[\/.]\d{1,2}[\/.]\d{2,4}|\d{4}-\d\d-\d\d)\s*(.*)$/;
