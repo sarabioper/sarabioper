@@ -9,18 +9,26 @@ export const json = (data, status = 200) =>
   });
 
 // Every API call carries a password in the x-ops-key header.
-// OPS_PASSWORD = operations (everything); GUIDE_PASSWORD (optional) = guides (arrivals, departures, guide screen, notifications).
-export function authorized(req) {
-  const want = process.env.OPS_PASSWORD;
-  if (!want) return { ok: false, res: json({ error: "На сервере не задан пароль OPS_PASSWORD" }, 500) };
+// ADMIN_PASSWORD (Netlify) = the one person who manages access; the operations and guide passwords
+// are set by him in the admin cabinet (stored in Blobs), OPS_PASSWORD / GUIDE_PASSWORD are only the starting values.
+export async function authorized(req) {
+  let pw = {};
+  try { pw = (await store().get("auth/passwords", { type: "json" })) || {}; } catch (e) { /* no store in tests */ }
+  const admin = process.env.ADMIN_PASSWORD || "";
+  const ops = pw.ops || process.env.OPS_PASSWORD || "";
+  const guide = pw.guide || process.env.GUIDE_PASSWORD || "";
+  if (!ops && !admin) return { ok: false, res: json({ error: "На сервере не задан пароль OPS_PASSWORD" }, 500) };
   let got = req.headers.get("x-ops-key") || "";
   try { got = decodeURIComponent(got); } catch (e) { /* old clients sent it unencoded */ }
   const norm = (x) => String(x).trim().normalize("NFC");
-  if (norm(got) === norm(want)) return { ok: true, role: "ops" };
-  const guide = process.env.GUIDE_PASSWORD;
-  if (guide && norm(guide) !== norm(want) && norm(got) === norm(guide)) return { ok: true, role: "guide" };
+  const g = norm(got);
+  if (!g) return { ok: false, res: json({ error: "Неверный пароль" }, 401) };
+  if (admin && g === norm(admin)) return { ok: true, role: "admin" };
+  if (ops && g === norm(ops)) return { ok: true, role: "ops" };
+  if (guide && norm(guide) !== norm(ops) && g === norm(guide)) return { ok: true, role: "guide" };
   return { ok: false, res: json({ error: "Неверный пароль" }, 401) };
 }
+export const isOffice = (auth) => auth.role === "ops" || auth.role === "admin";
 export const forbidden = () => json({ error: "Это может делать только операционный отдел" }, 403);
 
 // Current date and time in Istanbul.

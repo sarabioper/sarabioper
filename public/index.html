@@ -331,6 +331,17 @@ body{padding-bottom:96px}
 body.role-guide label:has([data-tgfile]){display:none!important}
 body.role-guide #guidePick{display:none}
 .gp-tbl td.pin{white-space:nowrap}
+.adm{display:grid;gap:12px}.adm-box{padding:12px 14px}.adm-box h3{margin:0 0 4px;font-size:16px}
+.adm-pw{display:grid;grid-template-columns:200px 1fr auto auto;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+@media (max-width:640px){.adm-pw{grid-template-columns:1fr auto}.adm-pw .cur{grid-column:1/-1}}
+.adm-pw input,.adm-pin input,.adm-add input{padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--sunk);color:var(--ink);font:inherit;font-size:14px;min-width:0}
+.adm-pw .cur{font-family:ui-monospace,monospace}
+.adm-pins{display:grid;gap:4px}
+.adm-pin{display:grid;grid-template-columns:1fr 110px auto;gap:6px;align-items:center;padding:6px 0;border-top:1px dashed var(--line)}
+.adm-pin .nm small{display:block;color:var(--muted);font-size:11px}
+.adm-pin .b{display:flex;gap:4px;flex-wrap:wrap}
+.adm-add{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.adm-log{display:grid;gap:2px;font-size:13px;max-height:320px;overflow:auto}
 .tbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 10px}
 .tbar .sp,.ted-act .sp{flex:1}
 .tdate{display:inline-flex;align-items:center;gap:6px}
@@ -682,6 +693,7 @@ mark{background:var(--signal-soft);color:inherit}
       <button class="tab" role="tab" data-t="checks">Проверка<span class="cnt" id="chkCnt">0</span></button>
       <button class="tab" role="tab" data-t="contacts">Уведомления</button>
       <button class="tab" role="tab" data-t="data">Загрузить день</button>
+      <button class="tab" role="tab" data-t="admin" hidden>🔐 Админ</button>
     </nav>
   </div>
 </header>
@@ -844,6 +856,14 @@ mark{background:var(--signal-soft);color:inherit}
         <p class="hint">Что программа отправила бы к выбранному времени. Кому уведомления выключены, видно серым.</p>
         <div class="log" id="log"></div>
       </div>
+    </div>
+  </section>
+
+  <section id="v-admin" hidden>
+    <div class="adm">
+      <div class="panel adm-box"><h3>🔑 Пароли входа</h3><p class="hint">Меняет только администратор. После смены все, кто вошёл со старым паролем, увидят окно входа.</p><div id="admPw"></div></div>
+      <div class="panel adm-box"><h3>👤 PIN-коды гидов</h3><p class="hint">Гид входит общим паролем гидов + своим PIN. Без PIN гид не войдёт. PIN можно сразу отправить гиду в WhatsApp.</p><div id="admPins"></div></div>
+      <div class="panel adm-box"><h3>📜 Журнал изменений</h3><div id="admLog"></div></div>
     </div>
   </section>
 
@@ -1846,6 +1866,28 @@ const TR_DICT={
 "PIN удалён":"PIN silindi",
 "Не удалось сохранить PIN":"PIN kaydedilemedi",
 "Личный PIN гида для входа":"Giriş için kişisel rehber PIN'i",
+"🔐 Админ":"🔐 Yönetici",
+"🔑 Пароли входа":"🔑 Giriş şifreleri",
+"👤 PIN-коды гидов":"👤 Rehber PIN kodları",
+"📜 Журнал изменений":"📜 Değişiklik günlüğü",
+"Вход: администратор":"Giriş: yönetici",
+"Гиды (общий)":"Rehberler (ortak)",
+"Сменить":"Değiştir",
+"новый пароль, мин. 6 символов":"yeni şifre, en az 6 karakter",
+"(из настроек Netlify)":"(Netlify ayarlarından)",
+"нет PIN":"PIN yok",
+"нет телефона":"telefon yok",
+"Новый гид: имя как в Araç-листе":"Yeni rehber: Araç listesindeki gibi isim",
+"+ Добавить":"+ Ekle",
+"Сохранить PIN-коды":"PIN kodlarını kaydet",
+"Пока пусто.":"Henüz boş.",
+"Пароль — минимум 6 символов":"Şifre en az 6 karakter olmalı",
+"Сменить пароль? Все, кто вошёл со старым паролем, должны будут войти заново.":"Şifre değiştirilsin mi? Eski şifreyle girenler yeniden giriş yapmalı.",
+"Пароль изменён":"Şifre değiştirildi",
+"PIN-коды сохранены":"PIN kodları kaydedildi",
+"У двух гидов одинаковый PIN":"İki rehberin PIN'i aynı",
+"Меняет только администратор. После смены все, кто вошёл со старым паролем, увидят окно входа.":"Sadece yönetici değiştirir. Değişiklikten sonra eski şifreyle girenler giriş ekranını görür.",
+"Гид входит общим паролем гидов + своим PIN. Без PIN гид не войдёт. PIN можно сразу отправить гиду в WhatsApp.":"Rehber ortak rehber şifresi + kendi PIN'i ile girer. PIN olmadan giremez. PIN'i hemen WhatsApp'tan gönderebilirsiniz.",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",
@@ -2360,19 +2402,21 @@ const GUIDE_TABS=['board','dep','guide'];
 // "ALİBEK" (KAPAK) and "ALİBEK MUFTİ" (vehicle list) are the same guide; two full names must be equal
 function sameG(a,b){const n=x=>gKey(x||'').trim();const A=String(a||'').trim().split(/\s+/).filter(Boolean),B=String(b||'').trim().split(/\s+/).filter(Boolean);
   if(!A.length||!B.length)return false;if(n(a)===n(b))return true;if(A.length===1||B.length===1)return n(A[0])===n(B[0]);return false}
-function setRole(r){ROLE=r==='guide'?'guide':'ops';store.set('role',ROLE);document.body.classList.toggle('role-guide',ROLE==='guide');
+function setRole(r){ROLE=r==='guide'?'guide':r==='admin'?'admin':'ops';store.set('role',ROLE);document.body.classList.toggle('role-guide',ROLE==='guide');
   if(ROLE==='guide'&&ME){curGuide=ME;const w=$('#whoAmI');if(w)w.textContent='Гид: '+ME}
-  document.querySelectorAll('.tab').forEach(t=>{t.hidden=ROLE==='guide'&&!GUIDE_TABS.includes(t.dataset.t)});
+  document.querySelectorAll('.tab').forEach(t=>{t.hidden=ROLE==='guide'&&!GUIDE_TABS.includes(t.dataset.t)||t.dataset.t==='admin'&&ROLE!=='admin'});
   const cur=document.querySelector('.tab[aria-selected="true"]');if(ROLE==='guide'&&(!cur||cur.hidden)){const g=document.querySelector('.tab[data-t="guide"]');if(g)g.click()}
-  const who=$('#whoAmI');if(who)who.textContent=ROLE==='guide'?(ME?'Гид: '+ME:'Вход: гид'):'Вход: операционный отдел';
+  const who=$('#whoAmI');if(who)who.textContent=ROLE==='guide'?(ME?'Гид: '+ME:'Вход: гид'):ROLE==='admin'?'Вход: администратор':'Вход: операционный отдел';
+  const cur2=document.querySelector('.tab[aria-selected="true"]');if(cur2&&cur2.hidden){const b=document.querySelector('.tab[data-t="board"]');if(b)b.click()}
   if(DAY)renderAll()}
 const isOps=()=>ROLE!=='guide';
+const isAdmin=()=>ROLE==='admin';
 async function serverBoot(){
   if(!pass()){showLogin();return}
   try{
     const res=await api('GET','/api/days');
     ME=res.me||null;store.set('me',ME);setRole(res.role||'ops');
-    if(isOps())try{const pn=await api('GET','/api/state?d=00.00&kind=pins');PINS=pn.data||{}}catch(e){}
+    if(isAdmin())try{await loadAdmin()}catch(e){}
     res.days.forEach(d=>{DAYS[d.key]=d});
     try{const st=await api('GET','/api/state?d=00.00&kind=settings');if(st.data&&st.data.termOk){SETTINGS=Object.assign({termOk:{}},st.data);store.set('settings',SETTINGS)}}catch(e){}
     try{const gp=await api('GET','/api/state?d=00.00&kind=guides');GP=Object.assign({},GP,gp.data||{});store.set('guidePhones',GP);renderGpImport()}catch(e){}
@@ -2476,7 +2520,7 @@ function gTag(g){if(!g)return '';const ph=gPhone(g);return esc(g)+(ph?` · <a cl
 // guide phone book: type a name and a number, edit or delete; saved on the server for everyone
 let gpEdit=null;
 const normPh=p=>/^\s*(\+?\s*90|0?\s*5)/.test(p)&&p.replace(/\D/g,'').replace(/^90(?=5)/,'').replace(/^(?=5)/,'0').length===11?fmtPhone(p):p.trim().replace(/\s+/g,' ');
-const pinCell=n=>isOps()&&SERVER?`<button type="button" class="btn sm${PINS[n]?'':' ghost'}" data-gppin="${esc(n)}" title="Личный PIN гида для входа">🔑 ${PINS[n]?esc(PINS[n]):'PIN'}</button>`:'';
+const pinCell=n=>false?`<button type="button" class="btn sm${PINS[n]?'':' ghost'}" data-gppin="${esc(n)}" title="Личный PIN гида для входа">🔑 ${PINS[n]?esc(PINS[n]):'PIN'}</button>`:'';
 function renderGpImport(){
   const el=$('#gpList');if(!el)return;
   const today=[...new Set([...(DAY?DAY.arr:[]),...(DAY?DAY.dep:[])].map(x=>x.g).filter(Boolean))];
@@ -3500,7 +3544,7 @@ setInterval(()=>{if(followNow&&DAY&&!play){NOW=nowMinutes();renderAll()}},60000)
 $('#nowBtn').onclick=()=>{followNow=true;NOW=nowMinutes();store.set('now_'+dayKey,NOW);renderAll()};
 ['#fVeh','#fHotel','#fOp'].forEach(s=>$(s).addEventListener('change',()=>DAY&&renderBoard()));$('#fQ').addEventListener('input',()=>DAY&&renderBoard());
 $('#copyWa').onclick=()=>copy($('#waMsg').textContent);
-const views=['board','ops','dep','veh','tours','guide','checks','contacts','data'];
+const views=['board','ops','dep','veh','tours','guide','checks','contacts','data','admin'];
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b||b.hidden)return;
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t===b));
   views.forEach(v=>$('#v-'+v).hidden=v!==b.dataset.t);if(b.dataset.t==='guide'){renderGuidePick();renderGuide()}store.set('tab',b.dataset.t);$('#scanBtn').hidden=b.dataset.t!=='ops'});
@@ -4092,6 +4136,36 @@ pullReports(true);renderReports();
   $('#toBottom').onclick=()=>scrollTo({top:document.documentElement.scrollHeight,behavior:'smooth'});
   addEventListener('scroll',()=>requestAnimationFrame(upd),{passive:true});addEventListener('resize',upd);
   new MutationObserver(()=>requestAnimationFrame(upd)).observe(document.querySelector('main')||document.body,{childList:true,subtree:true});upd()})();
+
+/* ---------- admin cabinet: the one person who gives access (passwords, guide PINs) ---------- */
+let ADM={passwords:{ops:'',guide:''},fromEnv:{},pins:{},log:[]},admShow={},admDirty=false;
+async function loadAdmin(){const r=await api('GET','/api/admin');ADM=r;PINS=r.pins||{};admDirty=false;renderAdmin()}
+function admGuides(){const S=new Set([...Object.keys(ADM.pins||{}),...gpKeys()]);
+  if(DAY)[...DAY.arr,...DAY.dep].forEach(g=>{if(g.g&&!Object.keys(ADM.pins||{}).some(n=>sameG(n,g.g))&&!gpKeys().some(n=>sameG(n,g.g)))S.add(g.g)});
+  try{tours().forEach(t=>{[t.guide,t.kok].forEach(n=>{if(n&&![...S].some(x=>sameG(x,n)))S.add(n)})})}catch(e){}
+  return [...S].filter(Boolean).sort((a,b)=>a.localeCompare(b,'tr'))}
+const admNewPin=()=>{const used=new Set(Object.values(ADM.pins).map(String));let p='';while(!p||used.has(p))p=String(1000+Math.floor(Math.random()*9000));return p};
+function renderAdmin(){if(!$('#v-admin')||!isAdmin())return;
+  $('#admPw').innerHTML=[['ops','Операционный отдел'],['guide','Гиды (общий)']].map(([k,l])=>`<div class="adm-pw"><b>${l}</b><span class="cur">${admShow[k]?esc(ADM.passwords[k]||'—'):'••••••••'} <button type="button" class="btn sm ghost" data-admeye="${k}" aria-label="Показать">${admShow[k]?'🙈':'👁'}</button>${ADM.fromEnv&&ADM.fromEnv[k]?' <small class="hint">(из настроек Netlify)</small>':''}</span><input type="text" data-admpw="${k}" placeholder="новый пароль, мин. 6 символов" autocomplete="off"><button type="button" class="btn primary" data-admpwsave="${k}">Сменить</button></div>`).join('');
+  const G=admGuides();
+  $('#admPins').innerHTML=`<div class="adm-pins">${G.map(n=>{const ph=gPhone(n);return `<div class="adm-pin"><span class="nm"><b>${esc(n)}</b>${ph?`<small>${esc(ph)}</small>`:'<small>нет телефона</small>'}</span><input data-admpin="${esc(n)}" value="${esc(ADM.pins[n]||'')}" inputmode="numeric" placeholder="нет PIN" maxlength="8">
+    <span class="b"><button type="button" class="btn sm" data-admgen="${esc(n)}" title="Новый PIN">🎲</button><button type="button" class="btn sm ghost" data-admdel="${esc(n)}" title="Забрать PIN">✕</button>${ph&&ADM.pins[n]?`<a class="btn sm wa-go" target="_blank" rel="noopener" href="https://wa.me/${esc(ph.replace(/\D/g,'').replace(/^0/,'90'))}?text=${encodeURIComponent(`SARABI OPS\n${location.origin}\n${LANG==='tr'?'Rehber şifresi':'Пароль гидов'}: ${ADM.passwords.guide}\nPIN: ${ADM.pins[n]}`)}">WhatsApp</a>`:''}</span></div>`}).join('')}</div>
+    <div class="adm-add"><input id="admNew" placeholder="Новый гид: имя как в Araç-листе"><button type="button" class="btn" id="admAdd">+ Добавить</button><span class="sp"></span><button type="button" class="btn primary" id="admSavePins"${admDirty?'':' disabled'}>Сохранить PIN-коды</button></div>`;
+  $('#admLog').innerHTML=`<div class="adm-log">${(ADM.log||[]).map(l=>`<div><span class="num hint">${new Date(l.at).toLocaleString('ru',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span> ${esc(l.what)}</div>`).join('')||'<p class="hint">Пока пусто.</p>'}</div>`;
+  const el=$('#v-admin');
+  el.querySelectorAll('[data-admeye]').forEach(b=>b.onclick=()=>{admShow[b.dataset.admeye]=!admShow[b.dataset.admeye];renderAdmin()});
+  el.querySelectorAll('[data-admpwsave]').forEach(b=>b.onclick=async()=>{const k=b.dataset.admpwsave;const v=el.querySelector(`[data-admpw="${k}"]`).value.trim();
+    if(v.length<6)return toast('Пароль — минимум 6 символов');if(!confirm(T('Сменить пароль? Все, кто вошёл со старым паролем, должны будут войти заново.')))return;
+    try{await api('PUT','/api/admin',{passwords:{[k]:v}});toast('Пароль изменён');await loadAdmin()}catch(e){toast('Не удалось: '+String(e.message).replace(/[{}"]/g,' '))}});
+  const setPin=(n,v)=>{const P=Object.assign({},ADM.pins);if(v)P[n]=v;else delete P[n];ADM.pins=P;admDirty=true;renderAdmin()};
+  el.querySelectorAll('[data-admpin]').forEach(i=>i.onchange=()=>setPin(i.dataset.admpin,i.value.replace(/\D/g,'')));
+  el.querySelectorAll('[data-admgen]').forEach(b=>b.onclick=()=>setPin(b.dataset.admgen,admNewPin()));
+  el.querySelectorAll('[data-admdel]').forEach(b=>b.onclick=()=>setPin(b.dataset.admdel,''));
+  $('#admAdd').onclick=()=>{const n=$('#admNew').value.trim().toLocaleUpperCase('tr');if(!n)return;setPin(n,admNewPin())};
+  $('#admSavePins').onclick=async()=>{const vals=Object.values(ADM.pins);if(vals.some(v=>v.length<4||v.length>8))return toast('PIN — от 4 до 8 цифр');if(new Set(vals).size!==vals.length)return toast('У двух гидов одинаковый PIN');
+    try{await api('PUT','/api/admin',{pins:ADM.pins});toast('PIN-коды сохранены');await loadAdmin()}catch(e){toast('Не удалось: '+String(e.message).replace(/[{}"]/g,' '))}};
+}
+$('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b&&b.dataset.t==='admin'&&isAdmin())loadAdmin().catch(()=>{})});
 
 /* ---------- find a guest with the camera: passport (MRZ), name sign, booking on a screen, or typed name ---------- */
 // OCR runs on the phone (tesseract.js). The picture is never stored or sent anywhere; only the recognised words are used to search today's lists.

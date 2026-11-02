@@ -1,4 +1,4 @@
-import { store, json, authorized, forbidden, istanbulNow } from "../lib/common.mjs";
+import { store, json, authorized, forbidden, istanbulNow, isOffice } from "../lib/common.mjs";
 import { poll } from "../lib/poll.mjs";
 
 // GET /api/flights            -> today's saved flight statuses (no API quota used)
@@ -20,14 +20,14 @@ function quotaOf(meta, today) {
 }
 
 export default async (req) => {
-  const auth = authorized(req);
+  const auth = await authorized(req);
   if (!auth.ok) return auth.res;
   const url = new URL(req.url);
   const s = store();
   const today = istanbulNow().date;
   let pollResult = null;
   if (url.searchParams.get("refresh") === "1") {
-    if (auth.role !== "ops") return forbidden();
+    if (!isOffice(auth)) return forbidden();
     const m0 = (await s.get("live/meta", { type: "json" })) || {};
     const q = quotaOf(m0, today);
     if (!q.provider) return json({ error: "Ключ API рейсов не задан на сервере", quota: q }, 429);

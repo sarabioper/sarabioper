@@ -1,4 +1,4 @@
-import { store, json, authorized, forbidden, istanbulNow } from "../lib/common.mjs";
+import { store, json, authorized, forbidden, istanbulNow, isOffice } from "../lib/common.mjs";
 import { watchFromDay, watchDepFromDay } from "../lib/watch.mjs";
 import { poll } from "../lib/poll.mjs";
 import { guideFromPin, dayForGuide, toursForGuide, sameGuide } from "../lib/guide.mjs";
@@ -8,7 +8,7 @@ import { guideFromPin, dayForGuide, toursForGuide, sameGuide } from "../lib/guid
 // PUT  /api/day?d=15.10                   -> save a parsed day (body = day JSON)
 // PUT  /api/state?d=15.10&kind=assign|met -> save vehicle assignments or guide "met" marks
 export default async (req) => {
-  const auth = authorized(req);
+  const auth = await authorized(req);
   if (!auth.ok) return auth.res;
   const s = store();
   const url = new URL(req.url);
@@ -20,6 +20,56 @@ export default async (req) => {
     if (!me) return json({ error: "Нужен PIN гида", pin: true }, 401);
   }
   if (req.method === "GET" && path === "/api/whoami") return json({ role: auth.role, me });
+
+  // admin cabinet: passwords, guide PINs and the log of changes; only the admin
+  if (path === "/api/admin") {
+    if (auth.role !== "admin") return forbidden();
+    const log = (await s.get("auth/log", { type: "json" })) || [];
+    if (req.method === "GET") {
+      const pw = (await s.get("auth/passwords", { type: "json" })) || {};
+      const pins = (await s.get("state/00.00/pins", { type: "json" })) || {};
+      return json({ passwords: { ops: pw.ops || process.env.OPS_PASSWORD || "", guide: pw.guide || process.env.GUIDE_PASSWORD || "" }, fromEnv: { ops: !pw.ops, guide: !pw.guide }, pins, log: log.slice(-200).reverse() });
+    }
+    if (req.method === "PUT") {
+      const body = (await req.json()) || {};
+      const add = (what) => log.push({ at: new Date().toISOString(), what });
+      if (body.passwords) {
+        const pw = (await s.get("auth/passwords", { type: "json" })) || {};
+        for (const k of ["ops", "guide"]) {
+          const v = body.passwords[k];
+          if (v === undefined) continue;
+          const t = String(v || "").trim();
+          if (t && t.length < 6) return json({ error: "Пароль — минимум 6 символов" }, 400);
+          if (t && process.env.ADMIN_PASSWORD && t === process.env.ADMIN_PASSWORD.trim()) return json({ error: "Пароль не может совпадать с паролем администратора" }, 400);
+          if (t) pw[k] = t; else delete pw[k];
+          add((k === "ops" ? "Пароль операционного отдела" : "Пароль гидов") + " изменён");
+        }
+        if (pw.ops && pw.guide && pw.ops === pw.guide) return json({ error: "Пароли офиса и гидов должны отличаться" }, 400);
+        await s.setJSON("auth/passwords", pw);
+      }
+      if (body.pins) {
+        const old = (await s.get("state/00.00/pins", { type: "json" })) || {};
+        const pins = {};
+        const seen = new Set();
+        for (const [n, p] of Object.entries(body.pins)) {
+          const v = String(p || "").replace(/\D/g, "");
+          if (!v) continue;
+          if (v.length < 4 || v.length > 8) return json({ error: "PIN — от 4 до 8 цифр: " + n }, 400);
+          if (seen.has(v)) return json({ error: "Одинаковый PIN у двух гидов: " + v }, 400);
+          seen.add(v); pins[n] = v;
+        }
+        for (const n of new Set([...Object.keys(old), ...Object.keys(pins)])) {
+          if (old[n] && !pins[n]) add("PIN забран: " + n);
+          else if (!old[n] && pins[n]) add("PIN выдан: " + n);
+          else if (old[n] !== pins[n]) add("PIN изменён: " + n);
+        }
+        await s.setJSON("state/00.00/pins", pins);
+      }
+      await s.setJSON("auth/log", log.slice(-500));
+      return json({ ok: true });
+    }
+  }
+
 
   if (req.method === "GET" && path === "/api/days") {
     // Every uploaded day is kept for KEEP_DAYS (15) days after its date, then removed with its marks.
@@ -52,7 +102,7 @@ export default async (req) => {
   if (!/^\d\d\.\d\d$/.test(d)) return json({ error: "Неверная дата" }, 400);
 
   if (req.method === "PUT" && path === "/api/day") {
-    if (auth.role !== "ops") return forbidden();
+    if (!isOffice(auth)) return forbidden();
     const body = await req.json();
     if (!body || !Array.isArray(body.arr) || !Array.isArray(body.dep)) return json({ error: "Неверный формат дня" }, 400);
     body.key = d;
@@ -72,9 +122,9 @@ export default async (req) => {
   if (req.method === "GET" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
     if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra", "reports", "pins"].includes(kind)) return json({ error: "Неверный тип" }, 400);
+    if (kind === "pins" && auth.role !== "admin") return forbidden();
     const data = (await s.get("state/" + d + "/" + kind, { type: "json" })) || {};
     if (me) {
-      if (kind === "pins") return forbidden();
       if (kind === "tours") return json({ data: toursForGuide(data, me) });
       if (kind === "reports") return json({ data: Object.fromEntries(Object.entries(data).filter(([, r]) => r && sameGuide(r.author, me))) });
       if (kind === "guides") return json({ data: Object.fromEntries(Object.entries(data).filter(([n]) => n !== "~off" && sameGuide(n, me))) });
@@ -97,7 +147,8 @@ export default async (req) => {
   if (req.method === "PUT" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
     // guides may only save their check-ins (and guest notes, kept with them) and excursion stops
-    if (auth.role !== "ops" && !["met", "tourmarks", "reports"].includes(kind)) return forbidden();
+    if (!isOffice(auth) && !["met", "tourmarks", "reports"].includes(kind)) return forbidden();
+    if (kind === "pins") return forbidden(); // PINs are set only in the admin cabinet
     if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra", "reports", "pins"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     const body = await req.json();
     if (kind === "extra") {
@@ -123,7 +174,7 @@ export default async (req) => {
       if (me) for (const v of Object.values(body || {})) if (v && typeof v === "object") v.author = me;
       const prev = (await s.get("state/" + d + "/reports", { type: "json" })) || {};
       for (const [k, v] of Object.entries(body || {})) {
-        if (v == null) { if (auth.role === "ops") delete prev[k]; continue; }
+        if (v == null) { if (isOffice(auth)) delete prev[k]; continue; }
         if (typeof v !== "object" || String(v.text || "").length > 5000) continue;
         prev[k] = { ...v, by: auth.role, savedAt: prev[k] ? prev[k].savedAt : new Date().toISOString() };
       }
@@ -169,4 +220,4 @@ function isoOf(d, k, today) {
   return iso;
 }
 
-export const config = { path: ["/api/days", "/api/day", "/api/state", "/api/whoami"] };
+export const config = { path: ["/api/days", "/api/day", "/api/state", "/api/whoami", "/api/admin"] };

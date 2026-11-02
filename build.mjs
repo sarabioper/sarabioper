@@ -33,6 +33,7 @@ ${r("src/extra.js")}
 ${r("src/tours.js")}
 ${r("src/groups.js")}
 ${r("src/reports.js")}
+${r("src/admin.js")}
 ${r("src/scan.js")}
 ${r("src/tourocr.js")}
 </script>

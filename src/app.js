@@ -83,19 +83,21 @@ const GUIDE_TABS=['board','dep','guide'];
 // "ALİBEK" (KAPAK) and "ALİBEK MUFTİ" (vehicle list) are the same guide; two full names must be equal
 function sameG(a,b){const n=x=>gKey(x||'').trim();const A=String(a||'').trim().split(/\s+/).filter(Boolean),B=String(b||'').trim().split(/\s+/).filter(Boolean);
   if(!A.length||!B.length)return false;if(n(a)===n(b))return true;if(A.length===1||B.length===1)return n(A[0])===n(B[0]);return false}
-function setRole(r){ROLE=r==='guide'?'guide':'ops';store.set('role',ROLE);document.body.classList.toggle('role-guide',ROLE==='guide');
+function setRole(r){ROLE=r==='guide'?'guide':r==='admin'?'admin':'ops';store.set('role',ROLE);document.body.classList.toggle('role-guide',ROLE==='guide');
   if(ROLE==='guide'&&ME){curGuide=ME;const w=$('#whoAmI');if(w)w.textContent='Гид: '+ME}
-  document.querySelectorAll('.tab').forEach(t=>{t.hidden=ROLE==='guide'&&!GUIDE_TABS.includes(t.dataset.t)});
+  document.querySelectorAll('.tab').forEach(t=>{t.hidden=ROLE==='guide'&&!GUIDE_TABS.includes(t.dataset.t)||t.dataset.t==='admin'&&ROLE!=='admin'});
   const cur=document.querySelector('.tab[aria-selected="true"]');if(ROLE==='guide'&&(!cur||cur.hidden)){const g=document.querySelector('.tab[data-t="guide"]');if(g)g.click()}
-  const who=$('#whoAmI');if(who)who.textContent=ROLE==='guide'?(ME?'Гид: '+ME:'Вход: гид'):'Вход: операционный отдел';
+  const who=$('#whoAmI');if(who)who.textContent=ROLE==='guide'?(ME?'Гид: '+ME:'Вход: гид'):ROLE==='admin'?'Вход: администратор':'Вход: операционный отдел';
+  const cur2=document.querySelector('.tab[aria-selected="true"]');if(cur2&&cur2.hidden){const b=document.querySelector('.tab[data-t="board"]');if(b)b.click()}
   if(DAY)renderAll()}
 const isOps=()=>ROLE!=='guide';
+const isAdmin=()=>ROLE==='admin';
 async function serverBoot(){
   if(!pass()){showLogin();return}
   try{
     const res=await api('GET','/api/days');
     ME=res.me||null;store.set('me',ME);setRole(res.role||'ops');
-    if(isOps())try{const pn=await api('GET','/api/state?d=00.00&kind=pins');PINS=pn.data||{}}catch(e){}
+    if(isAdmin())try{await loadAdmin()}catch(e){}
     res.days.forEach(d=>{DAYS[d.key]=d});
     try{const st=await api('GET','/api/state?d=00.00&kind=settings');if(st.data&&st.data.termOk){SETTINGS=Object.assign({termOk:{}},st.data);store.set('settings',SETTINGS)}}catch(e){}
     try{const gp=await api('GET','/api/state?d=00.00&kind=guides');GP=Object.assign({},GP,gp.data||{});store.set('guidePhones',GP);renderGpImport()}catch(e){}
@@ -199,7 +201,7 @@ function gTag(g){if(!g)return '';const ph=gPhone(g);return esc(g)+(ph?` · <a cl
 // guide phone book: type a name and a number, edit or delete; saved on the server for everyone
 let gpEdit=null;
 const normPh=p=>/^\s*(\+?\s*90|0?\s*5)/.test(p)&&p.replace(/\D/g,'').replace(/^90(?=5)/,'').replace(/^(?=5)/,'0').length===11?fmtPhone(p):p.trim().replace(/\s+/g,' ');
-const pinCell=n=>isOps()&&SERVER?`<button type="button" class="btn sm${PINS[n]?'':' ghost'}" data-gppin="${esc(n)}" title="Личный PIN гида для входа">🔑 ${PINS[n]?esc(PINS[n]):'PIN'}</button>`:'';
+const pinCell=n=>false?`<button type="button" class="btn sm${PINS[n]?'':' ghost'}" data-gppin="${esc(n)}" title="Личный PIN гида для входа">🔑 ${PINS[n]?esc(PINS[n]):'PIN'}</button>`:'';
 function renderGpImport(){
   const el=$('#gpList');if(!el)return;
   const today=[...new Set([...(DAY?DAY.arr:[]),...(DAY?DAY.dep:[])].map(x=>x.g).filter(Boolean))];
@@ -1223,7 +1225,7 @@ setInterval(()=>{if(followNow&&DAY&&!play){NOW=nowMinutes();renderAll()}},60000)
 $('#nowBtn').onclick=()=>{followNow=true;NOW=nowMinutes();store.set('now_'+dayKey,NOW);renderAll()};
 ['#fVeh','#fHotel','#fOp'].forEach(s=>$(s).addEventListener('change',()=>DAY&&renderBoard()));$('#fQ').addEventListener('input',()=>DAY&&renderBoard());
 $('#copyWa').onclick=()=>copy($('#waMsg').textContent);
-const views=['board','ops','dep','veh','tours','guide','checks','contacts','data'];
+const views=['board','ops','dep','veh','tours','guide','checks','contacts','data','admin'];
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b||b.hidden)return;
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t===b));
   views.forEach(v=>$('#v-'+v).hidden=v!==b.dataset.t);if(b.dataset.t==='guide'){renderGuidePick();renderGuide()}store.set('tab',b.dataset.t);$('#scanBtn').hidden=b.dataset.t!=='ops'});
