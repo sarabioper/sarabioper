@@ -32,6 +32,7 @@ ${r("src/app.js")}
 ${r("src/extra.js")}
 ${r("src/tours.js")}
 ${r("src/groups.js")}
+${r("src/groupimport.js")}
 ${r("src/reports.js")}
 ${r("src/admin.js")}
 ${r("src/scan.js")}

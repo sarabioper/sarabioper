@@ -139,6 +139,10 @@ body.role-guide #guidePick{display:none}
 .adm-pin .b{display:flex;gap:4px;flex-wrap:wrap}
 .adm-add{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .adm-log{display:grid;gap:2px;font-size:13px;max-height:320px;overflow:auto}
+.gi-list{display:grid;gap:6px}.gi{border:1px solid var(--line);border-left:4px solid var(--ok);border-radius:8px;padding:7px 10px;display:grid;gap:4px;background:var(--surface)}
+.gi.warn{border-left-color:var(--warn)}.gi.bad{border-left-color:var(--crit);opacity:.85}
+.gi-sel{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}.gi-sel select{max-width:100%;padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:var(--sunk);color:var(--ink)}
+.gi-w{color:var(--warn);font-size:13px;font-weight:600}.gi.bad .gi-w{color:var(--crit)}
 .tbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 10px}
 .tbar .sp,.ted-act .sp{flex:1}
 .tdate{display:inline-flex;align-items:center;gap:6px}
@@ -603,11 +607,12 @@ mark{background:var(--signal-soft);color:inherit}
       <span class="tdate"><button type="button" class="btn sm" id="tPrev" aria-label="Предыдущий день">‹</button><span id="tDateLbl"></span><button type="button" class="btn sm" id="tNext" aria-label="Следующий день">›</button><button type="button" class="btn sm" id="tToday">Сегодня</button></span>
       <select id="tBus" aria-label="Автобус"></select>
       <span class="sp"></span>
-      <label class="btn sm">⬆ Excel или фото программы<input type="file" id="tXls" accept=".xlsx,.xls,.xlsm,image/*" multiple hidden></label>
+      <label class="btn sm">⬆ Программы и списки групп<input type="file" id="tXls" accept=".xlsx,.xls,.xlsm,.pdf,image/*" multiple hidden></label>
       <button type="button" class="btn sm" id="tSamples" hidden></button>
       <button type="button" class="btn sm primary" id="tNew">+ Программа</button>
     </div>
     <div class="tsum" id="tourSum"></div>
+    <div class="xform" id="grpReview" hidden></div>
     <div id="tourLive"></div>
     <div id="tourPlaces"></div>
     <div class="tlist" id="tourList"></div>

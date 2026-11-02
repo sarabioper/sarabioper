@@ -342,6 +342,10 @@ body.role-guide #guidePick{display:none}
 .adm-pin .b{display:flex;gap:4px;flex-wrap:wrap}
 .adm-add{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .adm-log{display:grid;gap:2px;font-size:13px;max-height:320px;overflow:auto}
+.gi-list{display:grid;gap:6px}.gi{border:1px solid var(--line);border-left:4px solid var(--ok);border-radius:8px;padding:7px 10px;display:grid;gap:4px;background:var(--surface)}
+.gi.warn{border-left-color:var(--warn)}.gi.bad{border-left-color:var(--crit);opacity:.85}
+.gi-sel{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}.gi-sel select{max-width:100%;padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:var(--sunk);color:var(--ink)}
+.gi-w{color:var(--warn);font-size:13px;font-weight:600}.gi.bad .gi-w{color:var(--crit)}
 .tbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 10px}
 .tbar .sp,.ted-act .sp{flex:1}
 .tdate{display:inline-flex;align-items:center;gap:6px}
@@ -806,11 +810,12 @@ mark{background:var(--signal-soft);color:inherit}
       <span class="tdate"><button type="button" class="btn sm" id="tPrev" aria-label="Предыдущий день">‹</button><span id="tDateLbl"></span><button type="button" class="btn sm" id="tNext" aria-label="Следующий день">›</button><button type="button" class="btn sm" id="tToday">Сегодня</button></span>
       <select id="tBus" aria-label="Автобус"></select>
       <span class="sp"></span>
-      <label class="btn sm">⬆ Excel или фото программы<input type="file" id="tXls" accept=".xlsx,.xls,.xlsm,image/*" multiple hidden></label>
+      <label class="btn sm">⬆ Программы и списки групп<input type="file" id="tXls" accept=".xlsx,.xls,.xlsm,.pdf,image/*" multiple hidden></label>
       <button type="button" class="btn sm" id="tSamples" hidden></button>
       <button type="button" class="btn sm primary" id="tNew">+ Программа</button>
     </div>
     <div class="tsum" id="tourSum"></div>
+    <div class="xform" id="grpReview" hidden></div>
     <div id="tourLive"></div>
     <div id="tourPlaces"></div>
     <div class="tlist" id="tourList"></div>
@@ -1888,6 +1893,17 @@ const TR_DICT={
 "У двух гидов одинаковый PIN":"İki rehberin PIN'i aynı",
 "Меняет только администратор. После смены все, кто вошёл со старым паролем, увидят окно входа.":"Sadece yönetici değiştirir. Değişiklikten sonra eski şifreyle girenler giriş ekranını görür.",
 "Гид входит общим паролем гидов + своим PIN. Без PIN гид не войдёт. PIN можно сразу отправить гиду в WhatsApp.":"Rehber ortak rehber şifresi + kendi PIN'i ile girer. PIN olmadan giremez. PIN'i hemen WhatsApp'tan gönderebilirsiniz.",
+"⬆ Программы и списки групп":"⬆ Programlar ve grup listeleri",
+"📋 Списки групп: проверьте, кто куда":"📋 Grup listeleri: hangisi nereye, kontrol edin",
+"— выберите автобус —":"— otobüs seçin —",
+"найдено по имени гида":"rehber adına göre bulundu",
+"Будет загружено:":"Yüklenecek:",
+"Загрузить":"Yükle",
+"Есть предупреждения":"Uyarılar var",
+"Всё равно загрузить?":"Yine de yüklensin mi?",
+"Списки загружены:":"Listeler yüklendi:",
+"не похоже ни на программу, ни на список группы":"ne programa ne de grup listesine benziyor",
+"на этот же автобус выбран ещё один файл — выберите для одного из них другой автобус":"bu otobüs için başka bir dosya da seçili — birine başka otobüs seçin",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",
@@ -3976,7 +3992,10 @@ $('#tToday').onclick=()=>{tDate=isoToday();renderTours()};
 $('#tNew').onclick=()=>openTourEd(blankTour());
 $('#tSamples').onclick=()=>{const add=sampleMissing();if(!add.length)return;if(!confirm(T('Добавить программы с фото')+`: ${add.map(p=>p.bus).join(', ')}?`))return;add.forEach(p=>saveTour(p.id,p));toast(`Добавлено программ: ${add.length}. Переименуйте их в номера автобусов через «✎ Изменить»`);renderTours()};
 $('#tBus').onchange=e=>{store.set('tourBus',e.target.value);renderTours()};
-$('#tXls').onchange=e=>{const fs=[...e.target.files];const im=fs.filter(f=>/^image\//.test(f.type)||/\.(jpe?g|png|webp|heic)$/i.test(f.name)),xl=fs.filter(f=>!im.includes(f));if(xl.length)importTourFiles(xl);if(im.length)importTourImages(im);e.target.value=''};
+// one button for everything: program tables (Excel or photo) and group guest lists (Excel / PDF) are told apart by their content
+$('#tXls').onchange=async e=>{const fs=[...e.target.files];e.target.value='';const im=fs.filter(f=>/^image\//.test(f.type)||/\.(jpe?g|png|webp|heic)$/i.test(f.name));
+  const grp=[],prog=[];for(const f of fs.filter(f=>!im.includes(f))){try{const rows=await readRows(f);if(isGroupList(rows))grp.push(f);else if(!/\.pdf$/i.test(f.name))prog.push(f);else toast(f.name+': '+T('не похоже ни на программу, ни на список группы'))}catch(err){toast(f.name+': '+err.message)}}
+  if(prog.length)importTourFiles(prog);if(grp.length)importGroupFiles(grp);if(im.length)importTourImages(im)};
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b&&b.dataset.t==='tours'){renderTours();pullTours(true)}});
 setInterval(()=>{if(!$('#v-tours').hidden&&!tEdit&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#tourList')))renderTours()},60000);
 if(!$('#v-tours').hidden){renderTours();pullTours(true)}
@@ -4066,6 +4085,57 @@ function bindGroupGuests(el){
   el.querySelectorAll('[data-gxq]').forEach(i=>i.oninput=()=>{TGQ[i.dataset.gxq]=i.value;const pos=i.selectionStart;tourRefresh();const n=document.querySelector(`[data-gxq="${CSS.escape(i.dataset.gxq)}"]`);if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}});
   el.querySelectorAll('[data-gxnote]').forEach(b=>b.onclick=()=>{const [tid,i]=b.dataset.gxnote.split('|');const t=TOURS[tid];const x=(t.gx||[])[+i];if(!x)return;const k=tid+'|gn|'+i;
     const v=prompt(trText(`Заметка про ${x.n} (видят офис и гиды). Пусто — удалить.`),(TM[k]||{}).note||'');if(v===null)return;saveTM(k,v.trim()?{note:v.trim(),at:nowMinutes()}:null);tourRefresh();toast(v.trim()?'Заметка сохранена':'Заметка удалена')})}
+
+/* ---------- many group lists at once: each file finds its own bus (guide name in the file name, dates), with warnings ---------- */
+// "01.11 BAYRAM ALİM 3. GRUP.xlsx" -> date 01.11, name BAYRAM ALİM, group 3
+function fileMeta(fn){const base=fn.replace(/\.[^.]+$/,'').replace(/\(\d+\)/g,' ');
+  const dm=base.match(/(\d{1,2})[.\-\/](\d{1,2})(?:[.\-\/](\d{2,4}))?/);const gm=base.match(/(\d+)\s*\.?\s*GRUP/i);
+  const name=base.replace(/(\d{1,2})[.\-\/](\d{1,2})(?:[.\-\/](\d{2,4}))?/,' ').replace(/\d+\s*\.?\s*GRUP/i,' ').replace(/\b(ABİ|ABI|ABLA|HOCA|BEY|GRUP|GRUBU|KOPYA|COPY|LISTE|LİSTE)\b/gi,' ').replace(/[+_\-.,]+/g,' ').replace(/\s+/g,' ').trim();
+  return {date:dm?{d:dm[1].padStart(2,'0'),m:dm[2].padStart(2,'0')}:null,group:gm?+gm[1]:null,name}}
+const nameToks=s=>String(s||'').split(/[\s/+]+/).map(nk).filter(t=>t.length>=3);
+function nameScore(a,b){const A=nameToks(a),B=nameToks(b);if(!A.length||!B.length)return 0;
+  // each word of the file name against the closest word of the guide's name ("TEVFİK"~"TOFİK", "OĞUZ"~"OĞUZHAN")
+  const best=A.map(x=>Math.max(...B.map(y=>{const s=sim(x,y);return y.startsWith(x)||x.startsWith(y)?Math.max(s,0.85):s})));
+  return best.reduce((p,c)=>p+c,0)/A.length}
+function tourScore(meta,t){return Math.max(nameScore(meta.name,t.guide),nameScore(meta.name,t.kok),nameScore(meta.name,t.bus),meta.group&&new RegExp('\\b'+meta.group+'\\.?\\s*GRUP','i').test(t.name||'')?0.9:0)}
+let GIMP=null;// review of a batch before anything is saved
+function checkGroup(it){const t=TOURS[it.tid];it.warn=[];if(!t){it.warn.push('автобус не найден — выберите вручную или сначала загрузите программу');return}
+  const start=t.days[0].d,end=t.days[t.days.length-1].d,y=start.slice(0,4);
+  if(it.meta.date){const fd=`${y}-${it.meta.date.m}-${it.meta.date.d}`;const diff=Math.round((Date.parse(start)-Date.parse(fd))/864e5);
+    if(diff<0||diff>3)it.warn.push(`дата в названии файла ${it.meta.date.d}.${it.meta.date.m}, а программа автобуса ${isoDM(start)}–${isoDM(end)}`)}
+  const ads=it.P.guests.map(x=>x.ad).filter(Boolean);if(ads.length){const cnt={};ads.forEach(a=>cnt[a]=(cnt[a]||0)+1);const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0][0];
+    const d=Math.round((Date.parse(start)-Date.parse(top))/864e5);if(d<-1||d>3)it.warn.push(`гости прилетают ${isoDM(top)}, а программа начинается ${isoDM(start)}`)}
+  const pax=+t.pax||0,n=it.P.guests.length;if(pax&&Math.abs(pax-n)>2)it.warn.push(`в списке ${n} гостей, а у автобуса PAX ${pax}`);
+  if((t.gx||[]).length)it.note=`заменит текущий список (${t.gx.length} гостей)`;else it.note='';
+  const same=GIMP.items.filter(o=>o!==it&&o.tid===it.tid&&!o.skip);
+  if(same.length){const dup=same.find(o=>o.sig===it.sig);if(dup&&GIMP.items.indexOf(dup)<GIMP.items.indexOf(it)){it.skip=true;it.warn.push('копия того же файла — пропущу')}else if(!dup){it.conflict=true;it.warn.push('на этот же автобус выбран ещё один файл — выберите для одного из них другой автобус')}}}
+async function importGroupFiles(files){
+  const items=[];
+  for(const f of files){try{const rows=await readRows(f);if(!isGroupList(rows)){items.push({f,bad:'не похоже на список группы (нужны колонки Фамилия, Имя, Рейс)'});continue}
+      const P=parseGroupList(rows);if(!P.guests.length){items.push({f,bad:'гостей в файле не нашёл'});continue}
+      const meta=fileMeta(f.name);const cand=tours().map(t=>({t,s:tourScore(meta,t)})).sort((a,b)=>b.s-a.s);
+      const best=cand[0]&&cand[0].s>=0.72&&(!cand[1]||cand[0].s-cand[1].s>=0.08)?cand[0].t.id:'';
+      items.push({f,P,meta,tid:best,score:cand[0]?cand[0].s:0,sig:P.guests.map(x=>x.n).join('|')})}
+    catch(e){items.push({f,bad:e.message})}}
+  // copies named "… (1)" go after the original; two files that claim the same bus: the better name match keeps it
+  items.sort((a,b)=>(/\(\d+\)/.test(a.f.name)-/\(\d+\)/.test(b.f.name))||a.f.name.localeCompare(b.f.name,'tr'));
+  const by={};items.forEach(it=>{if(!it.tid)return;(by[it.tid]=by[it.tid]||[]).push(it)});
+  Object.values(by).forEach(L=>{if(L.length<2)return;const sig0=L[0].sig;if(L.every(x=>x.sig===sig0))return;L.sort((a,b)=>b.score-a.score);L.slice(1).forEach(x=>{if(x.sig!==L[0].sig){x.hint='похож на '+(TOURS[x.tid].bus||'')+', но этот автобус уже занят файлом «'+L[0].f.name+'»';x.tid=''}})});
+  GIMP={items};renderGroupImport();$('#grpReview').scrollIntoView({behavior:'smooth',block:'start'})}
+function renderGroupImport(){const el=$('#grpReview');if(!el)return;if(!GIMP){el.hidden=true;el.innerHTML='';return}
+  GIMP.items.forEach(it=>{if(!it.bad){it.skip=false;it.conflict=false}});GIMP.items.forEach(it=>{if(!it.bad)checkGroup(it)});
+  const all=tours();const opts=sel=>`<option value="">— выберите автобус —</option>`+all.map(t=>`<option value="${esc(t.id)}"${t.id===sel?' selected':''}>${esc(t.bus||'?')} · ${esc(t.guide||'')} · ${isoDM(t.days[0].d)}–${isoDM(t.days[t.days.length-1].d)}${t.pax?' · '+esc(t.pax)+' pax':''}</option>`).join('');
+  const ok=GIMP.items.filter(it=>!it.bad&&!it.skip&&!it.conflict&&it.tid);
+  el.hidden=false;el.innerHTML=`<h3>📋 Списки групп: проверьте, кто куда</h3>
+    <div class="gi-list">${GIMP.items.map((it,i)=>`<div class="gi ${it.bad?'bad':it.warn&&it.warn.length?'warn':'ok'}"><div class="gi-f"><b>${esc(it.f.name)}</b>${it.P?` <span class="chip">👥 ${it.P.guests.length}</span>${it.P.code?` <span class="hint">${esc(it.P.code)}</span>`:''}`:''}</div>
+      ${it.bad?`<div class="gi-w">✗ ${esc(it.bad)}</div>`:`<label class="gi-sel">→ <select data-gisel="${i}">${opts(it.tid)}</select>${it.tid&&it.score>=0.72&&it.score<1.01?'<span class="hint"> найдено по имени гида</span>':''}</label>
+      ${it.warn.map(w=>`<div class="gi-w">⚠ ${esc(w)}</div>`).join('')}${it.hint&&!it.tid?`<div class="hint">${esc(it.hint)}</div>`:''}${it.note?`<div class="hint">${esc(it.note)}</div>`:''}`}</div>`).join('')}</div>
+    <p class="xact"><span class="hint">Будет загружено: ${ok.length} из ${GIMP.items.length}</span><span class="sp"></span><button type="button" class="btn" id="giCancel">Отмена</button><button type="button" class="btn primary" id="giGo"${ok.length?'':' disabled'}>Загрузить ${ok.length}</button></p>`;
+  el.querySelectorAll('[data-gisel]').forEach(s=>s.onchange=()=>{GIMP.items[+s.dataset.gisel].tid=s.value;GIMP.items[+s.dataset.gisel].score=1;renderGroupImport()});
+  $('#giCancel').onclick=()=>{GIMP=null;renderGroupImport()};
+  $('#giGo').onclick=()=>{const warned=ok.filter(it=>it.warn.length);if(warned.length&&!confirm(T('Есть предупреждения')+` (${warned.length}). `+T('Всё равно загрузить?')))return;
+    ok.forEach(it=>{const t=JSON.parse(JSON.stringify(TOURS[it.tid]));t.gx=it.P.guests;t.guests=it.P.guests.map(x=>x.n);t.gcode=it.P.code;t.ghotels=it.P.hotels;if(!+t.pax)t.pax=String(it.P.guests.length);saveTour(t.id,t)});
+    toast(`Списки загружены: ${ok.length}`);GIMP=null;renderGroupImport();renderTours()}}
 
 /* ---------- incident reports (рапорты): written by guides or the office, kept by date ---------- */
 // REPORTS[id] = {id, date:'2026-11-02', at:ISO, author, topic, ref, guest, text}
