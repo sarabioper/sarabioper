@@ -5,7 +5,11 @@ var EXTRA=EXTRA||{},xLastSave=0,xEdit=xEdit||null;
 function applyExtra(){if(!DAY)return;
   if(!Object.prototype.hasOwnProperty.call(DAY,'_base'))Object.defineProperty(DAY,'_base',{value:DAY.arr.filter(g=>!g.manual),writable:true,enumerable:false});
   const add=Object.entries(EXTRA||{}).filter(([k,v])=>k.startsWith('g:')&&v&&v.fl&&v.t).map(([,v])=>v);
-  DAY.arr=DAY._base.filter(g=>!(EXTRA||{})['mv:'+g.id]).concat(add)}
+  if(!Object.prototype.hasOwnProperty.call(DAY,'_baseDep'))Object.defineProperty(DAY,'_baseDep',{value:DAY.dep,writable:true,enumerable:false});
+  // EXTRA['rg:<groupId>'] = {g,v,why,at}: the group is met / picked up by another guide or vehicle (late flight etc.)
+  const rg=x=>{const o=(EXTRA||{})['rg:'+x.id];if(!o)return x;return Object.assign({},x,{g0:x.g,v0:x.v,g:o.g||x.g,v:o.v||x.v,rgWhy:o.why||'',reassigned:true})};
+  DAY.arr=DAY._base.filter(g=>!(EXTRA||{})['mv:'+g.id]).concat(add).map(rg);
+  DAY.dep=DAY._baseDep.map(rg)}
 function extraChanged(){if(!DAY)return;const keep=['#fVeh','#fHotel','#fOp'].map(s=>$(s).value);
   applyExtra();buildFlights();fillFilters();['#fVeh','#fHotel','#fOp'].forEach((s,i)=>{const el=$(s);if([...el.options].some(o=>o.value===keep[i]))el.value=keep[i]});runChecks();renderAll()}
 // write manual guests into any day (tomorrow's KAPAK may not be uploaded yet: they appear once it is)
@@ -87,3 +91,46 @@ function bindXActs(root){
     if(!confirm(T(g.src?'Удалить перенос? Гости вернутся на свой прежний рейс.':'Удалить этих гостей с табло?')))return;saveExtra({['g:'+g.id]:null});if(g.src)putExtra(g.srcDay||dayKey,{['mv:'+g.src]:null});toast(g.src?'Гости возвращены на прежний рейс':'Удалено')});
   root.querySelectorAll('[data-xmove]').forEach(b=>b.onclick=e=>{e.stopPropagation();const g=(DAY._base||DAY.arr).find(x=>x.id===b.dataset.xmove);if(g)xOpen({h:g.h,v:g.v,g:g.g,op:g.op,p:JSON.parse(JSON.stringify(g.p||[])),pax:g.pax,note:'',src:g.id},g)})}
 $('#xAdd').onclick=()=>{if(!DAY)return toast('Сначала загрузите день');xOpen()};
+
+/* ---------- hand a flight's guests to another guide / vehicle (late flight: the evening guide meets them) ---------- */
+var RG=RG||{key:null,sel:null,g:'',v:'',why:'',done:''};
+function rgBusy(g,f){// what this guide already does around the new landing time
+  const eta=f.eta;const ts=buildTasks(t=>t.g===g).filter(t=>!t.groups.some(x=>f.groups.includes(x)));
+  return ts.filter(t=>Math.abs(t.time-eta)<=90).map(t=>`${fmt(t.time)} ${t.kind==='arr'?'встреча '+(t.f?t.f.code:normFl(t.groups[0].fl)):'сбор '+t.groups[0].h}`)}
+function rgHtml(f,gs){
+  if(RG.done)return `<div class="rgform"><h3>✓ Гости переданы</h3><pre class="rg-msg">${esc(RG.done)}</pre><p class="xact"><button type="button" class="btn" data-rgcopy>📋 Скопировать для WhatsApp</button><a class="btn wa-go" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(RG.done)}">WhatsApp ➜</a><span class="sp"></span><button type="button" class="btn" data-rgclose>Готово</button></p></div>`;
+  if(!RG.sel)RG.sel=new Set(gs.map(g=>g.id));
+  const all=[...new Set([...guides(),...gpKeys()])];
+  const rows=all.map(g=>({g,busy:rgBusy(g,f),today:guides().includes(g)})).sort((a,b)=>(a.busy.length-b.busy.length)||(b.today-a.today)||a.g.localeCompare(b.g,'tr'));
+  const vehs=[...new Set([...DAY.arr,...DAY.dep].map(x=>x.v).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'tr',{numeric:true}));
+  const cur=[...new Set(gs.map(g=>g.g).filter(Boolean))].join(', ');
+  return `<div class="rgform" data-fk="${esc(f.key)}"><h3>🔄 Передать гостей другому гиду · ${esc(f.code)}${f.delay?` <span class="dchip part">посадка ${fmt(f.eta)} (+${f.delay} мин)</span>`:''}</h3>
+    <div class="rg-g">${gs.map(g=>`<label class="rg-row"><input type="checkbox" data-rgsel="${esc(g.id)}" ${RG.sel.has(g.id)?'checked':''}> <b>${esc(g.h)}</b> · ${groupTotal(g)} чел. · ${esc(g.op||'')} · <span class="hint">сейчас: ${esc(g.g||'гид не указан')} · ${esc(g.v||'без машины')}</span>${g.reassigned?' <span class="chip man">🔄 уже передано</span>':''}</label>`).join('')}</div>
+    <div class="xg"><label>Новый гид<input data-rgf="g" value="${esc(RG.g)}" list="rgGL" placeholder="фамилия или имя" autocomplete="off"></label>
+      <label>Машина (пусто — не менять)<input data-rgf="v" value="${esc(RG.v)}" list="rgVL" placeholder="MİNİ 6" autocomplete="off"></label>
+      <label class="xw">Причина<input data-rgf="why" value="${esc(RG.why||(f.delay?'рейс задержан до '+fmt(f.eta):''))}"></label></div>
+    <datalist id="rgGL">${all.map(g=>`<option value="${esc(g)}">`).join('')}</datalist><datalist id="rgVL">${vehs.map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
+    <div class="hint" style="margin:8px 0 4px">Кто свободен около ${fmt(f.eta)}:</div>
+    <div class="rg-pick">${rows.slice(0,14).map(r=>`<button type="button" class="rgp ${r.busy.length?'busy':'free'}${RG.g===r.g?' on':''}" data-rgpick="${esc(r.g)}"><b>${esc(r.g)}</b><small>${r.busy.length?'занят: '+esc(r.busy.join(', ')):(r.today?'свободен':'сегодня без заданий')}</small></button>`).join('')}</div>
+    <p class="xact"><span class="hint">Сейчас встречает: ${esc(cur||'—')}</span><span class="sp"></span>${gs.some(g=>g.reassigned)?`<button type="button" class="btn ghost" data-rgundo>↩ Вернуть как было</button>`:''}<button type="button" class="btn" data-rgcancel>Отмена</button><button type="button" class="btn primary" data-rgsave>Передать</button></p></div>`}
+function bindRg(root){
+  const f=RG.key&&flights.find(x=>x.key===RG.key);
+  root.querySelectorAll('[data-rga]').forEach(b=>b.onclick=e=>{e.stopPropagation();const k=b.dataset.rga;RG={key:RG.key===k?null:k,sel:null,g:'',v:'',why:'',done:''};renderBoard()});
+  if(!f)return;
+  root.querySelectorAll('[data-rgsel]').forEach(c=>c.onchange=()=>{c.checked?RG.sel.add(c.dataset.rgsel):RG.sel.delete(c.dataset.rgsel)});
+  root.querySelectorAll('[data-rgf]').forEach(i=>i.oninput=()=>{RG[i.dataset.rgf]=i.value;if(i.dataset.rgf==='g')root.querySelectorAll('[data-rgpick]').forEach(b=>b.classList.toggle('on',b.dataset.rgpick===i.value))});
+  root.querySelectorAll('[data-rgpick]').forEach(b=>b.onclick=()=>{RG.g=b.dataset.rgpick;const i=root.querySelector('[data-rgf=g]');if(i)i.value=RG.g;root.querySelectorAll('[data-rgpick]').forEach(x=>x.classList.toggle('on',x===b))});
+  root.querySelectorAll('[data-rgcancel],[data-rgclose]').forEach(b=>b.onclick=()=>{RG={key:null};renderBoard()});
+  root.querySelectorAll('[data-rgcopy]').forEach(b=>b.onclick=()=>copy(RG.done,true));
+  root.querySelectorAll('[data-rgundo]').forEach(b=>b.onclick=()=>{const patch={};f.groups.forEach(g=>{if(g.reassigned)patch['rg:'+g.id]=null});RG={key:null};saveExtra(patch);toast('Гид и машина возвращены как в KAPAK')});
+  root.querySelectorAll('[data-rgsave]').forEach(b=>b.onclick=()=>{
+    const g=xUp(RG.g).replace(/\s+/g,' ');if(!g)return toast('Выберите нового гида');const sel=f.groups.filter(x=>RG.sel.has(x.id));if(!sel.length)return toast('Отметьте, какие группы передать');
+    const v=xUp(RG.v).replace(/^(BUS|MİNİ|MİN|MİDİ)(\d)/,'$1 $2');const why=String(RG.why||(f.delay?'рейс задержан до '+fmt(f.eta):'')).trim();
+    const patch={};sel.forEach(x=>{patch['rg:'+x.id]={g,v:v||'',why,at:nowMinutes()}});
+    const old=[...new Set(sel.map(x=>x.g0||x.g).filter(Boolean))].join(', ');const pax=sel.reduce((a,x)=>a+groupTotal(x),0);const tr=LANG==='tr';
+    const vv=v||[...new Set(sel.map(x=>x.v))].join(', ');const a=assign[vv]||{};
+    RG.done=[`🔄 *${f.code}* ${tr?(CITY_TR[f.org]||f.org||''):(CITY[f.org]||f.org||'')} · ${tr?'iniş':'посадка'} *${fmt(f.eta)}*${f.delay?` (${tr?'plan':'план'} ${f.t})`:''}`,
+      `${tr?'Karşılayan':'Встречает'}: *${g}*${gPhone(g)?' '+gPhone(g):''}${old?` (${tr?'önceki':'вместо'} ${old})`:''}`,
+      `${tr?'Araç':'Машина'}: ${vv||'-'}${a.plate?' · '+a.plate:''}${a.phone?' · '+(tr?'şoför ':'водитель ')+a.phone:''}`,
+      ...sel.map(x=>`🏨 ${x.h} · ${groupTotal(x)} ${tr?'kişi':'чел.'} · ${x.op||''}`),`${tr?'Toplam':'Всего'}: ${pax}`,why?`${tr?'Neden':'Причина'}: ${why}`:''].filter(Boolean).join('\n');
+    saveExtra(patch);toast(`Передано: ${g} · ${pax} чел.`)})}

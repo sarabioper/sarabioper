@@ -371,15 +371,16 @@ function renderBoard(){
         <div class="fl-head"><span class="fl-code">${esc([...f.codes].join(' / '))}</span><span class="fl-from">${esc(CITY[f.org]||f.org||'город вылета не указан')}</span>
         ${f.to==='GZP'?'<span class="chip gzp">Аэропорт Газипаша</span>':terms.map(t=>{const bad=t&&f.org&&t!==expected;const ok=bad&&f.groups.some(g=>g.term===t&&termOk(g.fl,t));const soft=bad&&!ok&&expected==='İÇ';return `<span class="chip term ${bad&&!ok&&!soft||!t?'bad':''}">${termLbl(t)}${bad&&!ok?(soft?' ?':' ⚠'):''}</span>`}).join('')}</div>
         <button type="button" class="fl-toggle" data-fk="${esc(f.key)}" aria-expanded="${open}">👥 ${open?'Скрыть гостей':'Гости'} · ${doneG}/${totG} ${open?'▴':'▾'}</button>
-        ${gs.map(g=>{const mc=metCount(g),mo=marked(g,'o');return `<div class="grp"><span class="h">${esc(g.h)} <span class="op">${esc(g.op)}</span>${g.manual?' <span class="chip man">✍ вручную</span>':''}${mo?` <span class="met">офис ✓ ${mo}/${groupTotal(g)}</span>`:''}${mc?` <span class="met gm">гид ✓ ${mc}/${groupTotal(g)}</span>`:''}${g.note?` <span class="op">· ${esc(g.note)}</span>`:''}</span><span class="chip">${esc(g.v||'нет машины')}</span><span class="px">${g.pax} чел</span></div>`}).join('')}
+        ${gs.map(g=>{const mc=metCount(g),mo=marked(g,'o');return `<div class="grp"><span class="h">${esc(g.h)} <span class="op">${esc(g.op)}</span>${g.manual?' <span class="chip man">✍ вручную</span>':''}${g.reassigned?` <span class="chip man" title="${esc(g.rgWhy||'')}">🔄 было: ${esc(g.g0||'—')}${g.v0&&g.v0!==g.v?' · '+esc(g.v0):''}</span>`:''}${mo?` <span class="met">офис ✓ ${mo}/${groupTotal(g)}</span>`:''}${mc?` <span class="met gm">гид ✓ ${mc}/${groupTotal(g)}</span>`:''}${g.note?` <span class="op">· ${esc(g.note)}</span>`:''}</span><span class="chip">${esc(g.v||'нет машины')}</span><span class="px">${g.pax} чел</span></div>`}).join('')}
       </div>
       <div class="side">
         <span class="status ${st.k}"><span class="dot"></span>${st.lbl}</span>${liveNote(f)}
-        ${f.unknown?'':`<div class="eta-btns"><button type="button" class="btn sm" data-eta="${esc(f.key)}">✎ Время THM</button>${st.k!=='land'||(f.live&&f.live.manual)?`<button type="button" class="btn sm" data-landed="${esc(f.key)}">✓ Сел</button>`:''}${ETA[f.key]?`<button type="button" class="btn sm" data-etaclr="${esc(f.key)}" title="Убрать ручное время">✕</button>`:''}</div>`}
+        ${`<div class="eta-btns">${f.unknown?'':`<button type="button" class="btn sm" data-eta="${esc(f.key)}">✎ Время THM</button>`}<button type="button" class="btn sm${f.delay>=120?' rg-hot':''}" data-rga="${esc(f.key)}" title="Передать гостей другому гиду">🔄 Гид / машина</button>`}${f.unknown?'</div>':`${st.k!=='land'||(f.live&&f.live.manual)?`<button type="button" class="btn sm" data-landed="${esc(f.key)}">✓ Сел</button>`:''}${ETA[f.key]?`<button type="button" class="btn sm" data-etaclr="${esc(f.key)}" title="Убрать ручное время">✕</button>`:''}</div>`}
         ${st.p!=null?`<div class="prog" aria-hidden="true"><i style="width:${Math.round(st.p*100)}%"></i></div>`:''}
         ${vehs.map(v=>{const a=assign[v]||{};const g=(gs.find(x=>(x.v||'—')===v)||{}).g;return `<div class="veh">${esc(v)} · ${esc(a.plate||'номер не назначен')}<small>${g?gTag(g):'гид не указан'}</small>${dTag(a)?`<small>${dTag(a)}</small>`:''}</div>`}).join('')}
       </div>
     </article>`;
+    if(RG.key===f.key&&isOps())html+=rgHtml(f,gs);
     // the guests of this flight, opened by a tap on the flight: same rows and marks as on the guide screen
     if(open){const key='b_'+f.key;const t={kind:'arr',L:'o',groups:gs,guide:(gs.find(g=>g.g)||{}).g||'',done:doneG,total:totG};TASKS[key]=t;const ids=gs.map(x=>x.id).join(',');
       if(!isOps())html+=`<div class="fl-guests" data-fk="${esc(f.key)}">${grpHtml(Object.assign({},t,{L:undefined}),true)}<div class="tf"><span class="hint">Отмечайте гостей во вкладке «Гид»</span></div></div>`;else
@@ -389,6 +390,7 @@ function renderBoard(){
   $('#board').innerHTML=html||'<p class="hint">Ничего не найдено.</p>';
   DONEF.ready=true;
   bindXActs($('#board'));
+  bindRg($('#board'));
   $('#board').querySelectorAll('article.fl-done').forEach(el=>{const go=()=>{OPENF.add(el.dataset.fk);renderBoard()};el.onclick=go;el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go()}}});
   $('#board').querySelectorAll('.fl-toggle').forEach(b=>b.onclick=e=>{e.stopPropagation();const k=b.dataset.fk;OPENF.has(k)?OPENF.delete(k):OPENF.add(k);renderBoard()});
   $('#board').querySelectorAll('article.flight .mid').forEach(m=>m.onclick=e=>{if(e.target.closest('a,button'))return;const k=m.closest('article').dataset.fk;OPENF.has(k)?OPENF.delete(k):OPENF.add(k);renderBoard()});
