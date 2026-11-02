@@ -17,18 +17,18 @@ function bindRep(el){
   el.querySelectorAll('[data-repwa]').forEach(b=>b.onclick=()=>copy(repWa(REPORTS[b.dataset.repwa]),true));
   el.querySelectorAll('[data-repdel]').forEach(b=>b.onclick=()=>{if(!confirm(T('Удалить этот рапорт?')))return;saveReport({id:b.dataset.repdel,del:true});toast('Рапорт удалён')})}
 // the form: same for a guide (author = the chosen guide) and the office
-function repOpen(where){const today=isoToday();
+function repOpen(where,pre={},anchor=null){const today=pre.date||isoToday();
   const flights_=typeof flights!=='undefined'&&DAY?[...new Set(flights.map(f=>f.code).filter(c=>!/^[!?]/.test(c)))]:[];
   const buses=(()=>{try{return tours().filter(t=>dayOfTour(t,today)).map(t=>t.bus)}catch(e){return []}})();
   const hotels=DAY?[...new Set([...DAY.arr,...DAY.dep].map(g=>g.h))]:[];
-  repEdit={where,author:where==='guide'?(curGuide||''):'Офис'};
-  const el=$('#repForm');if(where==='ops'){$('#repBox').open=true;$('#repBox').appendChild(el)}else document.querySelector('.rep-bar').after(el);el.hidden=false;
+  repEdit={where,author:pre.author||(where==='guide'?(curGuide||''):'Офис')};
+  const el=$('#repForm');if(anchor){anchor.after(el)}else if(where==='ops'){$('#repBox').open=true;$('#repBox').appendChild(el)}else document.querySelector('.rep-bar').after(el);el.hidden=false;
   el.innerHTML=`<h3>📝 Рапорт</h3><div class="xg">
     <label>Дата<input type="date" id="repD" value="${today}"></label>
     <label>Тема<select id="repT">${REP_TOPICS.map(t=>`<option>${esc(t)}</option>`).join('')}</select></label>
     <label>Кто пишет<input id="repA" value="${esc(repEdit.author)}" list="repAL"></label>
-    <label>Рейс / автобус / отель<input id="repR" list="repRL" placeholder="PC 2010, BUS 3, Casa Fora…"></label>
-    <label class="xw">Гость (если про гостя)<input id="repG" placeholder="Фамилия Имя"></label>
+    <label>Рейс / автобус / отель<input id="repR" list="repRL" value="${esc(pre.ref||'')}" placeholder="PC 2010, BUS 3, Casa Fora…"></label>
+    <label class="xw">Гость (если про гостя)<input id="repG" value="${esc(pre.guest||'')}" placeholder="Фамилия Имя"></label>
     <label class="xw">Что случилось *<textarea id="repX" rows="5" placeholder="Коротко и по порядку: что произошло, во сколько, кто был рядом, что сделали"></textarea></label></div>
     <datalist id="repRL">${[...flights_,...buses,...hotels].map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
     <datalist id="repAL">${(typeof guides==='function'&&DAY?guides():[]).map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
@@ -37,7 +37,10 @@ function repOpen(where){const today=isoToday();
   $('#repC').onclick=()=>{el.hidden=true;el.innerHTML='';repEdit=null};
   $('#repS').onclick=()=>{const text=$('#repX').value.trim();if(text.length<3)return toast('Опишите, что случилось');const date=$('#repD').value||today;
     const r={id:'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),date,at:new Date().toISOString(),author:$('#repA').value.trim(),topic:$('#repT').value,ref:$('#repR').value.trim(),guest:$('#repG').value.trim(),text};
-    saveReport(r);el.hidden=true;el.innerHTML='';repEdit=null;toast('Рапорт отправлен')}}
+    saveReport(r);repEdit=null;toast('Рапорт отправлен');
+    // right away: send it on WhatsApp too
+    el.innerHTML=`<h3>✓ Рапорт отправлен</h3>${repCard(r)}<p class="xact"><a class="btn wa-go" id="repGo" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(repWa(r))}">WhatsApp ➜</a><span class="sp"></span><button type="button" class="btn" id="repDone">Готово</button></p>`;
+    bindRep(el);$('#repDone').onclick=()=>{el.hidden=true;el.innerHTML='';try{tourRefresh()}catch(e){}}}}
 // where reports are shown: the office (Control, any date) and the guide's own for today
 function renderReports(){
   const iso=repDate||(DAY&&DAY.iso)||isoToday();const L=repList(iso);
