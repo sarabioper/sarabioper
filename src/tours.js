@@ -37,11 +37,11 @@ let tSaveQ={},tSaveT=null,mSaveQ={},mSaveT=null;
 function tPut(kind,q){if(!SERVER)return;api('PUT','/api/state?d=00.00&kind='+kind,q).catch(()=>toast('Нет связи с сервером, изменения сохранены только здесь'))}
 function saveTour(id,obj){if(obj)TOURS[id]=obj;else delete TOURS[id];store.set('tours',TOURS);tLastSave=Date.now();tSaveQ[id]=obj||null;clearTimeout(tSaveT);tSaveT=setTimeout(()=>{const q=tSaveQ;tSaveQ={};tPut('tours',q)},400)}
 function saveTM(key,v){if(v)TM[key]=v;else delete TM[key];store.set('tourmarks',TM);tLastSave=Date.now();mSaveQ[key]=v||null;clearTimeout(mSaveT);mSaveT=setTimeout(()=>{const q=mSaveQ;mSaveQ={};tPut('tourmarks',q)},300)}
-async function pullTours(force){if(!SERVER)return;if(!force&&($('#v-tours').hidden||Date.now()-tLastSave<8000))return;
+async function pullTours(force){if(!SERVER)return;if(!force&&($('#v-tours').hidden||Date.now()-tLastSave<8000))return;if(force==='sync'&&Date.now()-tLastSave<8000)return;
   try{const [a,b]=await Promise.all([api('GET','/api/state?d=00.00&kind=tours'),api('GET','/api/state?d=00.00&kind=tourmarks')]);
     const s1=JSON.stringify(TOURS),s2=JSON.stringify(TM);TOURS=a.data||{};TM=b.data||{};
-    if(JSON.stringify(TOURS)!==s1||JSON.stringify(TM)!==s2||force){store.set('tours',TOURS);store.set('tourmarks',TM);if(!tEdit&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#tourList')))renderTours()}}catch(e){}}
-setInterval(()=>pullTours(),20000);
+    if(JSON.stringify(TOURS)!==s1||JSON.stringify(TM)!==s2||force){store.set('tours',TOURS);store.set('tourmarks',TM);if(!tEdit&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#tourList')))tourRefresh()}}catch(e){}}
+
 
 /* ---- day view ---- */
 const dayOfTour=(t,iso)=>{const i=t.days.findIndex(d=>d.d===iso);return i<0?null:{i,day:t.days[i]}};

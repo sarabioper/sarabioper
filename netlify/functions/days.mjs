@@ -98,6 +98,16 @@ export default async (req) => {
     return json({ days, keepDays: keep, role: auth.role, me });
   }
 
+  // one cheap request instead of many: the version tag (etag) of every stored piece of the day and of the
+  // shared data; phones download only what has changed since their last check
+  if (req.method === "GET" && path === "/api/sync") {
+    const dk = url.searchParams.get("d") || "";
+    const tags = async (p) => { const o = {}; const { blobs } = await s.list({ prefix: p }); for (const b of blobs) o[b.key.slice(p.length)] = b.etag || ""; return o; };
+    const [g, v] = await Promise.all([tags("state/00.00/"), /^\d\d\.\d\d$/.test(dk) ? tags("state/" + dk + "/") : {}]);
+    delete g.pins; delete g["tours-archive"]; delete g["tourmarks-archive"]; delete g["reports-archive"];
+    return json({ g, v });
+  }
+
   const d = url.searchParams.get("d") || "";
   if (!/^\d\d\.\d\d$/.test(d)) return json({ error: "Неверная дата" }, 400);
 
@@ -178,6 +188,10 @@ export default async (req) => {
         if (typeof v !== "object" || String(v.text || "").length > 5000) continue;
         prev[k] = { ...v, by: auth.role, savedAt: prev[k] ? prev[k].savedAt : new Date().toISOString() };
       }
+      // reports older than 90 days move to an archive, so the list everyone downloads stays small
+      const cut = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10);
+      const old = Object.entries(prev).filter(([, r]) => r && r.date && r.date < cut);
+      if (old.length) { const arch = (await s.get("state/" + d + "/reports-archive", { type: "json" })) || {}; for (const [k, r] of old) { arch[k] = r; delete prev[k]; } await s.setJSON("state/" + d + "/reports-archive", arch); }
       await s.setJSON("state/" + d + "/reports", prev);
       return json({ ok: true });
     }
@@ -186,6 +200,18 @@ export default async (req) => {
       // so a guide ticking a stop never overwrites an operator editing another program
       const prev = (await s.get("state/" + d + "/" + kind, { type: "json" })) || {};
       for (const [k, v] of Object.entries(body || {})) { if (v == null) delete prev[k]; else prev[k] = v; }
+      // programs that ended more than 30 days ago (and their stop marks) move to an archive
+      if (kind === "tours" && d === "00.00") {
+        const cut = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
+        const old = Object.entries(prev).filter(([k, t]) => k[0] !== "~" && t && Array.isArray(t.days) && t.days.length && t.days[t.days.length - 1].d < cut);
+        if (old.length) {
+          const [arch, tm, tma] = await Promise.all(["tours-archive", "tourmarks", "tourmarks-archive"].map((x) => s.get("state/00.00/" + x, { type: "json" }).then((v) => v || {})));
+          const ids = new Set(old.map(([k]) => k));
+          for (const [k, t] of old) { arch[k] = t; delete prev[k]; }
+          for (const k of Object.keys(tm)) if (ids.has(k.split("|")[0])) { tma[k] = tm[k]; delete tm[k]; }
+          await Promise.all([s.setJSON("state/00.00/tours-archive", arch), s.setJSON("state/00.00/tourmarks", tm), s.setJSON("state/00.00/tourmarks-archive", tma)]);
+        }
+      }
       await s.setJSON("state/" + d + "/" + kind, prev);
       return json({ ok: true });
     }
@@ -220,4 +246,4 @@ function isoOf(d, k, today) {
   return iso;
 }
 
-export const config = { path: ["/api/days", "/api/day", "/api/state", "/api/whoami", "/api/admin"] };
+export const config = { path: ["/api/days", "/api/day", "/api/state", "/api/sync", "/api/whoami", "/api/admin"] };

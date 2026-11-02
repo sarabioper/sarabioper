@@ -78,17 +78,21 @@ $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();const pw=
   if(!$('#pinRow').hidden)store.set('pin',$('#loginPin').value.replace(/\D/g,''));$('#login').hidden=true;await serverBoot()});
 // two logins: operations see everything; guides see arrivals, departures, the guide screen and notifications
 let ROLE=store.get('role','ops'),ME=store.get('me',null),PINS={};
-// a guide with his PIN sees only his own work: arrivals and departures he meets, and his own screen
-const GUIDE_TABS=['board','dep','guide'];
+// who sees which tab: the administrator — Control, Excursions, Guide screen and the cabinet;
+// operations — everything except Control and Excursions; a guide (with his PIN) — only his own arrivals,
+// departures, vehicles and excursions (Arrivals / Departures / Excursions open his own task screen)
+const ROLE_TABS={admin:['ops','tours','guide','admin'],ops:['board','dep','veh','guide','checks','contacts','data'],guide:['board','dep','veh','tours']};
+const GUIDE_TABS=ROLE_TABS.guide;
+const GUIDE_KIND={board:'arr',dep:'dep',tours:'tour'};
+const tabOk=t=>(ROLE_TABS[ROLE]||ROLE_TABS.ops).includes(t);
 // "ALİBEK" (KAPAK) and "ALİBEK MUFTİ" (vehicle list) are the same guide; two full names must be equal
 function sameG(a,b){const n=x=>gKey(x||'').trim();const A=String(a||'').trim().split(/\s+/).filter(Boolean),B=String(b||'').trim().split(/\s+/).filter(Boolean);
   if(!A.length||!B.length)return false;if(n(a)===n(b))return true;if(A.length===1||B.length===1)return n(A[0])===n(B[0]);return false}
 function setRole(r){ROLE=r==='guide'?'guide':r==='admin'?'admin':'ops';store.set('role',ROLE);document.body.classList.toggle('role-guide',ROLE==='guide');
   if(ROLE==='guide'&&ME){curGuide=ME;const w=$('#whoAmI');if(w)w.textContent='Гид: '+ME}
-  document.querySelectorAll('.tab').forEach(t=>{t.hidden=ROLE==='guide'&&!GUIDE_TABS.includes(t.dataset.t)||t.dataset.t==='admin'&&ROLE!=='admin'});
-  const cur=document.querySelector('.tab[aria-selected="true"]');if(ROLE==='guide'&&(!cur||cur.hidden)){const g=document.querySelector('.tab[data-t="guide"]');if(g)g.click()}
+  document.querySelectorAll('.tab').forEach(t=>{t.hidden=!tabOk(t.dataset.t)});
   const who=$('#whoAmI');if(who)who.textContent=ROLE==='guide'?(ME?'Гид: '+ME:'Вход: гид'):ROLE==='admin'?'Вход: администратор':'Вход: операционный отдел';
-  const cur2=document.querySelector('.tab[aria-selected="true"]');if(cur2&&cur2.hidden){const b=document.querySelector('.tab[data-t="board"]');if(b)b.click()}
+  const cur2=document.querySelector('.tab[aria-selected="true"]');if(!cur2||cur2.hidden||ROLE==='guide'){const b=cur2&&!cur2.hidden?cur2:document.querySelector('.tab:not([hidden])');if(b)b.click()}
   if(DAY)renderAll()}
 const isOps=()=>ROLE!=='guide';
 const isAdmin=()=>ROLE==='admin';
@@ -165,7 +169,7 @@ function askEta(f,landed){
 async function pullEta(){if(!SERVER||!DAY||document.hidden)return;
   try{const k=dayKey;const r=await api('GET','/api/state?d='+encodeURIComponent(k)+'&kind=eta');if(k!==dayKey)return;
     const srv=r.data||{};if(JSON.stringify(srv)!==JSON.stringify(ETA)){ETA=srv;store.set('eta_'+k,ETA);buildFlights();renderAll()}}catch(e){}}
-setInterval(pullEta,20000);
+
 
 let DAY=null,flights=[];
 function dayIso(k){const d=DAYS[k];if(d&&/^\d{4}-\d\d-\d\d$/.test(d.iso||''))return d.iso;const [dd,mm]=k.split('.');const y=new Date().getFullYear();let iso=`${y}-${mm}-${dd}`;if(Date.parse(iso)-Date.now()>60*864e5)iso=`${y-1}-${mm}-${dd}`;return iso}
@@ -668,6 +672,7 @@ function renderVeh(){
   const secs=vehSec==='all'?['arr','dep']:[vehSec];
   $('#vgrid').innerHTML=secs.map(sec=>{const L=vs.filter(x=>x.kind.includes(sec));return `<h2 class="vsec-h">${VSEC[sec]} <span class="hint">${L.length} машин · ${L.reduce((s,x)=>s+x.legs.filter(l=>l.kind===sec).reduce((a,l)=>a+l.pax,0),0)} чел</span></h2>`+(L.length?L.map(x=>card(x,sec)).join(''):'<p class="hint">Нет машин.</p>')}).join('')
     +(vehSec==='all'?`<h2 class="vsec-h">${VSEC.h2h}</h2>${h2hVehHtml()}<h2 class="vsec-h">${VSEC.tour}</h2>${toursHtml()}`:'');
+  if(!isOps())$('#vgrid').querySelectorAll('input').forEach(i=>{i.readOnly=true;i.tabIndex=-1});
   $('#vgrid').querySelectorAll('input').forEach(i=>i.addEventListener('change',e=>{const v=e.target.dataset.v,f=e.target.dataset.f;assign[v]=assign[v]||{};assign[v][f]=e.target.value.trim();saveAssign();renderVeh();renderBoard()}));
   $('#vgrid').querySelectorAll('input').forEach(i=>i.addEventListener('input',e=>{const v=e.target.dataset.v,f=e.target.dataset.f;assign[v]=assign[v]||{};assign[v][f]=e.target.value;renderWa()}));
   $('#vgrid').querySelectorAll('[data-drv]').forEach(b=>b.onclick=()=>copy(driverText(vs.find(x=>x.v===b.dataset.drv))));
@@ -1089,7 +1094,23 @@ async function pullAssign(){
     if(JSON.stringify(srv)!==JSON.stringify(assign)){assign=srv;store.set('assign_'+dayKey,assign);renderAll()}
   }catch(e){}
 }
-setInterval(pullMarks,20000);setInterval(pullAssign,60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)pullMarks()});
+// one sync loop: ask the server which pieces changed (one light request), then download only those.
+// office every 20 s, guides every 40 s, nothing while the screen is off; a full refresh every 5 min as a safety net
+let SYNC={g:{},v:{},d:null,full:0,busy:false};
+async function syncTick(force){if(!SERVER||SYNC.busy||(document.hidden&&!force))return;SYNC.busy=true;
+  try{const k=DAY?dayKey:'';const r=await api('GET','/api/sync?d='+encodeURIComponent(k));const full=force||Date.now()-SYNC.full>300000;if(full)SYNC.full=Date.now();
+    const ch=(o,n)=>full||(SYNC[o]||{})[n]!==(r[o]||{})[n];
+    if(SYNC.d!==k){SYNC.v={};SYNC.d=k}
+    const run=[];
+    if(k){if(ch('v','eta'))run.push(pullEta());if(ch('v','met'))run.push(pullMarks());if(ch('v','extra'))run.push(pullExtra());if(ch('v','assign')){lastAssignPull=0;run.push(pullAssign())}}
+    if(ch('g','reports'))run.push(pullReports(true));if(ch('g','tours')||ch('g','tourmarks'))run.push(pullTours('sync'));
+    // a piece that could not be taken right now (this phone saved it a moment ago) is retried on the next tick
+    const nv=Object.assign({},r.v||{}),ng=Object.assign({},r.g||{});const keep=(o,n,busy)=>{if(busy)o[n]=(o===nv?SYNC.v:SYNC.g)[n]};
+    keep(nv,'met',Date.now()-lastLocalMark<5000);keep(nv,'extra',Date.now()-xLastSave<8000||xEdit);keep(nv,'assign',Date.now()-lastAssignSave<15000);
+    keep(ng,'tours',Date.now()-tLastSave<8000);keep(ng,'tourmarks',Date.now()-tLastSave<8000);
+    SYNC.g=ng;SYNC.v=nv;await Promise.all(run)}catch(e){}finally{SYNC.busy=false}}
+let syncN=0;setInterval(()=>{syncN++;if(ROLE!=='guide'||syncN%2===0)syncTick()},20000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncTick()});
 
 
 /* ---------- contacts & log ---------- */
@@ -1204,8 +1225,8 @@ async function importFiles(files,opt={}){
   // excursions: programs first (saved right away), then group lists find their bus among them
   if(imgs.length||progs.length||grps.length){
     let np=0;if(progs.length)np+=await importTourFiles(progs,{batch:true});if(imgs.length){msg.innerHTML=out.join('')+`<span>Читаю программы с фото: ${imgs.length}…</span>`;np+=await importTourImages(imgs,{batch:true})}
-    out.push(`<b>Экскурсии:</b><span>${np?`Программ автобусов загружено: ${np} (вкладка «Экскурсии»).`:''}${imgs.length+progs.length&&!np?' Программу из файлов прочитать не удалось.':''}${grps.length?` Списков групп: ${grps.length} — проверьте, кто в какой автобус, и нажмите «Загрузить».`:''}</span>`);
-    if(grps.length){$('.tab[data-t="tours"]').click();await importGroupFiles(grps)}else if(np)$('.tab[data-t="tours"]').click()}
+    out.push(`<b>Экскурсии:</b><span>${np?`Программ автобусов загружено: ${np}. Их видят администратор во вкладке «Экскурсии» и гиды этих автобусов.`:''}${imgs.length+progs.length&&!np?' Программу из файлов прочитать не удалось.':''}${grps.length?` Списков групп: ${grps.length} — ниже проверьте, кто в какой автобус, и нажмите «Загрузить».`:''}</span>`);
+    if(grps.length)await importGroupFiles(grps,'data')}
   msg.innerHTML=out.join('');
 }
 // kept for older callers and tests
@@ -1238,7 +1259,9 @@ $('#copyWa').onclick=()=>copy($('#waMsg').textContent);
 const views=['board','ops','dep','veh','tours','guide','checks','contacts','data','admin'];
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b||b.hidden)return;
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t===b));
-  views.forEach(v=>$('#v-'+v).hidden=v!==b.dataset.t);if(b.dataset.t==='guide'){renderGuidePick();renderGuide()}store.set('tab',b.dataset.t);$('#scanBtn').hidden=b.dataset.t!=='ops'});
+  // a guide's Arrivals / Departures / Excursions are his own task screen in that mode
+  const gk=ROLE==='guide'&&GUIDE_KIND[b.dataset.t];const view=gk?'guide':b.dataset.t;if(gk){gKind=gk;store.set('gkind',gKind)}
+  views.forEach(v=>$('#v-'+v).hidden=v!==view);if(view==='guide'){renderGuidePick();renderGuide()}if(gk==='tour')pullTours(true);store.set('tab',b.dataset.t);$('#scanBtn').hidden=b.dataset.t!=='ops'});
 document.querySelector('header .brand').appendChild(langSwitch());$('#loginForm').prepend(langSwitch());
 ['#woLang','#wlLang'].forEach(id=>{const el=$(id);if(el)el.value=LANG});
 i18nStart();

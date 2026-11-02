@@ -10,7 +10,8 @@ function nameScore(a,b){const A=nameToks(a),B=nameToks(b);if(!A.length||!B.lengt
   const best=A.map(x=>Math.max(...B.map(y=>{const s=sim(x,y);return y.startsWith(x)||x.startsWith(y)?Math.max(s,0.85):s})));
   return best.reduce((p,c)=>p+c,0)/A.length}
 function tourScore(meta,t){return Math.max(nameScore(meta.name,t.guide),nameScore(meta.name,t.kok),nameScore(meta.name,t.bus),meta.group&&new RegExp('\\b'+meta.group+'\\.?\\s*GRUP','i').test(t.name||'')?0.9:0)}
-let GIMP=null;// review of a batch before anything is saved
+let GIMP=null,GIMPW='tours';// review of a batch before anything is saved; shown in Excursions or under the upload box
+const gimpEl=()=>$(GIMPW==='data'?'#grpReviewD':'#grpReview');
 function checkGroup(it){const t=TOURS[it.tid];it.warn=[];if(!t){it.warn.push('автобус не найден — выберите вручную или сначала загрузите программу');return}
   const start=t.days[0].d,end=t.days[t.days.length-1].d,y=start.slice(0,4);
   if(it.meta.date){const fd=`${y}-${it.meta.date.m}-${it.meta.date.d}`;const diff=Math.round((Date.parse(start)-Date.parse(fd))/864e5);
@@ -21,7 +22,7 @@ function checkGroup(it){const t=TOURS[it.tid];it.warn=[];if(!t){it.warn.push('а
   if((t.gx||[]).length)it.note=`заменит текущий список (${t.gx.length} гостей)`;else it.note='';
   const same=GIMP.items.filter(o=>o!==it&&o.tid===it.tid&&!o.skip);
   if(same.length){const dup=same.find(o=>o.sig===it.sig);if(dup&&GIMP.items.indexOf(dup)<GIMP.items.indexOf(it)){it.skip=true;it.warn.push('копия того же файла — пропущу')}else if(!dup){it.conflict=true;it.warn.push('на этот же автобус выбран ещё один файл — выберите для одного из них другой автобус')}}}
-async function importGroupFiles(files){
+async function importGroupFiles(files,where){GIMPW=where==='data'?'data':'tours';['#grpReview','#grpReviewD'].forEach(s=>{const e=$(s);if(e){e.hidden=true;e.innerHTML=''}});
   const items=[];
   for(const f of files){try{const rows=await readRows(f);if(!isGroupList(rows)){items.push({f,bad:'не похоже на список группы (нужны колонки Фамилия, Имя, Рейс)'});continue}
       const P=parseGroupList(rows);if(!P.guests.length){items.push({f,bad:'гостей в файле не нашёл'});continue}
@@ -33,8 +34,8 @@ async function importGroupFiles(files){
   items.sort((a,b)=>(/\(\d+\)/.test(a.f.name)-/\(\d+\)/.test(b.f.name))||a.f.name.localeCompare(b.f.name,'tr'));
   const by={};items.forEach(it=>{if(!it.tid)return;(by[it.tid]=by[it.tid]||[]).push(it)});
   Object.values(by).forEach(L=>{if(L.length<2)return;const sig0=L[0].sig;if(L.every(x=>x.sig===sig0))return;L.sort((a,b)=>b.score-a.score);L.slice(1).forEach(x=>{if(x.sig!==L[0].sig){x.hint='похож на '+(TOURS[x.tid].bus||'')+', но этот автобус уже занят файлом «'+L[0].f.name+'»';x.tid=''}})});
-  GIMP={items};renderGroupImport();$('#grpReview').scrollIntoView({behavior:'smooth',block:'start'})}
-function renderGroupImport(){const el=$('#grpReview');if(!el)return;if(!GIMP){el.hidden=true;el.innerHTML='';return}
+  GIMP={items};renderGroupImport();gimpEl().scrollIntoView({behavior:'smooth',block:'start'})}
+function renderGroupImport(){const el=gimpEl();if(!el)return;if(!GIMP){el.hidden=true;el.innerHTML='';return}
   GIMP.items.forEach(it=>{if(!it.bad){it.skip=false;it.conflict=false}});GIMP.items.forEach(it=>{if(!it.bad)checkGroup(it)});
   const all=tours();const opts=sel=>`<option value="">— выберите автобус —</option>`+all.map(t=>`<option value="${esc(t.id)}"${t.id===sel?' selected':''}>${esc(t.bus||'?')} · ${esc(t.guide||'')} · ${isoDM(t.days[0].d)}–${isoDM(t.days[t.days.length-1].d)}${t.pax?' · '+esc(t.pax)+' pax':''}</option>`).join('');
   const ok=GIMP.items.filter(it=>!it.bad&&!it.skip&&!it.conflict&&it.tid);

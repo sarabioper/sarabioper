@@ -56,7 +56,6 @@ $('#repPrev').onclick=()=>{repDate=isoAdd(repDate||(DAY&&DAY.iso)||isoToday(),-1
 $('#repNext').onclick=()=>{repDate=isoAdd(repDate||(DAY&&DAY.iso)||isoToday(),1);renderReports()};
 $('#repToday').onclick=()=>{repDate=isoToday();renderReports()};
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b&&(b.dataset.t==='ops'||b.dataset.t==='guide')){pullReports(true);renderReports()}});
-setInterval(()=>{if(!document.hidden)pullReports()},60000);
 pullReports(true);renderReports();
 
 /* ---------- jump to the top / bottom of long pages ---------- */

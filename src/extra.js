@@ -22,7 +22,7 @@ function saveExtra(patch){Object.entries(patch).forEach(([k,v])=>{if(v==null)del
 async function pullExtra(){if(!SERVER||!DAY||document.hidden||Date.now()-xLastSave<8000||xEdit)return;
   try{const k=dayKey;const r=await api('GET','/api/state?d='+encodeURIComponent(k)+'&kind=extra');if(k!==dayKey)return;const srv=r.data||{};
     if(JSON.stringify(srv)!==JSON.stringify(EXTRA)){EXTRA=srv;store.set('extra_'+k,EXTRA);extraChanged()}}catch(e){}}
-setInterval(pullExtra,30000);
+
 
 const xUp=s=>String(s||'').trim().toLocaleUpperCase('tr');
 function xGuests(text){return String(text||'').split(/\n+/).map(l=>l.trim()).filter(Boolean).map(l=>{const m=l.match(/^(Mrs?|Ms|Miss|Mstr|Chd|Inf|Г-ж[аи]|Г-н)\.?\s+(.+)$/i);return m?[m[1],m[2].toUpperCase(),'']:['',l.toUpperCase(),'']})}
