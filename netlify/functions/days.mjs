@@ -1,6 +1,7 @@
 import { store, json, authorized, forbidden, istanbulNow } from "../lib/common.mjs";
 import { watchFromDay, watchDepFromDay } from "../lib/watch.mjs";
 import { poll } from "../lib/poll.mjs";
+import { guideFromPin, dayForGuide, toursForGuide, sameGuide } from "../lib/guide.mjs";
 
 // Shared day storage, so every dispatcher and guide sees the same list.
 // GET  /api/days                          -> days of the last 7 days, with vehicle assignments and "met" marks
@@ -12,6 +13,13 @@ export default async (req) => {
   const s = store();
   const url = new URL(req.url);
   const path = url.pathname;
+  // a guide is known by his PIN; without a valid one he gets nothing
+  let me = null;
+  if (auth.role === "guide") {
+    me = await guideFromPin(s, req);
+    if (!me) return json({ error: "Нужен PIN гида", pin: true }, 401);
+  }
+  if (req.method === "GET" && path === "/api/whoami") return json({ role: auth.role, me });
 
   if (req.method === "GET" && path === "/api/days") {
     // Every uploaded day is kept for KEEP_DAYS (15) days after its date, then removed with its marks.
@@ -34,10 +42,10 @@ export default async (req) => {
       d.met = (await s.get("state/" + k + "/met", { type: "json" })) || {};
       d.eta = (await s.get("state/" + k + "/eta", { type: "json" })) || {};
       d.manual = (await s.get("state/" + k + "/extra", { type: "json" })) || {};
-      days.push(d);
+      days.push(me ? dayForGuide(d, me) : d);
     }
     days.sort((a, b) => (a.iso < b.iso ? 1 : -1));
-    return json({ days, keepDays: keep, role: auth.role });
+    return json({ days, keepDays: keep, role: auth.role, me });
   }
 
   const d = url.searchParams.get("d") || "";
@@ -63,15 +71,34 @@ export default async (req) => {
 
   if (req.method === "GET" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
-    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra", "reports"].includes(kind)) return json({ error: "Неверный тип" }, 400);
-    return json({ data: (await s.get("state/" + d + "/" + kind, { type: "json" })) || {} });
+    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra", "reports", "pins"].includes(kind)) return json({ error: "Неверный тип" }, 400);
+    const data = (await s.get("state/" + d + "/" + kind, { type: "json" })) || {};
+    if (me) {
+      if (kind === "pins") return forbidden();
+      if (kind === "tours") return json({ data: toursForGuide(data, me) });
+      if (kind === "reports") return json({ data: Object.fromEntries(Object.entries(data).filter(([, r]) => r && sameGuide(r.author, me))) });
+      if (kind === "guides") return json({ data: Object.fromEntries(Object.entries(data).filter(([n]) => n !== "~off" && sameGuide(n, me))) });
+      if (kind === "tourmarks") {
+        // other buses' stop times stay (coordination); notes about other buses' guests do not
+        const T = (await s.get("state/00.00/tours", { type: "json" })) || {};
+        const own = new Set(Object.values(T).filter((t) => t && (sameGuide(t.guide, me) || sameGuide(t.kok, me))).map((t) => t.id));
+        return json({ data: Object.fromEntries(Object.entries(data).filter(([k]) => !k.includes("|gn|") || own.has(k.split("|")[0]))) });
+      }
+      if (kind === "met" || kind === "extra") {
+        const day = (await s.get("day/" + d, { type: "json" })) || {};
+        const man = (await s.get("state/" + d + "/extra", { type: "json" })) || {};
+        const cut = dayForGuide({ ...day, manual: man, met: kind === "met" ? data : {} }, me);
+        return json({ data: kind === "met" ? cut.met : cut.manual });
+      }
+    }
+    return json({ data });
   }
 
   if (req.method === "PUT" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
     // guides may only save their check-ins (and guest notes, kept with them) and excursion stops
     if (auth.role !== "ops" && !["met", "tourmarks", "reports"].includes(kind)) return forbidden();
-    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra", "reports"].includes(kind)) return json({ error: "Неверный тип" }, 400);
+    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra", "reports", "pins"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     const body = await req.json();
     if (kind === "extra") {
       // guests added by hand on the arrivals board (late booking, moved to another flight); one key per group
@@ -93,6 +120,7 @@ export default async (req) => {
     }
     if (kind === "reports") {
       // incident reports from guides and the office, one key per report; only the office may delete one
+      if (me) for (const v of Object.values(body || {})) if (v && typeof v === "object") v.author = me;
       const prev = (await s.get("state/" + d + "/reports", { type: "json" })) || {};
       for (const [k, v] of Object.entries(body || {})) {
         if (v == null) { if (auth.role === "ops") delete prev[k]; continue; }
@@ -141,4 +169,4 @@ function isoOf(d, k, today) {
   return iso;
 }
 
-export const config = { path: ["/api/days", "/api/day", "/api/state"] };
+export const config = { path: ["/api/days", "/api/day", "/api/state", "/api/whoami"] };

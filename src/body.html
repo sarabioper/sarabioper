@@ -126,6 +126,8 @@ body{padding-bottom:96px}
 .gx-h{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}.gx-d{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:12px}
 .gx-b{display:flex;gap:6px}.bday{color:var(--crit)}.chip.bday{border-color:var(--crit);background:var(--crit-soft)}
 body.role-guide label:has([data-tgfile]){display:none!important}
+body.role-guide #guidePick{display:none}
+.gp-tbl td.pin{white-space:nowrap}
 .tbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 10px}
 .tbar .sp,.ted-act .sp{flex:1}
 .tdate{display:inline-flex;align-items:center;gap:6px}
@@ -670,6 +672,7 @@ mark{background:var(--signal-soft);color:inherit}
     <p class="hint">Введите пароль: операционного отдела — откроется всё, гида — откроются прилёты, вылеты, экран гида и уведомления.</p>
     <label class="hint" for="loginPass">Пароль</label>
     <input id="loginPass" type="password" autocomplete="current-password" required>
+    <div id="pinRow" hidden style="display:grid;gap:6px"><label class="hint" for="loginPin">Личный PIN гида</label><input id="loginPin" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="••••"></div>
     <button class="btn primary" type="submit">Войти</button>
     <span class="hint" id="loginErr" role="alert"></span>
   </form>

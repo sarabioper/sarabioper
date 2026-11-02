@@ -287,7 +287,7 @@ if(!$('#v-tours').hidden){renderTours();pullTours(true)}
 
 // guide screen, "Экскурсия" mode: today's bus programs where this person is the hotel guide or the kok guide
 function tourGuidesOn(iso){const S=new Set();tours().forEach(t=>{if(dayOfTour(t,iso)){if(t.guide)S.add(t.guide);if(t.kok)S.add(t.kok)}});return [...S]}
-function toursOfGuide(g,iso){const k=gKey(g);return tours().filter(t=>dayOfTour(t,iso)&&(gKey(t.guide||'')===k||gKey(t.kok||'')===k))}
+function toursOfGuide(g,iso){return tours().filter(t=>dayOfTour(t,iso)&&(sameG(t.guide,g)||sameG(t.kok,g)))}
 function guideTourHtml(g){let iso=gTourDate||isoToday();let list=toursOfGuide(g,iso);if(!list.length&&iso!==isoToday()){iso=isoToday();gTourDate=null;list=toursOfGuide(g,iso)}
   if(!list.length)return `<p class="hint">Сегодня (${isoDM(iso)}) экскурсий у ${esc(g)} нет.</p>`;
   const LB=liveBoard(iso);return list.map(t=>tourCardHtml(t,iso,LB,{guide:true})).join('')}

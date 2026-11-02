@@ -62,8 +62,9 @@ const SERVER=!DEMO&&/^https?:/.test(location.protocol);
 let LIVE=null,followNow=true;
 const pass=()=>store.get('pass','');
 async function api(method,path,body){
-  const r=await fetch(path,{method,headers:{'content-type':'application/json','x-ops-key':encodeURIComponent(pass())},body:body?JSON.stringify(body):undefined});
-  if(r.status===401){showLogin('Неверный пароль.');throw new Error('401')}
+  const r=await fetch(path,{method,headers:{'content-type':'application/json','x-ops-key':encodeURIComponent(pass()),'x-guide-pin':store.get('pin','')},body:body?JSON.stringify(body):undefined});
+  if(r.status===401){let j={};try{j=await r.clone().json()}catch(e){}
+    if(j.pin)showLogin(store.get('pin','')?'Неверный PIN. Спросите свой PIN в офисе.':'Введите свой личный PIN гида (его выдаёт офис).',true);else showLogin('Неверный пароль.');throw new Error('401')}
   if(!r.ok)throw new Error((await r.text())||r.status);
   return r.json();
 }
@@ -71,22 +72,30 @@ let saveT={};
 function saveRemote(kind,data){if(!SERVER)return;clearTimeout(saveT[kind]);const k=dayKey;saveT[kind]=setTimeout(()=>api('PUT','/api/state?d='+encodeURIComponent(k)+'&kind='+kind,data).catch(()=>toast('Нет связи с сервером, изменения сохранены только здесь')),600)}
 let lastAssignSave=0;function saveAssign(){lastAssignSave=Date.now();store.set('assign_'+dayKey,assign);saveRemote('assign',assign)}
 function saveMet(){lastLocalMark=Date.now();store.set('met_'+dayKey,met);saveRemote('met',met)}
-function showLogin(err){$('#login').hidden=false;$('#loginErr').textContent=err||'';$('#loginPass').focus()}
-$('#loginForm').addEventListener('submit',async e=>{e.preventDefault();store.set('pass',$('#loginPass').value.trim().normalize('NFC'));$('#login').hidden=true;await serverBoot()});
+function showLogin(err,pinMode){$('#login').hidden=false;$('#loginErr').textContent=T(err||'');$('#pinRow').hidden=!pinMode;
+  if(pinMode){$('#loginPass').value=pass();$('#loginPin').value='';$('#loginPin').focus()}else $('#loginPass').focus()}
+$('#loginForm').addEventListener('submit',async e=>{e.preventDefault();const pw=$('#loginPass').value.trim().normalize('NFC');if(pw)store.set('pass',pw);
+  if(!$('#pinRow').hidden)store.set('pin',$('#loginPin').value.replace(/\D/g,''));$('#login').hidden=true;await serverBoot()});
 // two logins: operations see everything; guides see arrivals, departures, the guide screen and notifications
-let ROLE=store.get('role','ops');
-const GUIDE_TABS=['board','dep','guide','contacts'];
+let ROLE=store.get('role','ops'),ME=store.get('me',null),PINS={};
+// a guide with his PIN sees only his own work: arrivals and departures he meets, and his own screen
+const GUIDE_TABS=['board','dep','guide'];
+// "ALİBEK" (KAPAK) and "ALİBEK MUFTİ" (vehicle list) are the same guide; two full names must be equal
+function sameG(a,b){const n=x=>gKey(x||'').trim();const A=String(a||'').trim().split(/\s+/).filter(Boolean),B=String(b||'').trim().split(/\s+/).filter(Boolean);
+  if(!A.length||!B.length)return false;if(n(a)===n(b))return true;if(A.length===1||B.length===1)return n(A[0])===n(B[0]);return false}
 function setRole(r){ROLE=r==='guide'?'guide':'ops';store.set('role',ROLE);document.body.classList.toggle('role-guide',ROLE==='guide');
+  if(ROLE==='guide'&&ME){curGuide=ME;const w=$('#whoAmI');if(w)w.textContent='Гид: '+ME}
   document.querySelectorAll('.tab').forEach(t=>{t.hidden=ROLE==='guide'&&!GUIDE_TABS.includes(t.dataset.t)});
   const cur=document.querySelector('.tab[aria-selected="true"]');if(ROLE==='guide'&&(!cur||cur.hidden)){const g=document.querySelector('.tab[data-t="guide"]');if(g)g.click()}
-  const who=$('#whoAmI');if(who)who.textContent=ROLE==='guide'?'Вход: гид':'Вход: операционный отдел';
+  const who=$('#whoAmI');if(who)who.textContent=ROLE==='guide'?(ME?'Гид: '+ME:'Вход: гид'):'Вход: операционный отдел';
   if(DAY)renderAll()}
 const isOps=()=>ROLE!=='guide';
 async function serverBoot(){
   if(!pass()){showLogin();return}
   try{
     const res=await api('GET','/api/days');
-    setRole(res.role||'ops');
+    ME=res.me||null;store.set('me',ME);setRole(res.role||'ops');
+    if(isOps())try{const pn=await api('GET','/api/state?d=00.00&kind=pins');PINS=pn.data||{}}catch(e){}
     res.days.forEach(d=>{DAYS[d.key]=d});
     try{const st=await api('GET','/api/state?d=00.00&kind=settings');if(st.data&&st.data.termOk){SETTINGS=Object.assign({termOk:{}},st.data);store.set('settings',SETTINGS)}}catch(e){}
     try{const gp=await api('GET','/api/state?d=00.00&kind=guides');GP=Object.assign({},GP,gp.data||{});store.set('guidePhones',GP);renderGpImport()}catch(e){}
@@ -190,6 +199,7 @@ function gTag(g){if(!g)return '';const ph=gPhone(g);return esc(g)+(ph?` · <a cl
 // guide phone book: type a name and a number, edit or delete; saved on the server for everyone
 let gpEdit=null;
 const normPh=p=>/^\s*(\+?\s*90|0?\s*5)/.test(p)&&p.replace(/\D/g,'').replace(/^90(?=5)/,'').replace(/^(?=5)/,'0').length===11?fmtPhone(p):p.trim().replace(/\s+/g,' ');
+const pinCell=n=>isOps()&&SERVER?`<button type="button" class="btn sm${PINS[n]?'':' ghost'}" data-gppin="${esc(n)}" title="Личный PIN гида для входа">🔑 ${PINS[n]?esc(PINS[n]):'PIN'}</button>`:'';
 function renderGpImport(){
   const el=$('#gpList');if(!el)return;
   const today=[...new Set([...(DAY?DAY.arr:[]),...(DAY?DAY.dep:[])].map(x=>x.g).filter(Boolean))];
@@ -201,9 +211,13 @@ function renderGpImport(){
   <div class="tbl-wrap"><table class="gp-tbl" style="width:100%;border-collapse:collapse"><tbody>
   ${all.map(k=>`<tr class="${off[k]?'off':''}"><td><b>${esc(k)}</b>${todayKeys.has(k)?'<span class="today">сегодня</span>':''}</td><td class="ph"><a class="tel" href="tel:${esc(GP[k].replace(/\s/g,''))}">${esc(GP[k])}</a></td>
     <td><label class="sw" title="Присылать уведомления"><input type="checkbox" data-gpon="${esc(k)}" ${off[k]?'':'checked'}> 🔔</label></td>
-    <td class="act"><button type="button" class="btn sm" data-gped="${esc(k)}" title="Изменить">✎</button> <button type="button" class="btn sm" data-gpdel="${esc(k)}" title="Удалить">✕</button></td></tr>`).join('')}
-  ${miss.map(g=>`<tr class="nophone"><td><b>${esc(g)}</b><span class="today">сегодня</span></td><td class="ph">нет номера</td><td></td><td class="act"><button type="button" class="btn sm" data-gpfill="${esc(g)}">+ номер</button></td></tr>`).join('')}
+    <td class="pin">${pinCell(k)}</td><td class="act"><button type="button" class="btn sm" data-gped="${esc(k)}" title="Изменить">✎</button> <button type="button" class="btn sm" data-gpdel="${esc(k)}" title="Удалить">✕</button></td></tr>`).join('')}
+  ${miss.map(g=>`<tr class="nophone"><td><b>${esc(g)}</b><span class="today">сегодня</span></td><td class="ph">нет номера</td><td></td><td class="pin">${pinCell(g)}</td><td class="act"><button type="button" class="btn sm" data-gpfill="${esc(g)}">+ номер</button></td></tr>`).join('')}
   </tbody></table></div>`;
+  el.querySelectorAll('[data-gppin]').forEach(b=>b.onclick=async()=>{const n=b.dataset.gppin;const used=new Set(Object.values(PINS).map(String));let sug=PINS[n]||'';while(!sug||used.has(sug))sug=String(1000+Math.floor(Math.random()*9000));
+    const v=prompt(T('PIN для гида')+' '+n+'\n'+T('4–8 цифр. Пусто — забрать PIN (гид больше не войдёт).'),PINS[n]||sug);if(v===null)return;const pin=v.replace(/\D/g,'');
+    if(pin&&(pin.length<4||pin.length>8))return toast('PIN — от 4 до 8 цифр');if(pin&&Object.entries(PINS).some(([k,x])=>k!==n&&String(x)===pin))return toast('Такой PIN уже у другого гида');
+    const P=Object.assign({},PINS);if(pin)P[n]=pin;else delete P[n];try{await api('PUT','/api/state?d=00.00&kind=pins',P);PINS=P;renderGpImport();toast(pin?`PIN для ${n}: ${pin}`:'PIN удалён')}catch(e){toast('Не удалось сохранить PIN')}});
   el.querySelectorAll('[data-gpdel]').forEach(b=>b.onclick=()=>{if(!confirm(T('Удалить телефон гида')+' '+b.dataset.gpdel+'?'))return;delete GP[b.dataset.gpdel];delete gpOff()[b.dataset.gpdel];saveGP();gpChanged()});
   el.querySelectorAll('[data-gped]').forEach(b=>b.onclick=()=>{gpEdit=b.dataset.gped;$('#gpName').value=gpEdit;$('#gpPhone').value=GP[gpEdit];$('#gpAdd').textContent=T('Сохранить');$('#gpCancel').hidden=false;$('#gpPhone').focus()});
   el.querySelectorAll('[data-gpfill]').forEach(b=>b.onclick=()=>{$('#gpName').value=b.dataset.gpfill;$('#gpPhone').focus();$('#gpBox').scrollIntoView?.({block:'nearest'})});
@@ -764,7 +778,7 @@ function rerenderMarks(){renderGuide();renderOps();renderBoard();renderDep()}
 let gKind=store.get('gkind','arr');
 const tourGuidesToday=()=>{try{return tourGuidesOn(isoToday())}catch(e){return []}};// tours.js may not be loaded yet at boot
 // guide list depends on the task type: KAPAK guides for arrivals/departures, bus programs for excursions
-function guideList(){if(gKind==='tour')return tourGuidesToday().sort((a,b)=>a.localeCompare(b,'tr'));if(!DAY)return [];return guides().filter(g=>[...DAY.arr,...DAY.dep].some(x=>x.g===g&&(gKind==='arr'?DAY.arr.includes(x):DAY.dep.includes(x))))}
+function guideList(){if(!isOps())return ME?[ME]:[];if(gKind==='tour')return tourGuidesToday().sort((a,b)=>a.localeCompare(b,'tr'));if(!DAY)return [];return guides().filter(g=>[...DAY.arr,...DAY.dep].some(x=>x.g===g&&(gKind==='arr'?DAY.arr.includes(x):DAY.dep.includes(x))))}
 function renderGKind(){const el=$('#gKind');if(!el)return;
   const n=k=>k==='tour'?tourGuidesToday().length:DAY?new Set((k==='arr'?DAY.arr:DAY.dep).map(x=>x.g).filter(Boolean)).size:0;
   el.innerHTML=[['arr','✈️ Встреча · Arrival'],['dep','🛫 Сбор · Depart'],['tour','🚌 Экскурсия']].map(([k,l])=>`<button type="button" class="gk gk-${k}" aria-pressed="${gKind===k}" data-gk="${k}">${l}<small>${n(k)} гидов</small></button>`).join('');
@@ -788,7 +802,7 @@ function buildTasks(keep){
     t.last=Math.max(-1,...t.groups.flatMap(g=>Object.entries(met[g.id]||{}).filter(([k,v])=>k[0]==='@'&&v!=null).map(([,v])=>+v)))});
   return tasks;
 }
-const guideTasks=g=>buildTasks(t=>t.g===g);
+const guideTasks=g=>buildTasks(t=>!isOps()||t.g===g);
 function taskHead(t,showGuide){
   const g0=t.groups[0];
   if(t.kind==='arr'){const f=t.f,st=f?fStatus(f,NOW):null;const late=f&&f.delay>=15&&(f.live||NOW>=f.delayKnownAt);
@@ -1220,4 +1234,4 @@ if(SERVER)serverBoot();else loadDay(dayKey);
 setGuideMode(guideMode);
 const lastTab=store.get('tab','board');const tb=document.querySelector(`.tab[data-t="${lastTab}"]`);if(tb)tb.click();
 setRole(ROLE);
-$('#logoutBtn').onclick=()=>{if(!confirm(T('Выйти и войти с другим паролем?')))return;store.set('pass','');store.set('role','ops');location.reload()};
+$('#logoutBtn').onclick=()=>{if(!confirm(T('Выйти и войти с другим паролем?')))return;store.set('pass','');store.set('pin','');store.set('me',null);store.set('role','ops');location.reload()};
