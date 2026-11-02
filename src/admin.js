@@ -11,19 +11,20 @@ function renderAdmin(){if(!$('#v-admin')||!isAdmin())return;
   const G=admGuides();
   $('#admPins').innerHTML=`<div class="adm-pins">${G.map(n=>{const ph=gPhone(n);return `<div class="adm-pin"><span class="nm"><b>${esc(n)}</b>${ph?`<small>${esc(ph)}</small>`:'<small>нет телефона</small>'}</span><input data-admpin="${esc(n)}" value="${esc(ADM.pins[n]||'')}" inputmode="numeric" placeholder="нет PIN" maxlength="8">
     <span class="b"><button type="button" class="btn sm" data-admgen="${esc(n)}" title="Новый PIN">🎲</button><button type="button" class="btn sm ghost" data-admdel="${esc(n)}" title="Забрать PIN">✕</button>${ph&&ADM.pins[n]?`<a class="btn sm wa-go" target="_blank" rel="noopener" href="https://wa.me/${esc(ph.replace(/\D/g,'').replace(/^0/,'90'))}?text=${encodeURIComponent(`SARABI OPS\n${location.origin}\n${LANG==='tr'?'Rehber şifresi':'Пароль гидов'}: ${ADM.passwords.guide}\nPIN: ${ADM.pins[n]}`)}">WhatsApp</a>`:''}</span></div>`}).join('')}</div>
-    <div class="adm-add"><input id="admNew" placeholder="Новый гид: имя как в Araç-листе"><button type="button" class="btn" id="admAdd">+ Добавить</button><span class="sp"></span><button type="button" class="btn primary" id="admSavePins"${admDirty?'':' disabled'}>Сохранить PIN-коды</button></div>`;
+    <div class="adm-add"><input id="admNew" placeholder="Новый гид: имя как в Araç-листе"><button type="button" class="btn" id="admAdd">+ Добавить</button><span class="sp"></span><span class="hint">PIN сохраняется сразу, как только вы его выдали или изменили</span></div>`;
   $('#admLog').innerHTML=`<div class="adm-log">${(ADM.log||[]).map(l=>`<div><span class="num hint">${new Date(l.at).toLocaleString('ru',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span> ${esc(l.what)}</div>`).join('')||'<p class="hint">Пока пусто.</p>'}</div>`;
   const el=$('#v-admin');
   el.querySelectorAll('[data-admeye]').forEach(b=>b.onclick=()=>{admShow[b.dataset.admeye]=!admShow[b.dataset.admeye];renderAdmin()});
   el.querySelectorAll('[data-admpwsave]').forEach(b=>b.onclick=async()=>{const k=b.dataset.admpwsave;const v=el.querySelector(`[data-admpw="${k}"]`).value.trim();
     if(v.length<6)return toast('Пароль — минимум 6 символов');if(!confirm(T('Сменить пароль? Все, кто вошёл со старым паролем, должны будут войти заново.')))return;
     try{await api('PUT','/api/admin',{passwords:{[k]:v}});toast('Пароль изменён');await loadAdmin()}catch(e){toast('Не удалось: '+String(e.message).replace(/[{}"]/g,' '))}});
-  const setPin=(n,v)=>{const P=Object.assign({},ADM.pins);if(v)P[n]=v;else delete P[n];ADM.pins=P;admDirty=true;renderAdmin()};
+  // every change goes to the server at once: a PIN shown here (and sent on WhatsApp) is always the one that works
+  const setPin=async(n,v)=>{const P=Object.assign({},ADM.pins);if(v)P[n]=v;else delete P[n];
+    if(v&&(v.length<4||v.length>8))return toast('PIN — от 4 до 8 цифр');if(v&&Object.entries(P).some(([k,x])=>k!==n&&x===v))return toast('Этот PIN уже у другого гида');
+    try{await api('PUT','/api/admin',{pins:P});toast(v?`PIN для ${n} сохранён: ${v}`:`PIN у ${n} забран`);await loadAdmin()}catch(e){toast('Не сохранилось: '+String(e.message).replace(/[{}"]/g,' '));renderAdmin()}};
   el.querySelectorAll('[data-admpin]').forEach(i=>i.onchange=()=>setPin(i.dataset.admpin,i.value.replace(/\D/g,'')));
   el.querySelectorAll('[data-admgen]').forEach(b=>b.onclick=()=>setPin(b.dataset.admgen,admNewPin()));
   el.querySelectorAll('[data-admdel]').forEach(b=>b.onclick=()=>setPin(b.dataset.admdel,''));
   $('#admAdd').onclick=()=>{const n=$('#admNew').value.trim().toLocaleUpperCase('tr');if(!n)return;setPin(n,admNewPin())};
-  $('#admSavePins').onclick=async()=>{const vals=Object.values(ADM.pins);if(vals.some(v=>v.length<4||v.length>8))return toast('PIN — от 4 до 8 цифр');if(new Set(vals).size!==vals.length)return toast('У двух гидов одинаковый PIN');
-    try{await api('PUT','/api/admin',{pins:ADM.pins});toast('PIN-коды сохранены');await loadAdmin()}catch(e){toast('Не удалось: '+String(e.message).replace(/[{}"]/g,' '))}};
 }
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b&&b.dataset.t==='admin'&&isAdmin())loadAdmin().catch(()=>{})});
