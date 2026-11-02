@@ -31,6 +31,7 @@ ${r("src/docs.js")}
 ${r("src/app.js")}
 ${r("src/extra.js")}
 ${r("src/tours.js")}
+${r("src/groups.js")}
 ${r("src/reports.js")}
 ${r("src/scan.js")}
 ${r("src/tourocr.js")}

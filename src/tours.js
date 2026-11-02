@@ -139,10 +139,10 @@ function renderTours(){
 }
 // guests of one bus: names typed or pasted in the program editor; tap a name to write a report about that guest
 const TGOPEN=new Set();let gTourDate=null;
-function tourGuestsHtml(t,iso){const G=t.guests||[];const reps=(()=>{try{return repList(iso)}catch(e){return []}})();
+function tourGuestsHtml(t,iso){if(t.gx&&t.gx.length)return groupGuestsHtml(t,iso);const G=t.guests||[];const reps=(()=>{try{return repList(iso)}catch(e){return []}})();
   const nRep=n=>reps.filter(r=>r.guest&&r.guest.toLocaleUpperCase('tr')===n.toLocaleUpperCase('tr')).length;
   return `<div class="tguests">${G.length?`<ol>${G.map((n,i)=>`<li><span>${esc(n)}${nRep(n)?` <span class="chip rep-t">📝 ${nRep(n)}</span>`:''}</span><button type="button" class="btn sm" data-trep="${esc(t.id)}|${i}">📝 Рапорт</button></li>`).join('')}</ol>`:`<p class="hint">Список гостей этого автобуса ещё не добавлен — вставьте фамилии в «✎ Изменить» (поле «Гости»). Пока можно написать рапорт без имени.</p>`}
-    <div class="tact"><button type="button" class="btn sm" data-trep="${esc(t.id)}|-1">📝 Рапорт (без имени)</button>${G.length?`<button type="button" class="btn sm" data-tglist="${esc(t.id)}">📋 Список гостей в WhatsApp</button>`:''}</div></div>`}
+    <div class="tact"><label class="btn sm primary">⬆ Загрузить список группы (Excel / PDF)<input type="file" data-tgfile="${esc(t.id)}" accept=".xlsx,.xls,.pdf" hidden></label><button type="button" class="btn sm" data-trep="${esc(t.id)}|-1">📝 Рапорт (без имени)</button>${G.length?`<button type="button" class="btn sm" data-tglist="${esc(t.id)}">📋 Список гостей в WhatsApp</button>`:''}</div></div>`}
 function tourCardHtml(t,iso,LB,o={}){const tDateSave=tDate;tDate=iso;try{const isToday=iso===isoToday(),now=nowMinutes();
 const x=dayOfTour(t,iso);const st=tourNow(t,x.day);let lastA=-1;x.day.s.forEach((s,i)=>{if(stopState(t,s).a!=null)lastA=i});const firstOpen=lastA+1;
     const rows=x.day.s.map((s,i)=>{const m=stopState(t,s);const key=t.id+'|'+s.id;const plan=s.t?toMin(s.t):null;
@@ -163,6 +163,7 @@ const x=dayOfTour(t,iso);const st=tourNow(t,x.day);let lastA=-1;x.day.s.forEach(
       <div class="tact"><button type="button" class="btn sm" data-twa="${esc(t.id)}" data-tiso="${iso}">📋 Программа дня в WhatsApp</button>${o.guide?'':`<button type="button" class="btn sm" data-tedit="${esc(t.id)}">✎ Изменить</button><button type="button" class="btn sm" data-tcopy="${esc(t.id)}">⧉ Копия для другого автобуса</button>`}</div></article>`}finally{tDate=tDateSave}}
 function tourRefresh(){renderTours();if(typeof renderGuide==='function'&&!$('#v-guide').hidden)renderGuide()}
 function bindTourCards(el){
+  bindGroupGuests(el);
   el.querySelectorAll('[data-tguests]').forEach(b=>b.onclick=()=>{const id=b.dataset.tguests;TGOPEN.has(id)?TGOPEN.delete(id):TGOPEN.add(id);tourRefresh()});
   el.querySelectorAll('[data-tgo]').forEach(b=>b.onclick=()=>{tDate=b.dataset.tgo;gTourDate=b.dataset.tgo;tourRefresh()});
   el.querySelectorAll('[data-trep]').forEach(b=>b.onclick=()=>{const [id,i]=b.dataset.trep.split('|');const t=TOURS[id];if(!t)return;
