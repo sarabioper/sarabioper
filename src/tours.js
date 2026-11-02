@@ -14,12 +14,12 @@ const tours=()=>Object.values(TOURS).filter(t=>t&&t.id&&t.days).sort((a,b)=>Stri
 const upTR=s=>String(s||'').toLocaleUpperCase('tr');
 
 function stopKind(n,m){const u=upTR(n);
-  if(/YEME[ĞG]|RESTORAN|RESTAURANT|LUNCH|ОБЕД/.test(u))return 'lunch';
+  if(/YEME[ĞGK]|RESTORAN|RESTAURANT|LUNCH|ОБЕД/.test(u))return 'lunch';
   if(/TRANSFER/.test(u))return 'transfer';
   if(/OTELE\b|OTEL(E)? G[İI]R[İI]Ş|OTELE D[ÖO]N[ÜU]Ş/.test(u))return 'hotel';
   if(/[ÇC]IKIŞ|ÇIKIS|HAREKET/.test(u))return 'start';
   if(/HAMAM/.test(u))return 'hamam';
-  if(/MOLA|PETROL|CAFE|KAFE|\d+\s*MIN/.test(u))return 'break';
+  if(/MOLA|PETROL|CAFE|KAFE|\d+\s*M[İI]N/.test(u))return 'break';
   if(m||/V[İI]OLA|PONTO|D[İI]ON[İI]S|MODAL|DERV[İI]Ş|SAYAN|ONEX|KURUYEM|SERAM|BAZAR|ÇITIR|DEVEL[İI]|HALI|ALTIN|DER[İI]|JEWEL|LEATHER|GOLD|TEKST|ŞARAP|WINE/.test(u))return 'shop';
   return 'sight'}
 // "ÖĞLE YEMEĞİ COLESSAI" -> "COLESSAI"; the place key used for restaurant load
@@ -263,7 +263,7 @@ $('#tToday').onclick=()=>{tDate=isoToday();renderTours()};
 $('#tNew').onclick=()=>openTourEd(blankTour());
 $('#tSamples').onclick=()=>{const add=sampleMissing();if(!add.length)return;if(!confirm(T('Добавить программы с фото')+`: ${add.map(p=>p.bus).join(', ')}?`))return;add.forEach(p=>saveTour(p.id,p));toast(`Добавлено программ: ${add.length}. Переименуйте их в номера автобусов через «✎ Изменить»`);renderTours()};
 $('#tBus').onchange=e=>{store.set('tourBus',e.target.value);renderTours()};
-$('#tXls').onchange=e=>{importTourFiles([...e.target.files]);e.target.value=''};
+$('#tXls').onchange=e=>{const fs=[...e.target.files];const im=fs.filter(f=>/^image\//.test(f.type)||/\.(jpe?g|png|webp|heic)$/i.test(f.name)),xl=fs.filter(f=>!im.includes(f));if(xl.length)importTourFiles(xl);if(im.length)importTourImages(im);e.target.value=''};
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b&&b.dataset.t==='tours'){renderTours();pullTours(true)}});
 setInterval(()=>{if(!$('#v-tours').hidden&&!tEdit&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#tourList')))renderTours()},60000);
 if(!$('#v-tours').hidden){renderTours();pullTours(true)}

@@ -32,6 +32,7 @@ ${r("src/app.js")}
 ${r("src/extra.js")}
 ${r("src/tours.js")}
 ${r("src/scan.js")}
+${r("src/tourocr.js")}
 </script>
 </body>
 </html>
