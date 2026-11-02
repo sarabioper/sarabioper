@@ -243,9 +243,14 @@ function parseTourSheet(rows,name){
     const tm=xTime(row[col.out]),mg=col.shop!=null?xTime(row[col.shop]):'';const k=stopKind(n,mg);
     day.s.push({id:rid(),t:tm||(k==='shop'?mg:''),n,k,m:k==='shop'?mg:''})}
   t.days=t.days.filter(d=>d.s.length);return t.days.length?t:null}
-async function importTourFiles(files){
+// the same program uploaded again (same guides, same first day) replaces the old one and keeps its guest list and id
+function upsertTour(t){const k=x=>[nk(x.guide||''),nk(x.kok||''),(x.days[0]||{}).d].join('|');const old=tours().find(o=>o.days&&o.days.length&&k(o)===k(t)&&(!t.bus||!o.bus||nk(o.bus)===nk(t.bus)));
+  if(old){t=Object.assign({},t,{id:old.id,bus:t.bus||old.bus,name:t.name||old.name,plate:old.plate||t.plate,driver:old.driver||t.driver,dphone:old.dphone||t.dphone,hotel:old.hotel||t.hotel,guests:old.guests,gx:old.gx,gcode:old.gcode,ghotels:old.ghotels})}
+  if(!t.bus)t.bus=String(t.guide||'').split(/[\s/]+/)[0]||'?';saveTour(t.id,t);return t}
+async function importTourFiles(files,o={}){
   let n=0;for(const f of files){try{const wb=XLSX.read(await f.arrayBuffer(),{cellDates:false});
-    for(const sn of wb.SheetNames){const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:''});const t=parseTourSheet(rows,wb.SheetNames.length>1?sn:'');if(t){n++;if(n===1){openTourEd(t);toast('Программа прочитана — проверьте, впишите автобус и сохраните')}else saveTour(t.id,t)}}}catch(e){toast('Не удалось прочитать '+f.name+': '+e.message)}}
+    for(const sn of wb.SheetNames){const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:''});const t=parseTourSheet(rows,wb.SheetNames.length>1?sn:'');if(t){n++;if(o.batch)upsertTour(t);else if(n===1){openTourEd(t);toast('Программа прочитана — проверьте, впишите автобус и сохраните')}else saveTour(t.id,t)}}}catch(e){toast('Не удалось прочитать '+f.name+': '+e.message)}}
+  if(o.batch){try{renderTours()}catch(e){}return n}
   if(!n)toast('В файле не нашёл программу (нужны колонки ÇIKIŞ, MAĞAZA GİRİŞ, PAX)');else if(n>1)toast(`Прочитано программ: ${n}. Первая открыта для проверки, остальные сохранены`)}
 
 // programs from the photos sent on 21.10, so the screen is not empty on day one (bus = guide's first name until renamed)

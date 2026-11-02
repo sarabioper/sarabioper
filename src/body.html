@@ -680,11 +680,11 @@ mark{background:var(--signal-soft);color:inherit}
           <label class="drop" id="dropT" for="xlsT"><span class="step">3</span><b>Имена туристов</b><span class="hint">PDF, Word или Excel · Genel Geliş</span><span class="hint">если Araç Listesi нет</span></label>
           <label class="drop" id="dropD" for="xlsD"><span class="step">4</span><b>Вылеты (DEPAR)</b><span class="hint">PDF, Word или Excel · Dönüş / Gidiş listesi, лист машин на вылет</span><span class="hint">всё, что сюда, считается вылетом</span></label>
         </div>
-        <input type="file" id="xlsK" accept=".xlsx,.xls,.pdf" multiple hidden>
-        <input type="file" id="xlsA" accept=".pdf,.docx,.doc,.xlsx,.xls" multiple hidden>
-        <input type="file" id="xlsT" accept=".pdf,.docx,.doc,.xlsx,.xls" multiple hidden>
+        <input type="file" id="xlsK" accept=".xlsx,.xls,.xlsm,.pdf,.docx,image/*" multiple hidden>
+        <input type="file" id="xlsA" accept=".xlsx,.xls,.xlsm,.pdf,.docx,.doc,image/*" multiple hidden>
+        <input type="file" id="xlsT" accept=".xlsx,.xls,.xlsm,.pdf,.docx,.doc,image/*" multiple hidden>
         <input type="file" id="xlsD" accept=".pdf,.docx,.doc,.xlsx,.xls" multiple hidden>
-        <p class="hint">Нажмите на окно или перетащите в него файлы. Можно перетащить все файлы дня в любое окно сразу: программа сама поймёт, где Капак, где лист машин, а где имена.</p>
+        <p class="hint">Нажмите на окно или перетащите в него файлы. Можно выбрать или перетащить сразу все файлы в любое окно (1–3): сайт сам поймёт, где Капак, лист машин, имена, вылеты, программы автобусов (Excel или фото) и списки групп для экскурсий. В окно 4 — только вылеты.</p>
         <div id="xlsMsg" class="res"></div>
       </div>
     </div>

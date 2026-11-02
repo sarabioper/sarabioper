@@ -1180,10 +1180,15 @@ async function importDepNotice(N,file){
   const lines=r.out.map(x=>`${x.st==='ok'?'✓':'＋'} ${esc(x.g.fl||'рейс не указан')}${x.g.t?' '+esc(x.g.t):''} · ${esc(x.g.hotelRaw||x.g.hotel)} · ${x.g.people.length} чел${x.g.pu?' · выезд '+esc(x.g.pu):' · <b>время выезда не указано</b>'}${x.st==='new'?' · <i>нет в Капаке, добавлено</i>':''}`);
   return {key,html:`<b>Лист выезда ${esc(key)} (${esc(file.name)}) загружен: ${N.groups.length} групп, ${r.people} чел.</b>${created?'<span>Капака на этот день ещё нет: выезды добавлены из листа.</span>':''}<span>${lines.join('<br>')}</span>`};
 }
+// one window for everything: KAPAK, vehicle lists, names, departures, bus programs (Excel or photo), group guest lists
+const isImgFile=f=>/^image\//.test(f.type)||/\.(jpe?g|png|webp|heic|bmp)$/i.test(f.name);
+const looksProgram=rows=>rows.slice(0,15).some(r=>{const u=(r||[]).map(c=>upTR(c).replace(/\s+/g,' '));return u.some(c=>/^(ÇIKIŞ|CIKIS)/.test(c.trim()))&&u.some(c=>/KOK|OTEL REHBER|MA[ĞG]AZA/.test(c))});
 async function importFiles(files,opt={}){
   const msg=$('#xlsMsg');msg.innerHTML='Читаю файлы…';
-  const items=[];
-  for(const file of files){try{const rows=await readRows(file);
+  const items=[],imgs=[],progs=[],grps=[];
+  for(const file of files){if(isImgFile(file)){imgs.push(file);continue}try{const rows=await readRows(file);
+    if(isGroupList(rows)){grps.push(file);continue}
+    if(looksProgram(rows)){progs.push(file);continue}
     if(isDepNotice(rows)){items.push({file,rows,N:parseDepNotice(rows),isTourists:true,T:{isArac:false}});continue}
     const T=parseTourists(rows);
     // the DEPAR box: every transfer in the file is a departure, whatever its title or route says
@@ -1196,6 +1201,11 @@ async function importFiles(files,opt={}){
     catch(e){if(e.message==='401')return;out.push(`<span>${esc(it.file.name)}: ${esc(e.message)}.</span>`)}
   }
   if(last){if(SERVER)refreshLive();loadDay(last)}
+  // excursions: programs first (saved right away), then group lists find their bus among them
+  if(imgs.length||progs.length||grps.length){
+    let np=0;if(progs.length)np+=await importTourFiles(progs,{batch:true});if(imgs.length){msg.innerHTML=out.join('')+`<span>Читаю программы с фото: ${imgs.length}…</span>`;np+=await importTourImages(imgs,{batch:true})}
+    out.push(`<b>Экскурсии:</b><span>${np?`Программ автобусов загружено: ${np} (вкладка «Экскурсии»).`:''}${imgs.length+progs.length&&!np?' Программу из файлов прочитать не удалось.':''}${grps.length?` Списков групп: ${grps.length} — проверьте, кто в какой автобус, и нажмите «Загрузить».`:''}</span>`);
+    if(grps.length){$('.tab[data-t="tours"]').click();await importGroupFiles(grps)}else if(np)$('.tab[data-t="tours"]').click()}
   msg.innerHTML=out.join('');
 }
 // kept for older callers and tests

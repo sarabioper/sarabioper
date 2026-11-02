@@ -72,7 +72,8 @@ function programFromLines(L,G){
   const yearH=hdr?hdr.t.match(/(\d{4})/)[1]:String(new Date().getFullYear());
   const near=(arr,y,re)=>{let best=null;body(arr).forEach(l=>{const d=Math.abs(l.y-y);if(d<=12&&re.test(l.t)&&(!best||d<best.d))best={d,l}});return best&&best.l};
   const hm=t=>{const m=String(t).match(/(\d{1,2})[:.,](\d\d)/);return m&&+m[1]<24&&+m[2]<60?m[1].padStart(2,'0')+':'+m[2]:''};
-  const fixGuide=t=>t.replace(/([A-ZÇĞİÖŞÜ])J([A-ZÇĞİÖŞÜ])/g,'$1/$2').replace(/\s+/g,' ').trim();
+  // "HALİL/RÜST" + "EM" on the next line of the cell -> "HALİL/RÜSTEM"
+  const fixGuide=t=>t.replace(/([A-ZÇĞİÖŞÜ])J([A-ZÇĞİÖŞÜ])/g,'$1/$2').replace(/\s+/g,' ').replace(/([A-ZÇĞİÖŞÜ]{3,}) ([A-ZÇĞİÖŞÜ]{1,2})(?=$|[\s/])/g,'$1$2').trim();
   const inBlock=(arr,[a,b])=>body(arr).filter(l=>l.y>=a-2&&l.y<=b+2);
   const t={id:rid(),bus:'',name:'',pax:'',hotel:'',guide:'',kok:'',plate:'',driver:'',dphone:'',days:[]};
   const okIso=x=>/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(x);
@@ -91,13 +92,14 @@ function programFromLines(L,G){
   if(!t.days.length)throw new Error('не смог прочитать дни программы');
   t.bus=(t.guide||'').split(/[\s/]/)[0]||'';
   return t}
-async function importTourImages(files){
+async function importTourImages(files,o={}){
   let n=0,first=null;const progs=[];
   for(const [i,f] of files.entries()){
     try{toast(`Читаю фото ${i+1} из ${files.length}… (первый раз до 20 сек)`);
       progs.push(await readProgramImage(f));n++}
     catch(e){toast(`${f.name}: ${e.message}`);await new Promise(r=>setTimeout(r,1800))}}
-  snapNames(progs);progs.forEach((t,i)=>{if(!i)first=t;else saveTour(t.id,t)});
+  snapNames(progs);if(o.batch){progs.forEach(upsertTour);try{renderTours()}catch(e){}return progs.length}
+  progs.forEach((t,i)=>{if(!i)first=t;else saveTour(t.id,t)});
   if(first){openTourEd(first);toast(n>1?`Прочитано программ: ${n}. Первая открыта для проверки, остальные сохранены — проверьте их через «✎ Изменить»`:'Программа прочитана с фото — проверьте и сохраните')}
   else if(!n)toast('Не получилось прочитать программу с фото. Лучше всего читаются скриншоты таблицы.')}
 
