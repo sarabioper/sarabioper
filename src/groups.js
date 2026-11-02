@@ -75,19 +75,22 @@ function groupGuestsHtml(t,iso){
   const q=(TGQ[t.id]||'').toLocaleUpperCase('tr').replace(/[\s-]+/g,'');
   const show=f=>!q||f.rows.some(r=>(r.x.n+r.x.phone+r.x.af+r.x.rf+r.x.c+r.x.v).toLocaleUpperCase('tr').replace(/[\s\-()]+/g,'').includes(q));
   const note=i=>((TM[t.id+'|gn|'+i]||{}).note)||'';
-  const row=({x,i})=>{const a=ageOn(x.dob,iso);const bday=x.dob&&days.has(x.dob.slice(5));const nr=reps.filter(r=>r.guest&&r.guest.toLocaleUpperCase('tr')===x.n.toLocaleUpperCase('tr')).length;const nt=note(i);
-    return `<div class="gx"><div class="gx-h"><span class="gx-n">${x.no}. <b>${esc(x.n)}</b></span><span class="hint">${esc(x.sex)}${a!==''?' · '+a+' лет':''}${bday?` · <b class="bday">🎂 ДР ${gxDm(x.dob)}</b>`:''}</span>${nr?`<span class="chip rep-t">📝 ${nr}</span>`:''}</div>
-      <div class="gx-d">${x.af?`<span>🛬 ${esc(x.af)} ${gxDm(x.ad)} ${esc(x.at)}</span>`:''}${x.rf||x.rd?`<span>🛫 ${esc(x.rf||'—')} ${gxDm(x.rd)} ${esc(x.rt)}</span>`:''}${x.pass&&isOps()?`<span class="hint">паспорт ${esc(x.pass)}</span>`:''}</div>
-      ${nt?`<div class="gnote">📝 ${esc(nt)}</div>`:''}
-      <div class="gx-b"><button type="button" class="btn sm" data-gxnote="${esc(t.id)}|${i}">✎ Заметка</button><button type="button" class="btn sm" data-trep="${esc(t.id)}|${i}">📝 Рапорт</button></div></div>`};
+  // one short line per guest; a tap opens flights, voucher and the Note / Report buttons. A written note stays visible.
+  const row=({x,i},f)=>{const a=ageOn(x.dob,iso);const bday=x.dob&&days.has(x.dob.slice(5));const nr=reps.filter(r=>r.guest&&r.guest.toLocaleUpperCase('tr')===x.n.toLocaleUpperCase('tr')).length;const nt=note(i);
+    const kid=/CHD|INF/.test(x.sex)||a!==''&&a<12;const r0=f.rows[0].x;
+    return `<details class="gx"${q&&f.rows.length>1&&(x.n.toLocaleUpperCase('tr').replace(/[\s-]+/g,'').includes(q))?' open':''}><summary><span class="gx-n"><span class="hint">${x.no}.</span> <b>${esc(x.n)}</b></span><span class="gx-m">${a!==''?(a===0?(LANG==='tr'?'<1 yaş':'<1 г.'):a+' '+(LANG==='tr'?'yaş':'л.')):''}${kid?' 👶':''}${bday?` <b class="bday">🎂 ${gxDm(x.dob)}</b>`:''}${nr?` <span class="chip rep-t">📝 ${nr}</span>`:''}</span><span class="gx-x">▾</span>
+      ${nt?`<span class="gnote">✎ ${esc(nt)}</span>`:''}</summary>
+      <div class="gx-body"><div class="gx-d">${x.af?`<span>🛬 ${esc(x.af)} ${gxDm(x.ad)} ${esc(x.at)}</span>`:''}${x.rf||x.rd?`<span>🛫 ${esc(x.rf||'—')} ${gxDm(x.rd)} ${esc(x.rt)}</span>`:''}<span class="hint">${esc(x.sex)}${x.dob?' · '+gxDm(x.dob)+'.'+x.dob.slice(0,4):''}</span></div>
+        <div class="gx-d hint">${r0.v?`<span>ваучер ${esc(r0.v)}</span>`:''}${x.trf&&isOps()?`<span>трансфер ${esc(x.trf)}</span>`:''}${x.pass&&isOps()?`<span>паспорт ${esc(x.pass)}</span>`:''}</div>
+        <div class="gx-b"><button type="button" class="btn sm" data-gxnote="${esc(t.id)}|${i}">✎ ${nt?'Изменить заметку':'Заметка'}</button><button type="button" class="btn sm" data-trep="${esc(t.id)}|${i}">📝 Рапорт</button></div></div></details>`};
   return `<div class="tguests">
-    <div class="gx-top">${t.gcode?`<b>${esc(t.gcode)}</b>`:''}<span class="chip">👥 ${X.length}</span>${kids.length?`<span class="chip">👶 детей ${kids.length}</span>`:''}${bd.length?`<span class="chip bday">🎂 ДР в туре: ${bd.map(x=>esc(x.n.split(' ')[0])+' '+gxDm(x.dob)).join(', ')}</span>`:''}${pay.length&&isOps()?`<span class="chip rep-t">💵 оплата / комментарий: ${pay.length} семей</span>`:''}</div>
+    <div class="gx-top">${t.gcode?`<b>${esc(t.gcode)}</b>`:''}<span class="chip">👥 ${X.length}</span>${kids.length?`<span class="chip">👶 ${kids.length}</span>`:''}${bd.length?`<span class="chip bday">🎂 ${bd.map(x=>esc(x.n.split(' ')[0])+' '+gxDm(x.dob)).join(', ')}</span>`:''}${pay.length&&isOps()?`<span class="chip rep-t">💵 ${pay.length} семей</span>`:''}</div>
     ${(t.ghotels||[]).length?`<div class="gx-hot">🏨 ${t.ghotels.map(esc).join(' · ')}</div>`:''}
-    <input class="gx-q" data-gxq="${esc(t.id)}" value="${esc(TGQ[t.id]||'')}" placeholder="Поиск: фамилия, телефон, рейс, комментарий" aria-label="Поиск гостя">
-    ${fams.filter(show).map(f=>{const r0=f.rows[0].x;const cm=[...new Set(f.rows.map(r=>r.x.c).filter(Boolean))].join(' · ');const ph=r0.phone;
-      return `<div class="gx-fam"><div class="gx-fh">${ph?`<a class="tel" href="tel:${esc(ph.replace(/[^\d+]/g,''))}">📞 ${esc(ph)}</a> <a class="wa" target="_blank" rel="noopener" href="https://wa.me/${esc(ph.replace(/\D/g,''))}">WhatsApp</a>`:''}${r0.v?`<span class="hint">ваучер ${esc(r0.v)}</span>`:''}${r0.trf&&isOps()?`<span class="hint">трансфер ${esc(r0.trf)}</span>`:''}</div>
-        ${cm?`<div class="gx-c ${/ОПЛАТ|ДОПЛАТ|USD|ДОЛГ|НА МЕСТЕ/i.test(cm)?'pay':''}">💬 ${esc(cm)}</div>`:''}${f.rows.map(row).join('')}</div>`}).join('')}
-    <div class="tact"><label class="btn sm">⬆ Заменить список<input type="file" data-tgfile="${esc(t.id)}" accept=".xlsx,.xls,.pdf" hidden></label><button type="button" class="btn sm" data-trep="${esc(t.id)}|-1">📝 Рапорт (без имени)</button><button type="button" class="btn sm" data-tglist="${esc(t.id)}">📋 Список гостей в WhatsApp</button></div></div>`}
+    <input class="gx-q" data-gxq="${esc(t.id)}" value="${esc(TGQ[t.id]||'')}" placeholder="Поиск: фамилия, телефон, рейс" aria-label="Поиск гостя">
+    <div class="gx-list">${fams.filter(show).map(f=>{const r0=f.rows[0].x;const cm=[...new Set(f.rows.map(r=>r.x.c).filter(Boolean))].join(' · ');const ph=r0.phone;
+      return `<div class="gx-fam"><div class="gx-fh">${ph?`<a class="tel" href="tel:${esc(ph.replace(/[^\d+]/g,''))}">📞 ${esc(ph)}</a><a class="wa" target="_blank" rel="noopener" href="https://wa.me/${esc(ph.replace(/\D/g,''))}">WhatsApp</a>`:'<span class="hint">без телефона</span>'}${cm?`<span class="gx-c ${/ОПЛАТ|ДОПЛАТ|USD|ДОЛГ|НА МЕСТЕ/i.test(cm)?'pay':''}" title="${esc(cm)}">💬 ${esc(cm)}</span>`:''}</div>
+        ${f.rows.map(r=>row(r,f)).join('')}</div>`}).join('')}</div>
+    <div class="tact"><label class="btn sm">⬆ Заменить список<input type="file" data-tgfile="${esc(t.id)}" accept=".xlsx,.xls,.csv,.pdf" hidden></label><button type="button" class="btn sm" data-trep="${esc(t.id)}|-1">📝 Рапорт (без имени)</button><button type="button" class="btn sm" data-tglist="${esc(t.id)}">📋 Список гостей в WhatsApp</button></div></div>`}
 var TGQ=TGQ||{};
 async function importGroupList(tid,file){
   try{const rows=await readRows(file);if(!isGroupList(rows))throw new Error('это не похоже на список группы (нужны колонки Фамилия, Имя, Рейс)');
@@ -98,6 +101,6 @@ async function importGroupList(tid,file){
   catch(e){toast('Не удалось прочитать список: '+e.message)}}
 function bindGroupGuests(el){
   el.querySelectorAll('[data-tgfile]').forEach(i=>i.onchange=e=>{const f=e.target.files[0];if(f)importGroupList(i.dataset.tgfile,f);e.target.value=''});
-  el.querySelectorAll('[data-gxq]').forEach(i=>i.oninput=()=>{TGQ[i.dataset.gxq]=i.value;const pos=i.selectionStart;tourRefresh();const n=document.querySelector(`[data-gxq="${CSS.escape(i.dataset.gxq)}"]`);if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}});
+  el.querySelectorAll('[data-gxq]').forEach(i=>i.oninput=()=>{TGQ[i.dataset.gxq]=i.value;const pos=i.selectionStart;tourRefresh();const n=[...document.querySelectorAll(`[data-gxq="${CSS.escape(i.dataset.gxq)}"]`)].find(n=>n.offsetParent)||document.querySelector(`[data-gxq="${CSS.escape(i.dataset.gxq)}"]`);if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}});
   el.querySelectorAll('[data-gxnote]').forEach(b=>b.onclick=()=>{const [tid,i]=b.dataset.gxnote.split('|');const t=TOURS[tid];const x=(t.gx||[])[+i];if(!x)return;const k=tid+'|gn|'+i;
     const v=prompt(trText(`Заметка про ${x.n} (видят офис и гиды). Пусто — удалить.`),(TM[k]||{}).note||'');if(v===null)return;saveTM(k,v.trim()?{note:v.trim(),at:nowMinutes()}:null);tourRefresh();toast(v.trim()?'Заметка сохранена':'Заметка удалена')})}

@@ -874,7 +874,7 @@ function renderGuide(){
   const g=curGuide;if(!g||!guideList().includes(g)){$('#guideHead').innerHTML=`<p class="hint">${gKind==='tour'?'Сегодня нет экскурсий с гидами. Программы — во вкладке «Экскурсии».':gKind==='dep'?'В этом дне нет гидов на сборы (Depart).':'В этом дне нет гидов на встречи (Arrival).'}</p>`;$('#tasks').innerHTML='';return}
   $('#gmTasks').dataset.kind=gKind;
   if(gKind==='tour'){try{TOURS}catch(e){return}$('#guideHead').innerHTML=`<div class="ghead"><div class="gname">${esc(g)}${gPhone(g)?` <a class="tel" style="font-size:.6em" href="tel:${esc(gPhone(g).replace(/\s/g,''))}">${esc(gPhone(g))}</a>`:''}</div><div class="gmeta"><span>🚌 Экскурсия · отмечайте «📍 Прибыли» и «🚌 Уехали» на каждой точке — другие автобусы это видят</span></div></div>`;
-    $('#tasks').innerHTML=guideTourHtml(g);bindTourCards($('#tasks'));return}
+    $('#tasks').innerHTML=guideTourHtml(g);bindTourCards($('#tasks'));if(guideMode==='guests')renderGuests();return}
   if(!DAY)return;
   const tasks=guideTasks(g).filter(t=>t.kind===gKind);
   const vehs=[...new Set(tasks.flatMap(t=>t.groups.map(x=>x.v)).filter(Boolean))];
@@ -890,7 +890,7 @@ $('#hideDone').addEventListener('change',renderGuide);
 
 
 /* ---------- guide: reference list of all guests (no check-in buttons) ---------- */
-let guideMode=store.get('gmode','tasks');
+var guideMode=store.get('gmode','tasks');
 function setGuideMode(m){guideMode=m;store.set('gmode',m);document.querySelectorAll('.gm').forEach(b=>b.setAttribute('aria-pressed',b.dataset.gm===m));$('#gmTasks').hidden=m!=='tasks';$('#gmGuests').hidden=m!=='guests';if(m==='guests')renderGuests()}
 document.querySelectorAll('.gm').forEach(b=>b.onclick=()=>setGuideMode(b.dataset.gm));
 const ex=p=>p[3]||{};
@@ -903,6 +903,11 @@ function guestTrips(g){
   });
 }
 function renderGuests(){
+  // excursion mode: the guest lists of this guide's buses (short lines, details on tap)
+  const fl=$('#gmGuests .filters');if(fl)fl.hidden=gKind==='tour';
+  if(gKind==='tour'&&$('#guests')){const g=curGuide;let iso=gTourDate||isoToday();let L=g?toursOfGuide(g,iso):[];if(!L.length&&iso!==isoToday()){iso=isoToday();L=g?toursOfGuide(g,iso):[]}
+    $('#guests').innerHTML=L.length?L.map(t=>`<section class="gtour"><h3 class="gtour-h">🚌 ${esc(t.bus||'')} <span class="hint">${esc(t.name||'')} · ${isoDM(t.days[0].d)}–${isoDM(t.days[t.days.length-1].d)}${t.pax?' · '+esc(t.pax)+' pax':''}</span></h3>${(t.gx||[]).length?groupGuestsHtml(t,iso):'<p class="hint">Список гостей этого автобуса ещё не загружен.</p>'}</section>`).join(''):`<p class="hint">${isoDM(iso)}: экскурсий у ${esc(g||'гида')} нет.</p>`;
+    bindTourCards($('#guests'));return}
   if(!DAY||!$('#guests'))return;
   const g=curGuide;if(!g){$('#guests').innerHTML='';return}
   const q=$('#gsQ').value.trim().toUpperCase();
