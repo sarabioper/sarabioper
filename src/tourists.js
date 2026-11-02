@@ -25,8 +25,12 @@ function parseTourists(rows){
     const head=seg.slice(0,220);
     const fm=head.match(/((?:[A-Z]{3}|[A-Z][A-Z0-9]|[0-9][A-Z])\s?\d{1,5}|\?{2,}|!{2,})\s*\(([A-ZİÇ?]*)-([A-ZİÇ?]*)\)\s*=>\s*/);
     let hotelTxt;
+    // departure lists put the flight after the hotel: "LRS PORT RIVER HOTEL & SPA=>U6 1574(AYT-SVO) 9 RAŞİD …"
+    const fm2=fm?null:head.match(/=>\s*((?:[A-Z]{3}|[A-Z][A-Z0-9]|[0-9][A-Z])\s?\d{1,5}|\?{2,}|!{2,})\s*\(([A-ZİÇ?]*)-([A-ZİÇ?]*)\)\s*/);
     if(fm)hotelTxt=head.slice(head.indexOf(fm[0])+fm[0].length);
+    else if(fm2)hotelTxt=head.slice(0,fm2.index)+' '+head.slice(fm2.index+fm2[0].length);
     else hotelTxt=head.replace(/=>/,' ');
+    const fx=fm||fm2;
     const pm=hotelTxt.match(/^(.*?)\s*(\d{1,3})\s+(?=<|[A-ZÇĞİÖŞÜ]{3}|BUS|MİN|VİTO|MİDİ|\d)/);
     const hotel=pm?pm[1]:hotelTxt.split(/\s\d/)[0];
     const pax=pm?+pm[2]:0;
@@ -39,7 +43,7 @@ function parseTourists(rows){
       guide=/<\s*Araç Yok\s*>/i.test(head)&&!vm?'':gw.filter(w=>!HW.test(w)).length?gw.join(' '):''}
     const term=/\bICHAT\b/.test(head)?'İÇ':/\bTER\b/.test(head)?'DIŞ':'';
     const opm=seg.slice(0,400).match(/\b([A-Z]{3,6}\d{2}|AIR|SKY|BINALI|SIBIR|URAN|KAP|MERID|SARAB)\s+NOT\b/);
-    const g={type:h.type,time:h.time,from:h.from,to:h.to,fl:fm&&!/^[!?]/.test(fm[1])?fm[1].replace(/^([A-Z0-9]{2})\s?0*(\d+)$/,'$1 $2'):'',fFrom:fm?fm[2]:'',fTo:fm?fm[3]:'',hotel:normHotel(hotel),hotelRaw:hotel.trim(),pax,veh:isArac?vehAt(h.start):(vm?(vm[1]+(vm[2]?' '+vm[2]:'')):''),guide,term,op:opm?opm[1]:'',people:[]};
+    const g={type:h.type,time:h.time,from:h.from,to:h.to,fl:fx&&!/^[!?]/.test(fx[1])?fx[1].replace(/^([A-Z0-9]{2})\s?0*(\d+)$/,'$1 $2'):'',fFrom:fx?fx[2]:'',fTo:fx?fx[3]:'',hotel:normHotel(hotel),hotelRaw:hotel.trim(),pax,veh:isArac?vehAt(h.start):(vm?(vm[1]+(vm[2]?' '+vm[2]:'')):''),guide,term,op:opm?opm[1]:'',people:[]};
     g.dir=h.type==='ARA'&&!g.fl?'h2h':listDir||(g.fTo==='AYT'?'arr':g.fFrom==='AYT'?'dep':h.type==='ARA'?'h2h':'arr');
     if(listDir==='arr'&&g.fFrom==='AYT'){g.routeFlip=g.fFrom+'-'+g.fTo;g.fFrom=g.fTo;g.fTo='AYT'}
     // people
