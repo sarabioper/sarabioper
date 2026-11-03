@@ -55,7 +55,7 @@ $('#repNewOps').onclick=()=>{repOpen('ops')};
 $('#repPrev').onclick=()=>{repDate=isoAdd(repDate||(DAY&&DAY.iso)||isoToday(),-1);renderReports()};
 $('#repNext').onclick=()=>{repDate=isoAdd(repDate||(DAY&&DAY.iso)||isoToday(),1);renderReports()};
 $('#repToday').onclick=()=>{repDate=isoToday();renderReports()};
-$('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b&&(b.dataset.t==='ops'||b.dataset.t==='guide')){pullReports(true);renderReports()}});
+$('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b&&(b.dataset.t==='ops'||b.dataset.t==='guide')){pullReports(true);renderReports()}if(b&&b.dataset.t==='ops'){try{renderCtl();renderSalesAdm();pullSales();pullTours(true)}catch(e){}}});
 pullReports(true);renderReports();
 
 /* ---------- jump to the top / bottom of long pages ---------- */

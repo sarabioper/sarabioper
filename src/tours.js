@@ -161,7 +161,7 @@ const x=dayOfTour(t,iso);const st=tourNow(t,x.day);let lastA=-1;x.day.s.forEach(
       ${coordHint(LB,t,x)}
       <ol class="tstops">${rows}</ol>
       <div class="tact"><button type="button" class="btn sm" data-twa="${esc(t.id)}" data-tiso="${iso}">📋 Программа дня в WhatsApp</button>${o.guide?'':`<button type="button" class="btn sm" data-tedit="${esc(t.id)}">✎ Изменить</button><button type="button" class="btn sm" data-tcopy="${esc(t.id)}">⧉ Копия для другого автобуса</button>`}</div></article>`}finally{tDate=tDateSave}}
-function tourRefresh(){renderTours();if(typeof renderGuide==='function'&&!$('#v-guide').hidden)renderGuide()}
+function tourRefresh(){renderTours();try{renderCtl()}catch(e){}if(typeof renderGuide==='function'&&!$('#v-guide').hidden)renderGuide()}
 function bindTourCards(el){
   bindGroupGuests(el);
   el.querySelectorAll('[data-tguests]').forEach(b=>b.onclick=()=>{const id=b.dataset.tguests;TGOPEN.has(id)?TGOPEN.delete(id):TGOPEN.add(id);tourRefresh()});

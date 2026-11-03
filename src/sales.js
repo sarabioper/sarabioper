@@ -72,7 +72,7 @@ function importPrices(rows,file){if(!isAdmin())throw new Error('прайс за�
   savePrices(patch);
   return `<b>Прайс ${grp?'групповой (TOPLU)':'индивидуальный'} загружен: ${P.length} позиций.</b><span>${P.filter(p=>p.k==='pack').map(p=>`${esc(p.n)} ${p.disc}$`).join(' · ')}</span>${P.some(p=>!p.full&&!p.disc)?`<span style="color:var(--warn)">Без цены: ${P.filter(p=>!p.full&&!p.disc).map(p=>esc(p.n)).join(', ')} — впишите цену во вкладке «Экскурсии» → «Продажи».</span>`:''}`}
 
-/* ---- administrator: Excursions tab, all buses, targets, the price list ---- */
+/* ---- administrator: Control tab, all buses, targets, the price list ---- */
 let slAdmOpen=store.get('slAdmOpen',true);
 function renderSalesAdm(){const el=$('#salesAdm');if(!el)return;if(!isAdmin()){el.hidden=true;el.innerHTML='';return}el.hidden=false;
   const all=tours().filter(t=>(t.gx||[]).length||slOf(t.id).length);const from=isoAdd(isoToday(),-14);const L=all.filter(t=>t.days[t.days.length-1].d>=from);
@@ -85,7 +85,7 @@ function renderSalesAdm(){const el=$('#salesAdm');if(!el)return;if(!isAdmin()){e
       ${L.map(t=>{const S=slStats(t);return `<tr><td><b>${esc(t.bus||'')}</b></td><td>${esc(t.guide||'')}</td><td class="num">${isoDM(t.days[0].d)}–${isoDM(t.days[t.days.length-1].d)}</td><td class="n">${S.pax}</td><td class="n"><b>${money(S.sum)}</b></td><td class="n">${money(S.per)}</td><td class="n"><span class="slpct ${S.pct>=100?'ok':S.pct>=60?'mid':'low'}">${S.pct}%</span></td><td><select data-plist="${esc(t.id)}"><option value="ind"${t.plist!=='grp'?' selected':''}>индивид.</option><option value="grp"${t.plist==='grp'?' selected':''}>TOPLU</option></select></td></tr>`}).join('')||'<tr><td colspan="8" class="hint">Нет автобусов со списками гостей за 2 недели.</td></tr>'}
     </tbody></table></div>
     ${Object.keys(byG).length?`<div class="sli"><b>По гидам:</b> ${Object.values(byG).sort((a,b)=>b.sum-a.sum).map(x=>`<span>${esc(x.g)}: ${money(x.sum)} · ${money(x.pax?x.sum/x.pax:0)}/чел</span>`).join('')}</div>`:''}
-    <details class="sll"><summary>Прайс (${items.length}) — загрузите файл ПРАЙС в «⬆ Программы и списки групп» или в «Загрузить день»</summary>
+    <details class="sll"><summary>Прайс (${items.length}) — файл ПРАЙС загружается во вкладке «Экскурсии» → «⬆ Программы и списки групп»</summary>
       <table class="slp"><thead><tr><th>Позиция</th><th class="n">Цена</th><th class="n">Индивид.</th><th class="n">TOPLU</th><th></th></tr></thead><tbody>${items.map(it=>`<tr><td>${it.k==='pack'?'📦 ':''}${esc(it.n)}</td>${['full','ind','grp'].map(f=>`<td class="n">${f!=='full'&&it.k!=='pack'?'':`<input type="number" data-plf="${esc(it.id)}|${f}" value="${esc(it[f]==null?'':it[f])}" min="0">`}</td>`).join('')}<td><button type="button" class="x" data-pldel="${esc(it.id)}" aria-label="Удалить">✕</button></td></tr>`).join('')}</tbody></table></details>
     ${L.map(t=>slOf(t.id).length?slCard(t,{list:true,by:true}):'').join('')}</details>`;
   el.querySelector('details.sla').ontoggle=e=>{slAdmOpen=e.target.open;store.set('slAdmOpen',slAdmOpen)};

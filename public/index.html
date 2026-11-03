@@ -336,6 +336,7 @@ body{padding-bottom:96px}
 .gx-d{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:12px}
 .gx-b{display:flex;gap:6px}.bday{color:var(--crit)}.chip.bday{border-color:var(--crit);background:var(--crit-soft)}
 body.role-guide label:has([data-tgfile]){display:none!important}
+body.role-admin #modePill,body.role-admin #liveCtl,body.role-admin .clock #slider,body.role-admin .clock .ctl,body.role-admin #scanBtn{display:none!important}
 body.role-guide #guidePick,body.role-guide #gKind{display:none}
 .gp-tbl td.pin{white-space:nowrap}
 .adm{display:grid;gap:12px}.adm-box{padding:12px 14px}.adm-box h3{margin:0 0 4px;font-size:16px}
@@ -555,6 +556,18 @@ body.role-guide #guidePick,body.role-guide #gKind{display:none}
 .vtbl{width:100%}
 .vtbl a{color:inherit}
 .vtbl th{text-align:left;padding:8px 10px;font-size:12px;color:var(--muted);font-weight:600}
+.ctl-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:16px 0 4px}.ctl-head h2{margin:0;font-size:18px}
+.ctl-sec{margin:10px 0 4px;font-size:15px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.ctl-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
+.cg{border:1px solid var(--line);border-radius:8px;background:var(--surface);min-width:0}
+.cg>summary{list-style:none;cursor:pointer;display:grid;gap:4px;padding:8px 10px}.cg>summary::-webkit-details-marker{display:none}
+.cg-h{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.cg-h b{font-size:14px}
+.cg .bar{display:block;height:6px;border-radius:3px;background:var(--sunk);overflow:hidden}.cg .bar i{display:block;height:100%;background:var(--signal)}
+.cg.done{border-color:#2e9e5b;background:#e8f7ee}.cg.done .bar i{background:#2e9e5b}.cg.late{border-color:var(--crit)}
+.cg-t{display:grid;gap:3px;padding:0 10px 10px}
+.ct{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:baseline;font-size:13px;padding:4px 7px;border-radius:5px;background:var(--sunk)}
+.ct.ok{background:#d6f2e0;color:#14532d}.ct.late{background:var(--crit-soft);color:var(--crit)}.ct .num{font-variant-numeric:tabular-nums}
+@media (prefers-color-scheme:dark){.cg.done{background:#12301f}.ct.ok{background:#173d27;color:#b8f0cc}}
 .gsec{margin-bottom:6px}
 .gsec-h{font-size:15px;margin:12px 0 0;padding:0 10px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 .gsec:first-child .gsec-h{margin-top:4px}
@@ -739,16 +752,19 @@ mark{background:var(--signal-soft);color:inherit}
   </section>
 
   <section id="v-ops" hidden>
-    <div class="summary" id="opsSum"></div>
+    <div class="summary" id="opsSum" hidden></div>
     <details class="ops-box rep-box" id="repBox"><summary>📝 Рапорты гидов · <span id="repN">0</span></summary>
       <div class="rep-nav"><button type="button" class="btn sm" id="repPrev" aria-label="Предыдущий день">‹</button><span id="repDate"></span><button type="button" class="btn sm" id="repNext" aria-label="Следующий день">›</button><button type="button" class="btn sm" id="repToday">Сегодня</button><span class="sp"></span><button type="button" class="btn sm" id="repNewOps">+ Рапорт</button></div>
       <div id="repList"></div></details>
-    <div class="filters">
+    <div class="ctl-head"><h2>Гиды дня</h2><span class="hint" id="ctlDay"></span></div>
+    <div id="ctlGuides"></div>
+    <div class="panel" id="salesAdm" hidden></div>
+    <div class="filters" hidden>
       <select id="opsGuide" aria-label="Гид"><option value="">Все гиды</option></select>
       <select id="opsKind" aria-label="Тип"><option value="">Встречи и сборы</option><option value="arr">Только встречи</option><option value="dep">Только сборы</option></select>
       <input id="opsQ" placeholder="Гид, фамилия, рейс или отель" aria-label="Поиск">
     </div>
-    <details class="ops-box late-box" id="waLateBox"><summary>✈ Задержки рейсов для WhatsApp <span class="hint" id="waLateCnt"></span></summary>
+    <details class="ops-box late-box" id="waLateBox" hidden><summary>✈ Задержки рейсов для WhatsApp <span class="hint" id="waLateCnt"></span></summary>
       <div class="wa-out">
         <div class="opts">
           <label>задержка от <select id="wlMin"><option value="10">10 мин</option><option value="15" selected>15 мин</option><option value="30">30 мин</option><option value="60">1 часа</option></select></label>
@@ -761,7 +777,7 @@ mark{background:var(--signal-soft);color:inherit}
         <div class="vfoot" style="padding:0"><button class="btn primary" type="button" id="wlCopy">Скопировать и отметить как отправленные</button><button class="btn" type="button" id="wlReset">Сбросить «отправленные»</button></div>
       </div>
     </details>
-    <details class="ops-box wa-box" id="waOutBox"><summary>📋 Вышедшие гости для WhatsApp <span class="hint" id="waOutCnt"></span></summary>
+    <details class="ops-box wa-box" id="waOutBox" hidden><summary>📋 Вышедшие гости для WhatsApp <span class="hint" id="waOutCnt"></span></summary>
       <div class="wa-out">
         <div class="opts">
           <label><input type="checkbox" id="woNew" checked> только новые, ещё не отправленные</label>
@@ -774,8 +790,8 @@ mark{background:var(--signal-soft);color:inherit}
         <div class="vfoot" style="padding:0"><button class="btn primary" type="button" id="woCopy">Скопировать и отметить как отправленные</button><button class="btn" type="button" id="woReset">Сбросить «отправленные»</button></div>
       </div>
     </details>
-    <details class="ops-box" id="opsGuidesBox" open><summary>Гиды дня <span class="hint">· нажмите на имя, чтобы увидеть только его задания</span></summary><div id="opsGuides"></div></details>
-    <div class="ops-grid" style="margin-top:14px">
+    <details class="ops-box" id="opsGuidesBox" open hidden><summary>Гиды дня <span class="hint">· нажмите на имя, чтобы увидеть только его задания</span></summary><div id="opsGuides"></div></details>
+    <div class="ops-grid" style="margin-top:14px" hidden>
       <div class="ops-main">
         <h2>Ждём сейчас <span class="hint">· от полутора часов назад до двух часов вперёд</span></h2>
         <div class="tasks" id="opsWait"></div>
@@ -835,7 +851,6 @@ mark{background:var(--signal-soft);color:inherit}
       <button type="button" class="btn sm" id="tSamples" hidden></button>
       <button type="button" class="btn sm primary" id="tNew">+ Программа</button>
     </div>
-    <div class="panel" id="salesAdm" hidden></div>
     <div class="tsum" id="tourSum"></div>
     <div class="xform" id="grpReview" hidden></div>
     <div id="tourLive"></div>
@@ -2452,7 +2467,7 @@ const tabOk=t=>(ROLE_TABS[ROLE]||ROLE_TABS.ops).includes(t);
 // "ALİBEK" (KAPAK) and "ALİBEK MUFTİ" (vehicle list) are the same guide; two full names must be equal
 function sameG(a,b){const n=x=>gKey(x||'').trim();const A=String(a||'').trim().split(/\s+/).filter(Boolean),B=String(b||'').trim().split(/\s+/).filter(Boolean);
   if(!A.length||!B.length)return false;if(n(a)===n(b))return true;if(A.length===1||B.length===1)return n(A[0])===n(B[0]);return false}
-function setRole(r){ROLE=r==='guide'?'guide':r==='admin'?'admin':'ops';store.set('role',ROLE);if(ROLE==='ops'){SALES={};PRICES={};store.set('sales',{});store.set('prices',{})}document.body.classList.toggle('role-guide',ROLE==='guide');
+function setRole(r){ROLE=r==='guide'?'guide':r==='admin'?'admin':'ops';store.set('role',ROLE);if(ROLE==='ops'){SALES={};PRICES={};store.set('sales',{});store.set('prices',{})}document.body.classList.toggle('role-guide',ROLE==='guide');document.body.classList.toggle('role-admin',ROLE==='admin');
   if(ROLE==='guide'&&ME){curGuide=ME;const w=$('#whoAmI');if(w)w.textContent='Гид: '+ME}
   document.querySelectorAll('.tab').forEach(t=>{t.hidden=!tabOk(t.dataset.t)});
   const who=$('#whoAmI');if(who)who.textContent=ROLE==='guide'?(ME?'Гид: '+ME:'Вход: гид'):ROLE==='admin'?'Вход: администратор':'Вход: операционный отдел';
@@ -3310,7 +3325,32 @@ $('#gsCopy').onclick=()=>curGuide&&copy(guestsText(curGuide));
 
 /* ---------- control screen for the operations desk ---------- */
 let opsOpen={later:false,done:false,stale:false};
+// Control (administrator): the guides of the day and their tasks — a task turns green when it is done, a guide's card when all of them are
+function renderCtl(){const box=$('#ctlGuides');if(!box)return;
+  const lbl=$('#ctlDay');if(lbl)lbl.textContent=DAY?DAY.title:'день не загружен';
+  const st=t=>t.complete?'ok':t.time<NOW-90?'late':'';
+  const tline=t=>`<div class="ct ${st(t)}"><span class="num">${fmt(t.time)}</span><span>${t.kind==='arr'?'✈ '+esc(t.f?[...t.f.codes].join(' / '):normFl(t.groups[0].fl))+' → '+esc([...new Set(t.groups.map(g=>g.h))].join(', ')):'🏨 '+esc(t.groups[0].h)+' → '+esc([...new Set(t.groups.map(g=>normFl(g.fl)))].join(', '))}</span><span class="num">${t.complete?'✓ ':''}${t.done}/${t.total}${t.no?' ✗'+t.no:''}</span></div>`;
+  const all=DAY?buildTasks(()=>true):[];
+  const card=(g,kind)=>{const ts=all.filter(t=>t.guide===g&&t.kind===kind).sort((a,b)=>a.time-b.time);const done=ts.filter(t=>t.complete).length;const late=ts.some(t=>st(t)==='late');
+    const vs=[...new Set(ts.flatMap(t=>t.groups.map(x=>x.v)).filter(Boolean))];const key=kind+'|'+g;
+    return `<details class="cg ${done===ts.length?'done':late?'late':''}" data-cg="${esc(key)}"${CTLOPEN.has(key)?' open':''}><summary><span class="cg-h"><b>${esc(g)}</b><span class="num">${done===ts.length?'✓ ':''}${done}/${ts.length} заданий</span></span>
+      <span class="bar"><i style="width:${ts.length?Math.round(done/ts.length*100):0}%"></i></span><span class="hint">${esc(vs.join(', ')||'без машины')}${late?' · <b style="color:var(--crit)">есть просроченные</b>':''}</span></summary>
+      <div class="cg-t">${ts.map(tline).join('')}</div></details>`};
+  const sec=(kind,title)=>{const gs=guides().filter(g=>all.some(t=>t.guide===g&&t.kind===kind));if(!gs.length)return '';const ts=all.filter(t=>t.kind===kind);
+    return `<h3 class="ctl-sec">${title} <span class="hint">${gs.length} гидов · закрыто ${ts.filter(t=>t.complete).length} из ${ts.length}</span></h3><div class="ctl-cards">${gs.map(g=>card(g,kind)).join('')}</div>`};
+  // excursions: each bus of today, its stops; green when the day is finished
+  let tour='';try{const iso=isoToday();const L=tours().filter(t=>dayOfTour(t,iso));
+    if(L.length)tour=`<h3 class="ctl-sec">🚌 Экскурсии <span class="hint">${L.length} автобусов</span></h3><div class="ctl-cards">${L.map(t=>{const day=dayOfTour(t,iso).day;const ss=day.s;const m=s=>stopState(t,s);
+      const dn=ss.filter((s,i)=>m(s).d!=null||(i===ss.length-1&&m(s).a!=null)).length;const fin=ss.length&&m(ss[ss.length-1]).a!=null;const now=tourNow(t,day);const key='t|'+t.id;
+      return `<details class="cg ${fin?'done':''}" data-cg="${esc(key)}"${CTLOPEN.has(key)?' open':''}><summary><span class="cg-h"><b>${esc(t.bus||'')} · ${esc(t.guide||'')}</b><span class="num">${fin?'✓ ':''}${dn}/${ss.length}</span></span>
+        <span class="bar"><i style="width:${ss.length?Math.round(dn/ss.length*100):0}%"></i></span><span class="hint">${esc(now.txt)}</span></summary>
+        <div class="cg-t">${ss.map((s,i)=>{const x=m(s);const ok=x.d!=null||(i===ss.length-1&&x.a!=null);return `<div class="ct ${ok?'ok':''}"><span class="num">${s.t||'—'}</span><span>${esc(s.n)}</span><span class="num">${x.a!=null?'📍'+fmt(x.a):''}${x.d!=null?' → '+fmt(x.d):''}</span></div>`}).join('')}</div></details>`}).join('')}</div>`}catch(e){}
+  const html=sec('arr','✈️ Встреча · Arrival')+sec('dep','🛫 Сбор · Depart')+tour;
+  box.innerHTML=html||'<p class="hint">Сегодня заданий у гидов нет.</p>';
+  box.querySelectorAll('[data-cg]').forEach(d=>d.ontoggle=()=>{d.open?CTLOPEN.add(d.dataset.cg):CTLOPEN.delete(d.dataset.cg)})}
+var CTLOPEN=new Set();
 function renderOps(){
+  try{renderCtl()}catch(e){}
   if(!DAY||!$('#opsWait'))return;
   const fg=$('#opsGuide').value,fk=$('#opsKind').value,q=$('#opsQ').value.trim().toUpperCase();
   // guide filter list
@@ -3953,7 +3993,7 @@ const x=dayOfTour(t,iso);const st=tourNow(t,x.day);let lastA=-1;x.day.s.forEach(
       ${coordHint(LB,t,x)}
       <ol class="tstops">${rows}</ol>
       <div class="tact"><button type="button" class="btn sm" data-twa="${esc(t.id)}" data-tiso="${iso}">📋 Программа дня в WhatsApp</button>${o.guide?'':`<button type="button" class="btn sm" data-tedit="${esc(t.id)}">✎ Изменить</button><button type="button" class="btn sm" data-tcopy="${esc(t.id)}">⧉ Копия для другого автобуса</button>`}</div></article>`}finally{tDate=tDateSave}}
-function tourRefresh(){renderTours();if(typeof renderGuide==='function'&&!$('#v-guide').hidden)renderGuide()}
+function tourRefresh(){renderTours();try{renderCtl()}catch(e){}if(typeof renderGuide==='function'&&!$('#v-guide').hidden)renderGuide()}
 function bindTourCards(el){
   bindGroupGuests(el);
   el.querySelectorAll('[data-tguests]').forEach(b=>b.onclick=()=>{const id=b.dataset.tguests;TGOPEN.has(id)?TGOPEN.delete(id):TGOPEN.add(id);tourRefresh()});
@@ -4332,7 +4372,7 @@ function importPrices(rows,file){if(!isAdmin())throw new Error('прайс за�
   savePrices(patch);
   return `<b>Прайс ${grp?'групповой (TOPLU)':'индивидуальный'} загружен: ${P.length} позиций.</b><span>${P.filter(p=>p.k==='pack').map(p=>`${esc(p.n)} ${p.disc}$`).join(' · ')}</span>${P.some(p=>!p.full&&!p.disc)?`<span style="color:var(--warn)">Без цены: ${P.filter(p=>!p.full&&!p.disc).map(p=>esc(p.n)).join(', ')} — впишите цену во вкладке «Экскурсии» → «Продажи».</span>`:''}`}
 
-/* ---- administrator: Excursions tab, all buses, targets, the price list ---- */
+/* ---- administrator: Control tab, all buses, targets, the price list ---- */
 let slAdmOpen=store.get('slAdmOpen',true);
 function renderSalesAdm(){const el=$('#salesAdm');if(!el)return;if(!isAdmin()){el.hidden=true;el.innerHTML='';return}el.hidden=false;
   const all=tours().filter(t=>(t.gx||[]).length||slOf(t.id).length);const from=isoAdd(isoToday(),-14);const L=all.filter(t=>t.days[t.days.length-1].d>=from);
@@ -4345,7 +4385,7 @@ function renderSalesAdm(){const el=$('#salesAdm');if(!el)return;if(!isAdmin()){e
       ${L.map(t=>{const S=slStats(t);return `<tr><td><b>${esc(t.bus||'')}</b></td><td>${esc(t.guide||'')}</td><td class="num">${isoDM(t.days[0].d)}–${isoDM(t.days[t.days.length-1].d)}</td><td class="n">${S.pax}</td><td class="n"><b>${money(S.sum)}</b></td><td class="n">${money(S.per)}</td><td class="n"><span class="slpct ${S.pct>=100?'ok':S.pct>=60?'mid':'low'}">${S.pct}%</span></td><td><select data-plist="${esc(t.id)}"><option value="ind"${t.plist!=='grp'?' selected':''}>индивид.</option><option value="grp"${t.plist==='grp'?' selected':''}>TOPLU</option></select></td></tr>`}).join('')||'<tr><td colspan="8" class="hint">Нет автобусов со списками гостей за 2 недели.</td></tr>'}
     </tbody></table></div>
     ${Object.keys(byG).length?`<div class="sli"><b>По гидам:</b> ${Object.values(byG).sort((a,b)=>b.sum-a.sum).map(x=>`<span>${esc(x.g)}: ${money(x.sum)} · ${money(x.pax?x.sum/x.pax:0)}/чел</span>`).join('')}</div>`:''}
-    <details class="sll"><summary>Прайс (${items.length}) — загрузите файл ПРАЙС в «⬆ Программы и списки групп» или в «Загрузить день»</summary>
+    <details class="sll"><summary>Прайс (${items.length}) — файл ПРАЙС загружается во вкладке «Экскурсии» → «⬆ Программы и списки групп»</summary>
       <table class="slp"><thead><tr><th>Позиция</th><th class="n">Цена</th><th class="n">Индивид.</th><th class="n">TOPLU</th><th></th></tr></thead><tbody>${items.map(it=>`<tr><td>${it.k==='pack'?'📦 ':''}${esc(it.n)}</td>${['full','ind','grp'].map(f=>`<td class="n">${f!=='full'&&it.k!=='pack'?'':`<input type="number" data-plf="${esc(it.id)}|${f}" value="${esc(it[f]==null?'':it[f])}" min="0">`}</td>`).join('')}<td><button type="button" class="x" data-pldel="${esc(it.id)}" aria-label="Удалить">✕</button></td></tr>`).join('')}</tbody></table></details>
     ${L.map(t=>slOf(t.id).length?slCard(t,{list:true,by:true}):'').join('')}</details>`;
   el.querySelector('details.sla').ontoggle=e=>{slAdmOpen=e.target.open;store.set('slAdmOpen',slAdmOpen)};
@@ -4413,7 +4453,7 @@ $('#repNewOps').onclick=()=>{repOpen('ops')};
 $('#repPrev').onclick=()=>{repDate=isoAdd(repDate||(DAY&&DAY.iso)||isoToday(),-1);renderReports()};
 $('#repNext').onclick=()=>{repDate=isoAdd(repDate||(DAY&&DAY.iso)||isoToday(),1);renderReports()};
 $('#repToday').onclick=()=>{repDate=isoToday();renderReports()};
-$('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b&&(b.dataset.t==='ops'||b.dataset.t==='guide')){pullReports(true);renderReports()}});
+$('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b&&(b.dataset.t==='ops'||b.dataset.t==='guide')){pullReports(true);renderReports()}if(b&&b.dataset.t==='ops'){try{renderCtl();renderSalesAdm();pullSales();pullTours(true)}catch(e){}}});
 pullReports(true);renderReports();
 
 /* ---------- jump to the top / bottom of long pages ---------- */

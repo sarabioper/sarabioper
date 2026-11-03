@@ -133,6 +133,7 @@ body{padding-bottom:96px}
 .gx-d{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:12px}
 .gx-b{display:flex;gap:6px}.bday{color:var(--crit)}.chip.bday{border-color:var(--crit);background:var(--crit-soft)}
 body.role-guide label:has([data-tgfile]){display:none!important}
+body.role-admin #modePill,body.role-admin #liveCtl,body.role-admin .clock #slider,body.role-admin .clock .ctl,body.role-admin #scanBtn{display:none!important}
 body.role-guide #guidePick,body.role-guide #gKind{display:none}
 .gp-tbl td.pin{white-space:nowrap}
 .adm{display:grid;gap:12px}.adm-box{padding:12px 14px}.adm-box h3{margin:0 0 4px;font-size:16px}
@@ -352,6 +353,18 @@ body.role-guide #guidePick,body.role-guide #gKind{display:none}
 .vtbl{width:100%}
 .vtbl a{color:inherit}
 .vtbl th{text-align:left;padding:8px 10px;font-size:12px;color:var(--muted);font-weight:600}
+.ctl-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:16px 0 4px}.ctl-head h2{margin:0;font-size:18px}
+.ctl-sec{margin:10px 0 4px;font-size:15px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.ctl-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
+.cg{border:1px solid var(--line);border-radius:8px;background:var(--surface);min-width:0}
+.cg>summary{list-style:none;cursor:pointer;display:grid;gap:4px;padding:8px 10px}.cg>summary::-webkit-details-marker{display:none}
+.cg-h{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.cg-h b{font-size:14px}
+.cg .bar{display:block;height:6px;border-radius:3px;background:var(--sunk);overflow:hidden}.cg .bar i{display:block;height:100%;background:var(--signal)}
+.cg.done{border-color:#2e9e5b;background:#e8f7ee}.cg.done .bar i{background:#2e9e5b}.cg.late{border-color:var(--crit)}
+.cg-t{display:grid;gap:3px;padding:0 10px 10px}
+.ct{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:baseline;font-size:13px;padding:4px 7px;border-radius:5px;background:var(--sunk)}
+.ct.ok{background:#d6f2e0;color:#14532d}.ct.late{background:var(--crit-soft);color:var(--crit)}.ct .num{font-variant-numeric:tabular-nums}
+@media (prefers-color-scheme:dark){.cg.done{background:#12301f}.ct.ok{background:#173d27;color:#b8f0cc}}
 .gsec{margin-bottom:6px}
 .gsec-h{font-size:15px;margin:12px 0 0;padding:0 10px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 .gsec:first-child .gsec-h{margin-top:4px}
@@ -536,16 +549,19 @@ mark{background:var(--signal-soft);color:inherit}
   </section>
 
   <section id="v-ops" hidden>
-    <div class="summary" id="opsSum"></div>
+    <div class="summary" id="opsSum" hidden></div>
     <details class="ops-box rep-box" id="repBox"><summary>📝 Рапорты гидов · <span id="repN">0</span></summary>
       <div class="rep-nav"><button type="button" class="btn sm" id="repPrev" aria-label="Предыдущий день">‹</button><span id="repDate"></span><button type="button" class="btn sm" id="repNext" aria-label="Следующий день">›</button><button type="button" class="btn sm" id="repToday">Сегодня</button><span class="sp"></span><button type="button" class="btn sm" id="repNewOps">+ Рапорт</button></div>
       <div id="repList"></div></details>
-    <div class="filters">
+    <div class="ctl-head"><h2>Гиды дня</h2><span class="hint" id="ctlDay"></span></div>
+    <div id="ctlGuides"></div>
+    <div class="panel" id="salesAdm" hidden></div>
+    <div class="filters" hidden>
       <select id="opsGuide" aria-label="Гид"><option value="">Все гиды</option></select>
       <select id="opsKind" aria-label="Тип"><option value="">Встречи и сборы</option><option value="arr">Только встречи</option><option value="dep">Только сборы</option></select>
       <input id="opsQ" placeholder="Гид, фамилия, рейс или отель" aria-label="Поиск">
     </div>
-    <details class="ops-box late-box" id="waLateBox"><summary>✈ Задержки рейсов для WhatsApp <span class="hint" id="waLateCnt"></span></summary>
+    <details class="ops-box late-box" id="waLateBox" hidden><summary>✈ Задержки рейсов для WhatsApp <span class="hint" id="waLateCnt"></span></summary>
       <div class="wa-out">
         <div class="opts">
           <label>задержка от <select id="wlMin"><option value="10">10 мин</option><option value="15" selected>15 мин</option><option value="30">30 мин</option><option value="60">1 часа</option></select></label>
@@ -558,7 +574,7 @@ mark{background:var(--signal-soft);color:inherit}
         <div class="vfoot" style="padding:0"><button class="btn primary" type="button" id="wlCopy">Скопировать и отметить как отправленные</button><button class="btn" type="button" id="wlReset">Сбросить «отправленные»</button></div>
       </div>
     </details>
-    <details class="ops-box wa-box" id="waOutBox"><summary>📋 Вышедшие гости для WhatsApp <span class="hint" id="waOutCnt"></span></summary>
+    <details class="ops-box wa-box" id="waOutBox" hidden><summary>📋 Вышедшие гости для WhatsApp <span class="hint" id="waOutCnt"></span></summary>
       <div class="wa-out">
         <div class="opts">
           <label><input type="checkbox" id="woNew" checked> только новые, ещё не отправленные</label>
@@ -571,8 +587,8 @@ mark{background:var(--signal-soft);color:inherit}
         <div class="vfoot" style="padding:0"><button class="btn primary" type="button" id="woCopy">Скопировать и отметить как отправленные</button><button class="btn" type="button" id="woReset">Сбросить «отправленные»</button></div>
       </div>
     </details>
-    <details class="ops-box" id="opsGuidesBox" open><summary>Гиды дня <span class="hint">· нажмите на имя, чтобы увидеть только его задания</span></summary><div id="opsGuides"></div></details>
-    <div class="ops-grid" style="margin-top:14px">
+    <details class="ops-box" id="opsGuidesBox" open hidden><summary>Гиды дня <span class="hint">· нажмите на имя, чтобы увидеть только его задания</span></summary><div id="opsGuides"></div></details>
+    <div class="ops-grid" style="margin-top:14px" hidden>
       <div class="ops-main">
         <h2>Ждём сейчас <span class="hint">· от полутора часов назад до двух часов вперёд</span></h2>
         <div class="tasks" id="opsWait"></div>
@@ -632,7 +648,6 @@ mark{background:var(--signal-soft);color:inherit}
       <button type="button" class="btn sm" id="tSamples" hidden></button>
       <button type="button" class="btn sm primary" id="tNew">+ Программа</button>
     </div>
-    <div class="panel" id="salesAdm" hidden></div>
     <div class="tsum" id="tourSum"></div>
     <div class="xform" id="grpReview" hidden></div>
     <div id="tourLive"></div>

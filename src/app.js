@@ -88,7 +88,7 @@ const tabOk=t=>(ROLE_TABS[ROLE]||ROLE_TABS.ops).includes(t);
 // "ALİBEK" (KAPAK) and "ALİBEK MUFTİ" (vehicle list) are the same guide; two full names must be equal
 function sameG(a,b){const n=x=>gKey(x||'').trim();const A=String(a||'').trim().split(/\s+/).filter(Boolean),B=String(b||'').trim().split(/\s+/).filter(Boolean);
   if(!A.length||!B.length)return false;if(n(a)===n(b))return true;if(A.length===1||B.length===1)return n(A[0])===n(B[0]);return false}
-function setRole(r){ROLE=r==='guide'?'guide':r==='admin'?'admin':'ops';store.set('role',ROLE);if(ROLE==='ops'){SALES={};PRICES={};store.set('sales',{});store.set('prices',{})}document.body.classList.toggle('role-guide',ROLE==='guide');
+function setRole(r){ROLE=r==='guide'?'guide':r==='admin'?'admin':'ops';store.set('role',ROLE);if(ROLE==='ops'){SALES={};PRICES={};store.set('sales',{});store.set('prices',{})}document.body.classList.toggle('role-guide',ROLE==='guide');document.body.classList.toggle('role-admin',ROLE==='admin');
   if(ROLE==='guide'&&ME){curGuide=ME;const w=$('#whoAmI');if(w)w.textContent='Гид: '+ME}
   document.querySelectorAll('.tab').forEach(t=>{t.hidden=!tabOk(t.dataset.t)});
   const who=$('#whoAmI');if(who)who.textContent=ROLE==='guide'?(ME?'Гид: '+ME:'Вход: гид'):ROLE==='admin'?'Вход: администратор':'Вход: операционный отдел';
@@ -946,7 +946,32 @@ $('#gsCopy').onclick=()=>curGuide&&copy(guestsText(curGuide));
 
 /* ---------- control screen for the operations desk ---------- */
 let opsOpen={later:false,done:false,stale:false};
+// Control (administrator): the guides of the day and their tasks — a task turns green when it is done, a guide's card when all of them are
+function renderCtl(){const box=$('#ctlGuides');if(!box)return;
+  const lbl=$('#ctlDay');if(lbl)lbl.textContent=DAY?DAY.title:'день не загружен';
+  const st=t=>t.complete?'ok':t.time<NOW-90?'late':'';
+  const tline=t=>`<div class="ct ${st(t)}"><span class="num">${fmt(t.time)}</span><span>${t.kind==='arr'?'✈ '+esc(t.f?[...t.f.codes].join(' / '):normFl(t.groups[0].fl))+' → '+esc([...new Set(t.groups.map(g=>g.h))].join(', ')):'🏨 '+esc(t.groups[0].h)+' → '+esc([...new Set(t.groups.map(g=>normFl(g.fl)))].join(', '))}</span><span class="num">${t.complete?'✓ ':''}${t.done}/${t.total}${t.no?' ✗'+t.no:''}</span></div>`;
+  const all=DAY?buildTasks(()=>true):[];
+  const card=(g,kind)=>{const ts=all.filter(t=>t.guide===g&&t.kind===kind).sort((a,b)=>a.time-b.time);const done=ts.filter(t=>t.complete).length;const late=ts.some(t=>st(t)==='late');
+    const vs=[...new Set(ts.flatMap(t=>t.groups.map(x=>x.v)).filter(Boolean))];const key=kind+'|'+g;
+    return `<details class="cg ${done===ts.length?'done':late?'late':''}" data-cg="${esc(key)}"${CTLOPEN.has(key)?' open':''}><summary><span class="cg-h"><b>${esc(g)}</b><span class="num">${done===ts.length?'✓ ':''}${done}/${ts.length} заданий</span></span>
+      <span class="bar"><i style="width:${ts.length?Math.round(done/ts.length*100):0}%"></i></span><span class="hint">${esc(vs.join(', ')||'без машины')}${late?' · <b style="color:var(--crit)">есть просроченные</b>':''}</span></summary>
+      <div class="cg-t">${ts.map(tline).join('')}</div></details>`};
+  const sec=(kind,title)=>{const gs=guides().filter(g=>all.some(t=>t.guide===g&&t.kind===kind));if(!gs.length)return '';const ts=all.filter(t=>t.kind===kind);
+    return `<h3 class="ctl-sec">${title} <span class="hint">${gs.length} гидов · закрыто ${ts.filter(t=>t.complete).length} из ${ts.length}</span></h3><div class="ctl-cards">${gs.map(g=>card(g,kind)).join('')}</div>`};
+  // excursions: each bus of today, its stops; green when the day is finished
+  let tour='';try{const iso=isoToday();const L=tours().filter(t=>dayOfTour(t,iso));
+    if(L.length)tour=`<h3 class="ctl-sec">🚌 Экскурсии <span class="hint">${L.length} автобусов</span></h3><div class="ctl-cards">${L.map(t=>{const day=dayOfTour(t,iso).day;const ss=day.s;const m=s=>stopState(t,s);
+      const dn=ss.filter((s,i)=>m(s).d!=null||(i===ss.length-1&&m(s).a!=null)).length;const fin=ss.length&&m(ss[ss.length-1]).a!=null;const now=tourNow(t,day);const key='t|'+t.id;
+      return `<details class="cg ${fin?'done':''}" data-cg="${esc(key)}"${CTLOPEN.has(key)?' open':''}><summary><span class="cg-h"><b>${esc(t.bus||'')} · ${esc(t.guide||'')}</b><span class="num">${fin?'✓ ':''}${dn}/${ss.length}</span></span>
+        <span class="bar"><i style="width:${ss.length?Math.round(dn/ss.length*100):0}%"></i></span><span class="hint">${esc(now.txt)}</span></summary>
+        <div class="cg-t">${ss.map((s,i)=>{const x=m(s);const ok=x.d!=null||(i===ss.length-1&&x.a!=null);return `<div class="ct ${ok?'ok':''}"><span class="num">${s.t||'—'}</span><span>${esc(s.n)}</span><span class="num">${x.a!=null?'📍'+fmt(x.a):''}${x.d!=null?' → '+fmt(x.d):''}</span></div>`}).join('')}</div></details>`}).join('')}</div>`}catch(e){}
+  const html=sec('arr','✈️ Встреча · Arrival')+sec('dep','🛫 Сбор · Depart')+tour;
+  box.innerHTML=html||'<p class="hint">Сегодня заданий у гидов нет.</p>';
+  box.querySelectorAll('[data-cg]').forEach(d=>d.ontoggle=()=>{d.open?CTLOPEN.add(d.dataset.cg):CTLOPEN.delete(d.dataset.cg)})}
+var CTLOPEN=new Set();
 function renderOps(){
+  try{renderCtl()}catch(e){}
   if(!DAY||!$('#opsWait'))return;
   const fg=$('#opsGuide').value,fk=$('#opsKind').value,q=$('#opsQ').value.trim().toUpperCase();
   // guide filter list
