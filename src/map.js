@@ -33,7 +33,7 @@ async function renderMap_(boxId){const box=$('#'+boxId);if(!box||box.closest('[h
   try{await pullLocs()}catch(e){return}
   const el=box.querySelector('[data-map]');let M=MAPS[boxId];
   if(!M||M.el!==el){const map=L.map(el,{zoomControl:true,attributionControl:true}).setView([36.89,30.70],10);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap'}).addTo(map);M=MAPS[boxId]={el,map,mk:{},fit:false}}
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,referrerPolicy:'origin',attribution:'© OpenStreetMap'}).addTo(map);M=MAPS[boxId]={el,map,mk:{},fit:false}}
   const seen=new Set();LOCS.forEach(x=>{if(x.lat==null)return;seen.add(x.id);let m=M.mk[x.id];
     if(!m){m=M.mk[x.id]=L.marker([x.lat,x.lng],{icon:locIcon(x)}).addTo(M.map)}else{m.setLatLng([x.lat,x.lng]);m.setIcon(locIcon(x))}m.bindPopup(locPopup(x))});
   Object.keys(M.mk).forEach(id=>{if(!seen.has(id)){M.mk[id].remove();delete M.mk[id]}});
