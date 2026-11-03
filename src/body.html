@@ -148,7 +148,7 @@ body{padding-bottom:96px}
 .gx-d{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:12px}
 .gx-b{display:flex;gap:6px}.bday{color:var(--crit)}.chip.bday{border-color:var(--crit);background:var(--crit-soft)}
 body.role-guide label:has([data-tgfile]){display:none!important}
-body.role-admin #modePill,body.role-admin #liveCtl,body.role-admin .clock #slider,body.role-admin .clock .ctl,body.role-admin #scanBtn{display:none!important}
+body.role-guide #vehDrvBox,body.role-admin #modePill,body.role-admin #liveCtl,body.role-admin .clock #slider,body.role-admin .clock .ctl,body.role-admin #scanBtn{display:none!important}
 body.role-guide #guidePick,body.role-guide #gKind{display:none}
 .gp-tbl td.pin{white-space:nowrap}
 .adm{display:grid;gap:12px}.adm-box{padding:12px 14px}.adm-box h3{margin:0 0 4px;font-size:16px}
@@ -638,6 +638,7 @@ mark{background:var(--signal-soft);color:inherit}
 
   <section id="v-veh" hidden>
     <div id="vehMap"></div>
+    <details class="panel" id="vehDrvBox"><summary><b>🚐 Водители и PIN-коды</b> <span class="hint">для приложения Sarabi Sürücü</span></summary><p class="hint">Добавьте водителя: имя, машина как в KAPAK (BUS 3, MİNİ 7) и телефон — PIN из 6 цифр создастся сам. Кнопка WhatsApp отправит водителю ссылку на приложение и PIN.</p><div id="vehDrv"></div></details>
     <details class="panel wapaste" id="wpBox">
       <summary><b>📲 Машины из WhatsApp</b> <span class="hint" id="wpLast"></span></summary>
       <p class="hint">Скопируйте сообщение с машинами из группы (ARRİVAL / DEPAR) и вставьте сюда. Можно вставить сразу несколько сообщений. Программа сама разложит номера и телефоны водителей по машинам. Пришло обновление — просто вставьте новое сообщение, программа покажет, что поменялось.</p>

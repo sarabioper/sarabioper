@@ -22,6 +22,21 @@ export default async (req) => {
   if (req.method === "GET" && path === "/api/whoami") return json({ role: auth.role, me });
 
   // admin cabinet: passwords, guide PINs and the log of changes; only the admin
+  // drivers and their PINs: operations and the administrator
+  if (path === "/api/drivers") {
+    if (!isOffice(auth)) return forbidden();
+    if (req.method === "GET") return json({ drivers: (await s.get("state/00.00/drivers", { type: "json" })) || {} });
+    if (req.method === "PUT") {
+      const body = (await req.json()) || {};
+      const log = (await s.get("auth/log", { type: "json" })) || [];
+      const who = auth.role === "admin" ? "администратор" : "офис";
+      const add = (what) => log.push({ at: new Date().toISOString(), what: what + " (" + who + ")" });
+      const r = await saveDrivers(s, body.drivers || {}, add);
+      if (r) return r;
+      await s.setJSON("auth/log", log.slice(-500));
+      return json({ ok: true });
+    }
+  }
   if (path === "/api/admin") {
     if (auth.role !== "admin") return forbidden();
     const log = (await s.get("auth/log", { type: "json" })) || [];
@@ -66,25 +81,7 @@ export default async (req) => {
         }
         await s.setJSON("state/00.00/pins", pins);
       }
-      if (body.drivers) {
-        // drivers with the tracking app: {id: {name, veh, phone, pin}}; PIN — 6 digits, different for everyone
-        const old = (await s.get("state/00.00/drivers", { type: "json" })) || {};
-        const D = {}; const seen = new Set();
-        for (const [id, d] of Object.entries(body.drivers)) {
-          if (!d || !String(d.name || "").trim()) continue;
-          const pin = String(d.pin || "").replace(/\D/g, "");
-          if (pin.length !== 6) return json({ error: "PIN водителя — 6 цифр: " + d.name }, 400);
-          if (seen.has(pin)) return json({ error: "Одинаковый PIN у двух водителей: " + pin }, 400);
-          seen.add(pin);
-          D[id] = { name: String(d.name).trim().slice(0, 60), veh: String(d.veh || "").trim().slice(0, 30), phone: String(d.phone || "").trim().slice(0, 30), pin };
-        }
-        for (const id of new Set([...Object.keys(old), ...Object.keys(D)])) {
-          if (old[id] && !D[id]) { add("Водитель удалён: " + old[id].name); await s.delete("loc/" + id).catch(() => {}); }
-          else if (!old[id]) add("Водитель добавлен: " + D[id].name + (D[id].veh ? " · " + D[id].veh : ""));
-          else if (old[id].pin !== D[id].pin) add("PIN водителя изменён: " + D[id].name);
-        }
-        await s.setJSON("state/00.00/drivers", D);
-      }
+      if (body.drivers) { const r = await saveDrivers(s, body.drivers, add); if (r) return r; }
       await s.setJSON("auth/log", log.slice(-500));
       return json({ ok: true });
     }
@@ -291,4 +288,25 @@ function isoOf(d, k, today) {
   return iso;
 }
 
-export const config = { path: ["/api/days", "/api/day", "/api/state", "/api/sync", "/api/whoami", "/api/admin"] };
+export const config = { path: ["/api/days", "/api/day", "/api/state", "/api/sync", "/api/whoami", "/api/admin", "/api/drivers"] };
+
+// drivers with the tracking app: {id: {name, veh, phone, pin}}; PIN — 6 digits, different for everyone.
+// Returns an error response, or nothing when saved.
+async function saveDrivers(s, drivers, add) {
+  const old = (await s.get("state/00.00/drivers", { type: "json" })) || {};
+  const D = {}; const seen = new Set();
+  for (const [id, d] of Object.entries(drivers || {})) {
+    if (!d || !String(d.name || "").trim()) continue;
+    const pin = String(d.pin || "").replace(/\D/g, "");
+    if (pin.length !== 6) return json({ error: "PIN водителя — 6 цифр: " + d.name }, 400);
+    if (seen.has(pin)) return json({ error: "Одинаковый PIN у двух водителей: " + pin }, 400);
+    seen.add(pin);
+    D[id] = { name: String(d.name).trim().slice(0, 60), veh: String(d.veh || "").trim().slice(0, 30), phone: String(d.phone || "").trim().slice(0, 30), pin };
+  }
+  for (const id of new Set([...Object.keys(old), ...Object.keys(D)])) {
+    if (old[id] && !D[id]) { add("Водитель удалён: " + old[id].name); await s.delete("loc/" + id).catch(() => {}); }
+    else if (!old[id]) add("Водитель добавлен: " + D[id].name + (D[id].veh ? " · " + D[id].veh : ""));
+    else if (old[id].pin !== D[id].pin) add("PIN водителя изменён: " + D[id].name);
+  }
+  await s.setJSON("state/00.00/drivers", D);
+}
