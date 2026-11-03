@@ -2,6 +2,8 @@
 // PRICES['i:<key>'] = {n, full, ind, grp, d, k:'pack'|'extra'}; PRICES['~target'] = $ per person
 // SALES[id] = {id, tid, gi, n, item, name, qty, price, sum, date, at, by}
 var PRICES=store.get('prices',{}),SALES=store.get('sales',{}),slLast=0,SLG=null;
+// sales are for the administrator and the guides only; operations do not see them anywhere
+const canSales=()=>ROLE==='admin'||ROLE==='guide';
 const SL_TARGET=()=>+(PRICES['~target']||350);
 const slItems=()=>Object.entries(PRICES).filter(([k,v])=>k.startsWith('i:')&&v&&v.n).map(([k,v])=>Object.assign({id:k},v)).sort((a,b)=>(a.k==='pack'?0:1)-(b.k==='pack'?0:1)||(b.full||0)-(a.full||0));
 // a bus sells the packages at the individual or the group (TOPLU) price
@@ -13,7 +15,7 @@ const money=v=>Math.round(+v||0).toLocaleString('ru').replace(/ /g,' ')+' $';
 function slStats(t){const L=slOf(t.id);const sum=L.reduce((s,x)=>s+(+x.sum||0),0);const pax=slPax(t);const target=SL_TARGET()*pax;
   const buyers=new Set(L.filter(x=>x.gi>=0).map(x=>x.gi)).size;const by={};L.forEach(x=>{const k=x.name;by[k]=by[k]||{n:k,q:0,s:0};by[k].q+=+x.qty||1;by[k].s+=+x.sum||0});
   return {L,sum,pax,target,per:pax?sum/pax:0,pct:target?Math.round(sum/target*100):0,buyers,items:Object.values(by).sort((a,b)=>b.s-a.s)}}
-async function pullSales(){if(!SERVER)return;try{const [a,b]=await Promise.all([api('GET','/api/state?d=00.00&kind=prices'),api('GET','/api/state?d=00.00&kind=sales')]);
+async function pullSales(){if(!SERVER||!canSales())return;try{const [a,b]=await Promise.all([api('GET','/api/state?d=00.00&kind=prices'),api('GET','/api/state?d=00.00&kind=sales')]);
   const s1=JSON.stringify(PRICES)+JSON.stringify(SALES);PRICES=a.data||{};SALES=b.data||{};if(JSON.stringify(PRICES)+JSON.stringify(SALES)!==s1){store.set('prices',PRICES);store.set('sales',SALES);slRefresh()}}catch(e){}}
 function slPut(kind,patch){slLast=Date.now();if(SERVER)api('PUT','/api/state?d=00.00&kind='+kind,patch).catch(()=>toast('Нет связи с сервером, продажа сохранена только на этом телефоне'))}
 function saveSale(s,del){if(del)delete SALES[s.id];else SALES[s.id]=s;store.set('sales',SALES);slPut('sales',{[s.id]:del?null:s});slRefresh()}
@@ -24,10 +26,10 @@ function addSale(tid,gi,itemId,o={}){const t=TOURS[tid],it=PRICES[itemId];if(!t|
   saveSale(s);toast(`${it.n}${x?' · '+x.n:''}: ${money(s.sum)}`)}
 
 // inside a guest's open line: what he has bought, and one-tap buttons for the price list
-function guestSaleHtml(t,i){const mine=slGuest(t.id,i);const items=slItems();
+function guestSaleHtml(t,i){if(!canSales())return '';const mine=slGuest(t.id,i);const items=slItems();
   return `<div class="gsale">${mine.length?`<div class="gs-have">${mine.map(s=>`<span class="chip ok">💰 ${esc(s.name)}${s.qty>1?' ×'+s.qty:''} · ${money(s.sum)} <button type="button" class="x" data-sldel="${esc(s.id)}" aria-label="Удалить">✕</button></span>`).join('')}</div>`:''}
     ${items.length?`<details class="gs-add" data-gso="${esc(t.id)}|${i}"${typeof GXOPEN!=='undefined'&&GXOPEN.has('s:'+t.id+'|'+i)?' open':''}><summary class="btn sm">💰 Продажа</summary><div class="gs-items">${items.map(it=>`<button type="button" class="btn sm${it.k==='pack'?' pack':''}" data-sladd="${esc(t.id)}|${i}|${esc(it.id)}">${esc(it.n)} <b>${money(slPrice(it,t))}</b></button>`).join('')}</div></details>`:'<span class="hint">Прайс ещё не загружен</span>'}</div>`}
-const slBadge=(tid,i)=>{const s=slGuest(tid,i).reduce((a,x)=>a+(+x.sum||0),0);return s?` <span class="chip ok gs-b">💰 ${money(s)}</span>`:''};
+const slBadge=(tid,i)=>{if(!canSales())return '';const s=slGuest(tid,i).reduce((a,x)=>a+(+x.sum||0),0);return s?` <span class="chip ok gs-b">💰 ${money(s)}</span>`:''};
 function bindSales(el){
   el.querySelectorAll('[data-sladd]').forEach(b=>b.onclick=e=>{e.preventDefault();const [tid,i,id]=b.dataset.sladd.split('|');addSale(tid,+i,id)});
   el.querySelectorAll('[data-sldel]').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();const s=SALES[b.dataset.sldel];if(!s||!confirm(T('Удалить продажу?')+` ${s.name} · ${money(s.sum)}`))return;saveSale(s,true);toast('Продажа удалена')})}
@@ -64,7 +66,7 @@ function parsePriceList(rows){const out=[];
     const full=slNum(r[1]),disc=/^\s*\d[\d\s]*\$\s*$/.test(String(r[3]||''))?slNum(r[3]):null;const desc=[r[3],r[4]].map(x=>String(x||'').replace(/\s+/g,' ').trim()).filter(x=>x.length>12).sort((a,b)=>b.length-a.length)[0]||'';
     out.push({n:n.toLocaleUpperCase('ru').replace(/ПAНОРАМА|ПОНОРАМА/g,'ПАНОРАМА'),full:full||0,disc,d:desc,k:disc?'pack':'extra'})});
   return out}
-function importPrices(rows,file){const grp=/TOPLU|ГРУП|GRUP/i.test(file.name);const P=parsePriceList(rows);if(!P.length)throw new Error('в прайсе не нашёл цен');
+function importPrices(rows,file){if(!isAdmin())throw new Error('прайс загружает только администратор');const grp=/TOPLU|ГРУП|GRUP/i.test(file.name);const P=parsePriceList(rows);if(!P.length)throw new Error('в прайсе не нашёл цен');
   const key=n=>'i:'+n.toLocaleUpperCase('ru').replace(/[^A-ZА-ЯЁ0-9]+/g,'');const patch={};
   P.forEach(p=>{const k=key(p.n);const o=Object.assign({},PRICES[k]||{},{n:p.n,k:p.k,d:p.d||(PRICES[k]||{}).d||''});if(p.full)o.full=p.full;else if(o.full==null)o.full=0;if(p.disc)o[grp?'grp':'ind']=p.disc;patch[k]=o});
   savePrices(patch);
@@ -72,7 +74,7 @@ function importPrices(rows,file){const grp=/TOPLU|ГРУП|GRUP/i.test(file.name
 
 /* ---- administrator: Excursions tab, all buses, targets, the price list ---- */
 let slAdmOpen=store.get('slAdmOpen',true);
-function renderSalesAdm(){const el=$('#salesAdm');if(!el)return;if(!isOps()){el.hidden=true;return}el.hidden=false;
+function renderSalesAdm(){const el=$('#salesAdm');if(!el)return;if(!isAdmin()){el.hidden=true;el.innerHTML='';return}el.hidden=false;
   const all=tours().filter(t=>(t.gx||[]).length||slOf(t.id).length);const from=isoAdd(isoToday(),-14);const L=all.filter(t=>t.days[t.days.length-1].d>=from);
   const tot=L.reduce((a,t)=>{const S=slStats(t);a.sum+=S.sum;a.pax+=S.pax;a.target+=S.target;return a},{sum:0,pax:0,target:0});
   const byG={};L.forEach(t=>{const S=slStats(t);const k=t.guide||'—';byG[k]=byG[k]||{g:k,sum:0,pax:0};byG[k].sum+=S.sum;byG[k].pax+=S.pax});

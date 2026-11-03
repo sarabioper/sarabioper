@@ -88,7 +88,7 @@ const tabOk=t=>(ROLE_TABS[ROLE]||ROLE_TABS.ops).includes(t);
 // "ALİBEK" (KAPAK) and "ALİBEK MUFTİ" (vehicle list) are the same guide; two full names must be equal
 function sameG(a,b){const n=x=>gKey(x||'').trim();const A=String(a||'').trim().split(/\s+/).filter(Boolean),B=String(b||'').trim().split(/\s+/).filter(Boolean);
   if(!A.length||!B.length)return false;if(n(a)===n(b))return true;if(A.length===1||B.length===1)return n(A[0])===n(B[0]);return false}
-function setRole(r){ROLE=r==='guide'?'guide':r==='admin'?'admin':'ops';store.set('role',ROLE);document.body.classList.toggle('role-guide',ROLE==='guide');
+function setRole(r){ROLE=r==='guide'?'guide':r==='admin'?'admin':'ops';store.set('role',ROLE);if(ROLE==='ops'){SALES={};PRICES={};store.set('sales',{});store.set('prices',{})}document.body.classList.toggle('role-guide',ROLE==='guide');
   if(ROLE==='guide'&&ME){curGuide=ME;const w=$('#whoAmI');if(w)w.textContent='Гид: '+ME}
   document.querySelectorAll('.tab').forEach(t=>{t.hidden=!tabOk(t.dataset.t)});
   const who=$('#whoAmI');if(who)who.textContent=ROLE==='guide'?(ME?'Гид: '+ME:'Вход: гид'):ROLE==='admin'?'Вход: администратор':'Вход: операционный отдел';
@@ -875,7 +875,7 @@ function bindMarks(T){
   T.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{const el=document.getElementById('tg_'+b.dataset.open);el.hidden=!el.hidden;b.textContent=el.hidden?'Показать список':'Скрыть список'});
 }
 function renderGuide(){
-  renderGKind();const sb=$('#gmSalesBtn');if(sb){sb.hidden=gKind!=='tour';if(gKind!=='tour'&&guideMode==='sales')setGuideMode('tasks')}
+  renderGKind();const sb=$('#gmSalesBtn');if(sb){const no=gKind!=='tour'||ROLE==='ops';sb.hidden=no;if(no&&guideMode==='sales')setGuideMode('tasks')}
   const g=curGuide;if(!g||!guideList().includes(g)){$('#guideHead').innerHTML=`<p class="hint">${gKind==='tour'?'Сегодня нет экскурсий с гидами. Программы — во вкладке «Экскурсии».':gKind==='dep'?'В этом дне нет гидов на сборы (Depart).':'В этом дне нет гидов на встречи (Arrival).'}</p>`;$('#tasks').innerHTML='';return}
   $('#gmTasks').dataset.kind=gKind;
   if(gKind==='tour'){try{TOURS}catch(e){return}$('#guideHead').innerHTML=`<div class="ghead"><div class="gname">${esc(g)}${gPhone(g)?` <a class="tel" style="font-size:.6em" href="tel:${esc(gPhone(g).replace(/\s/g,''))}">${esc(gPhone(g))}</a>`:''}</div><div class="gmeta"><span>🚌 Экскурсия · отмечайте «📍 Прибыли» и «🚌 Уехали» на каждой точке — другие автобусы это видят</span></div></div>`;
@@ -896,7 +896,7 @@ $('#hideDone').addEventListener('change',renderGuide);
 
 /* ---------- guide: reference list of all guests (no check-in buttons) ---------- */
 var guideMode=store.get('gmode','tasks');
-function setGuideMode(m){if(m==='sales'&&gKind!=='tour')m='tasks';guideMode=m;store.set('gmode',m);document.querySelectorAll('.gm').forEach(b=>b.setAttribute('aria-pressed',b.dataset.gm===m));$('#gmTasks').hidden=m!=='tasks';$('#gmGuests').hidden=m!=='guests';$('#gmSales').hidden=m!=='sales';if(m==='guests')renderGuests();if(m==='sales')renderSales()}
+function setGuideMode(m){if(m==='sales'&&(gKind!=='tour'||ROLE==='ops'))m='tasks';guideMode=m;store.set('gmode',m);document.querySelectorAll('.gm').forEach(b=>b.setAttribute('aria-pressed',b.dataset.gm===m));$('#gmTasks').hidden=m!=='tasks';$('#gmGuests').hidden=m!=='guests';$('#gmSales').hidden=m!=='sales';if(m==='guests')renderGuests();if(m==='sales')renderSales()}
 document.querySelectorAll('.gm').forEach(b=>b.onclick=()=>setGuideMode(b.dataset.gm));
 const ex=p=>p[3]||{};
 function roomsOf(g){const m=new Map();(g.p||[]).forEach((p,i)=>{const e=ex(p);const k=e.room?'r'+e.room:'x';if(!m.has(k))m.set(k,{e,people:[]});m.get(k).people.push([p,i])});return [...m.values()]}

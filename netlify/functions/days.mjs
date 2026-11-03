@@ -104,7 +104,7 @@ export default async (req) => {
     const dk = url.searchParams.get("d") || "";
     const tags = async (p) => { const o = {}; const { blobs } = await s.list({ prefix: p }); for (const b of blobs) o[b.key.slice(p.length)] = b.etag || ""; return o; };
     const [g, v] = await Promise.all([tags("state/00.00/"), /^\d\d\.\d\d$/.test(dk) ? tags("state/" + dk + "/") : {}]);
-    delete g.pins; delete g["tours-archive"]; delete g["tourmarks-archive"]; delete g["reports-archive"];
+    delete g.pins; if (auth.role === "ops") { delete g.sales; delete g.prices; } delete g["tours-archive"]; delete g["tourmarks-archive"]; delete g["reports-archive"];
     return json({ g, v });
   }
 
@@ -133,6 +133,8 @@ export default async (req) => {
     const kind = url.searchParams.get("kind");
     if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra", "reports", "pins", "prices", "sales"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     if (kind === "pins" && auth.role !== "admin") return forbidden();
+    // sales and the price list: the administrator and the guides (their own buses); operations see nothing
+    if ((kind === "sales" || kind === "prices") && auth.role === "ops") return forbidden();
     const data = (await s.get("state/" + d + "/" + kind, { type: "json" })) || {};
     if (me) {
       if (kind === "tours") return json({ data: toursForGuide(data, me) });
@@ -185,6 +187,8 @@ export default async (req) => {
       }
       return json({ ok: true });
     }
+    if ((kind === "sales" || kind === "prices") && auth.role === "ops") return forbidden();
+    if (kind === "prices" && auth.role !== "admin") return forbidden();
     if (kind === "sales" || kind === "prices") {
       // sales: one key per sale; a guide may add or remove sales only for his own buses
       const prev = (await s.get("state/" + d + "/" + kind, { type: "json" })) || {};
