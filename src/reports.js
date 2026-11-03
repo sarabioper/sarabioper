@@ -21,7 +21,7 @@ function repOpen(where,pre={},anchor=null){const today=pre.date||isoToday();
   const flights_=typeof flights!=='undefined'&&DAY?[...new Set(flights.map(f=>f.code).filter(c=>!/^[!?]/.test(c)))]:[];
   const buses=(()=>{try{return tours().filter(t=>dayOfTour(t,today)).map(t=>t.bus)}catch(e){return []}})();
   const hotels=DAY?[...new Set([...DAY.arr,...DAY.dep].map(g=>g.h))]:[];
-  repEdit={where,author:pre.author||(where==='guide'?(curGuide||''):'Офис')};
+  repEdit={where,author:pre.author||(where==='guide'?(curGuide||''):(uName()||'Офис'))};
   const el=$('#repForm');if(anchor){anchor.after(el)}else if(where==='ops'){$('#repBox').open=true;$('#repBox').appendChild(el)}else document.querySelector('.rep-bar').after(el);el.hidden=false;
   el.innerHTML=`<h3>📝 Рапорт</h3><div class="xg">
     <label>Дата<input type="date" id="repD" value="${today}"></label>

@@ -22,7 +22,7 @@ function saveSale(s,del){if(del)delete SALES[s.id];else SALES[s.id]=s;store.set(
 function savePrices(patch){Object.entries(patch).forEach(([k,v])=>{if(v==null)delete PRICES[k];else PRICES[k]=v});store.set('prices',PRICES);slPut('prices',patch);slRefresh()}
 function slRefresh(){try{if(!$('#v-guide').hidden){if(guideMode==='sales')renderSales();else if(guideMode==='guests')renderGuests()}}catch(e){}try{if(!$('#v-tours').hidden)renderSalesAdm()}catch(e){}}
 function addSale(tid,gi,itemId,o={}){const t=TOURS[tid],it=PRICES[itemId];if(!t||!it)return;const qty=+o.qty||1,price=o.price!=null?+o.price:slPrice(Object.assign({id:itemId},it),t);
-  const x=(t.gx||[])[gi];const s={id:'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),tid,gi:x?gi:-1,n:x?x.n:(o.n||''),item:itemId,name:it.n,qty,price,sum:qty*price,date:isoToday(),at:new Date().toISOString(),by:ROLE==='guide'?(ME||''):'Офис'};
+  const x=(t.gx||[])[gi];const s={id:'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),tid,gi:x?gi:-1,n:x?x.n:(o.n||''),item:itemId,name:it.n,qty,price,sum:qty*price,date:isoToday(),at:new Date().toISOString(),by:ROLE==='guide'?(ME||''):(uName()||'Администратор')};
   saveSale(s);toast(`${it.n}${x?' · '+x.n:''}: ${money(s.sum)}`)}
 
 // inside a guest's open line: what he has bought, and one-tap buttons for the price list

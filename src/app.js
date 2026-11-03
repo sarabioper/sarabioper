@@ -72,9 +72,11 @@ let saveT={};
 function saveRemote(kind,data){if(!SERVER)return;clearTimeout(saveT[kind]);const k=dayKey;saveT[kind]=setTimeout(()=>api('PUT','/api/state?d='+encodeURIComponent(k)+'&kind='+kind,data).catch(()=>toast('Нет связи с сервером, изменения сохранены только здесь')),600)}
 let lastAssignSave=0;function saveAssign(){lastAssignSave=Date.now();store.set('assign_'+dayKey,assign);saveRemote('assign',assign)}
 function saveMet(){lastLocalMark=Date.now();store.set('met_'+dayKey,met);saveRemote('met',met)}
-function showLogin(err,pinMode){$('#login').hidden=false;$('#loginErr').textContent=T(err||'');$('#pinRow').hidden=!pinMode;
+var WELCOME=false;
+function showLogin(err,pinMode){$('#login').hidden=false;const ln=$('#loginName');if(ln&&!ln.value)ln.value=store.get('uname','');$('#loginErr').textContent=T(err||'');$('#pinRow').hidden=!pinMode;
   if(pinMode){$('#loginPass').value=pass();$('#loginPin').value='';$('#loginPin').focus()}else $('#loginPass').focus()}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();const pw=$('#loginPass').value.trim().normalize('NFC');if(pw)store.set('pass',pw);
+  const nm=$('#loginName').value.trim().replace(/\s+/g,' ');if(nm)store.set('uname',nm);WELCOME=true;
   if(!$('#pinRow').hidden)store.set('pin',$('#loginPin').value.replace(/\D/g,''));$('#login').hidden=true;await serverBoot()});
 // two logins: operations see everything; guides see arrivals, departures, the guide screen and notifications
 let ROLE=store.get('role','ops'),ME=store.get('me',null),PINS={};
@@ -89,18 +91,28 @@ const tabOk=t=>(ROLE_TABS[ROLE]||ROLE_TABS.ops).includes(t);
 function sameG(a,b){const n=x=>gKey(x||'').trim();const A=String(a||'').trim().split(/\s+/).filter(Boolean),B=String(b||'').trim().split(/\s+/).filter(Boolean);
   if(!A.length||!B.length)return false;if(n(a)===n(b))return true;if(A.length===1||B.length===1)return n(A[0])===n(B[0]);return false}
 function setRole(r){ROLE=r==='guide'?'guide':r==='admin'?'admin':'ops';store.set('role',ROLE);if(ROLE==='ops'){SALES={};PRICES={};store.set('sales',{});store.set('prices',{})}document.body.classList.toggle('role-guide',ROLE==='guide');document.body.classList.toggle('role-admin',ROLE==='admin');
-  if(ROLE==='guide'&&ME){curGuide=ME;const w=$('#whoAmI');if(w)w.textContent='Гид: '+ME}
+  if(ROLE==='guide'&&ME){curGuide=ME}
   document.querySelectorAll('.tab').forEach(t=>{t.hidden=!tabOk(t.dataset.t)});
-  const who=$('#whoAmI');if(who)who.textContent=ROLE==='guide'?(ME?'Гид: '+ME:'Вход: гид'):ROLE==='admin'?'Вход: администратор':'Вход: операционный отдел';
+  renderWho();
   const cur2=document.querySelector('.tab[aria-selected="true"]');if(!cur2||cur2.hidden||ROLE==='guide'){const b=cur2&&!cur2.hidden?cur2:document.querySelector('.tab:not([hidden])');if(b)b.click()}
   if(DAY)renderAll()}
 const isOps=()=>ROLE!=='guide';
+// who is logged in: a guide is known by his PIN, office people type their name once on this device
+const uName=()=>ROLE==='guide'?(ME||''):(store.get('uname','')||'');
+const roleLbl=()=>T(ROLE==='admin'?'Администратор':ROLE==='guide'?'Гид':'Операционный отдел');
+const initials=n=>{const w=String(n||'').trim().split(/\s+/).filter(Boolean);return w.length?(w[0][0]+(w[1]?w[1][0]:'')).toLocaleUpperCase('tr'):ROLE==='admin'?'A':ROLE==='guide'?'G':'O'};
+function renderWho(){const el=$('#whoAmI');if(!el)return;const n=uName();el.className='user r-'+ROLE+(ROLE!=='guide'?' edit':'');
+  el.innerHTML=`<span class="av">${esc(initials(n))}</span><span class="un"><b>${esc(n||roleLbl())}</b><small>${n?esc(roleLbl()):''}</small></span>`;
+  el.onclick=ROLE==='guide'?null:()=>{const v=prompt(T('Ваше имя и фамилия'),uName());if(v===null)return;store.set('uname',v.trim().replace(/\s+/g,' '));renderWho()}}
+function welcome(){const n=uName();const h=new Date().getHours();const hi=T(h<5?'Доброй ночи':h<12?'Доброе утро':h<18?'Добрый день':'Добрый вечер');
+  const d=document.createElement('div');d.className='welcome';d.innerHTML=`<div class="wc"><span class="user r-${ROLE}" style="border:0;padding:0;background:none"><span class="av">${esc(initials(n))}</span></span><span class="wh">${esc(hi)}</span><span class="wn">${esc(n||roleLbl())}</span><span class="wr">${esc(roleLbl())}</span></div>`;
+  document.body.appendChild(d);setTimeout(()=>d.remove(),2600)}
 const isAdmin=()=>ROLE==='admin';
 async function serverBoot(){
   if(!pass()){showLogin();return}
   try{
     const res=await api('GET','/api/days');
-    ME=res.me||null;store.set('me',ME);setRole(res.role||'ops');
+    ME=res.me||null;store.set('me',ME);setRole(res.role||'ops');if(WELCOME){WELCOME=false;welcome()}
     if(isAdmin())try{await loadAdmin()}catch(e){}
     res.days.forEach(d=>{DAYS[d.key]=d});
     try{const st=await api('GET','/api/state?d=00.00&kind=settings');if(st.data&&st.data.termOk){SETTINGS=Object.assign({termOk:{}},st.data);store.set('settings',SETTINGS)}}catch(e){}
@@ -1312,4 +1324,4 @@ setTimeout(()=>{try{setGuideMode(guideMode)}catch(e){bootErr(e)}},0);
 try{const lastTab=store.get('tab','board');const tb=document.querySelector(`.tab[data-t="${lastTab}"]`);if(tb)tb.click()}catch(e){setTimeout(()=>bootErr(e),0)}
 try{setRole(ROLE)}catch(e){setTimeout(()=>bootErr(e),0)}
 setTimeout(()=>{if(SERVER)serverBoot();else{try{loadDay(dayKey)}catch(e){bootErr(e)}}},0);
-$('#logoutBtn').onclick=()=>{if(!confirm(T('Выйти и войти с другим паролем?')))return;store.set('pass','');store.set('pin','');store.set('me',null);store.set('role','ops');location.reload()};
+$('#logoutBtn').onclick=()=>{if(!confirm(T('Выйти и войти с другим паролем?')))return;store.set('pass','');store.set('pin','');store.set('me',null);store.set('uname','');store.set('role','ops');location.reload()};

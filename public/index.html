@@ -269,7 +269,22 @@ article.flight.fl-done:hover{opacity:1}
 .prow .gmk{display:inline-block;margin-left:6px;font-size:11px;font-weight:600;color:var(--ok)}
 .prow .gmk.no{color:var(--crit)}
 .met.gm{color:var(--info)}
-.who{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted)}
+.who{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+/* the person who is logged in: initials, name, role */
+.user{display:inline-flex;align-items:center;gap:8px;padding:3px 10px 3px 3px;border:1px solid var(--line);border-radius:22px;background:var(--surface)}
+.av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:12px;letter-spacing:.5px;color:#fff;background:var(--ink)}
+.user.r-admin .av{background:linear-gradient(135deg,#E8A317,#B9770E)}.user.r-ops .av{background:linear-gradient(135deg,#2B6CB0,#1A4C80)}.user.r-guide .av{background:linear-gradient(135deg,#2E9E5B,#1C6E3D)}
+.un{display:grid;line-height:1.15}.un b{font-size:13px;color:var(--ink);white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis}.un small{font-size:11px;color:var(--muted)}
+.user.edit{cursor:pointer}
+/* the time bar is gone; flight status and refresh only for operations */
+.clock{display:none!important}
+body.role-guide #modePill{display:none!important}
+/* welcome card after logging in */
+.welcome{position:fixed;inset:0;z-index:70;display:grid;place-items:center;background:color-mix(in srgb,var(--bg) 70%,transparent);backdrop-filter:blur(6px);animation:wfade 2.4s ease forwards;pointer-events:none}
+.welcome .wc{display:grid;justify-items:center;gap:10px;padding:28px 36px;border-radius:18px;background:var(--surface);border:1px solid var(--line);box-shadow:0 20px 60px rgba(15,30,46,.18);animation:wpop .5s cubic-bezier(.2,.9,.3,1.3)}
+.welcome .av{width:64px;height:64px;font-size:22px}.welcome .wh{font-size:13px;color:var(--muted)}.welcome .wn{font-size:24px;font-weight:700;color:var(--ink);text-align:center}.welcome .wr{font-size:12px;padding:3px 12px;border-radius:12px;background:var(--signal-soft);color:var(--signal-ink);font-weight:600}
+@keyframes wpop{from{transform:scale(.85) translateY(10px);opacity:0}to{transform:none;opacity:1}}
+@keyframes wfade{0%,75%{opacity:1}100%{opacity:0;visibility:hidden}}
 body.role-guide .eta-btns,body.role-guide #xAdd,body.role-guide #xForm,body.role-guide #liveCtl,body.role-guide .xacts,body.role-guide #gpForm,body.role-guide [data-gped],body.role-guide [data-gpdel],body.role-guide [data-gpfill],body.role-guide [data-gpon],body.role-guide #scanBtn{display:none!important}
 #depTbl tr.d-risk td{background:var(--crit-soft)}
 #depTbl tr.d-risk td:first-child{box-shadow:inset 6px 0 0 var(--crit);color:var(--crit);font-weight:700}
@@ -709,7 +724,7 @@ mark{background:var(--signal-soft);color:inherit}
       <h1>SARABI <b>OPS</b></h1>
       <span class="drumwrap"><span class="drum" id="daySel" role="listbox" tabindex="0" aria-label="День"></span></span>
       <span class="date" id="dateLbl"></span>
-      <span class="who"><small id="whoAmI"></small><button type="button" class="btn sm ghost" id="logoutBtn">Выйти</button></span>
+      <span class="who"><span class="user" id="whoAmI" title="Нажмите, чтобы изменить имя"></span><button type="button" class="btn sm ghost" id="logoutBtn">Выйти</button></span>
       <span class="demo-pill" id="modePill">Статусы рейсов в демо-режиме</span>
       <span class="livectl" id="liveCtl" hidden><button class="btn sm" id="liveBtn" type="button">⟳ Обновить рейсы</button><small class="hint" id="liveQuota"></small></span>
     </div>
@@ -940,7 +955,9 @@ mark{background:var(--signal-soft);color:inherit}
 <div class="login" id="login" hidden>
   <form class="panel login-card" id="loginForm">
     <h2 style="margin:0">SARABI OPS</h2>
-    <p class="hint">Введите пароль: операционного отдела — откроется всё, гида — откроются прилёты, вылеты, экран гида и уведомления.</p>
+    <p class="hint">Введите пароль. Гид после пароля вводит свой личный PIN.</p>
+    <label class="hint" for="loginName">Ваше имя и фамилия <small>(офис и администратор; гиду не нужно)</small></label>
+    <input id="loginName" autocomplete="name" placeholder="Например: Halit Sadri">
     <label class="hint" for="loginPass">Пароль</label>
     <input id="loginPass" type="password" autocomplete="current-password" required>
     <div id="pinRow" hidden style="display:grid;gap:6px"><label class="hint" for="loginPin">Личный PIN гида</label><input id="loginPin" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="••••"></div>
@@ -1948,6 +1965,7 @@ const TR_DICT={
 "не похоже ни на программу, ни на список группы":"ne programa ne de grup listesine benziyor",
 "на этот же автобус выбран ещё один файл — выберите для одного из них другой автобус":"bu otobüs için başka bir dosya da seçili — birine başka otobüs seçin",
 "Списки групп":"Grup listeleri","Excel, CSV или PDF · экскурсии":"Excel, CSV veya PDF · turlar","можно все группы сразу — сайт сам найдёт автобус по имени гида и дате":"tüm gruplar aynı anda olabilir — site otobüsü rehber adı ve tarihe göre kendisi bulur","Фото программ":"Program fotoğrafları","скриншоты или фото таблиц · Excel":"tablo ekran görüntüsü veya fotoğrafı · Excel","программы автобусов (ÇIKIŞ, MAĞAZA, REHBER, PAX)":"otobüs programları (ÇIKIŞ, MAĞAZA, REHBER, PAX)",
+"Ваше имя и фамилия":"Adınız ve soyadınız","(офис и администратор; гиду не нужно)":"(ofis ve yönetici; rehber için gerekmez)","Введите пароль. Гид после пароля вводит свой личный PIN.":"Şifreyi girin. Rehber, şifreden sonra kişisel PIN'ini girer.","Доброй ночи":"İyi geceler","Доброе утро":"Günaydın","Добрый день":"İyi günler","Добрый вечер":"İyi akşamlar","Нажмите, чтобы изменить имя":"Adı değiştirmek için dokunun","Администратор":"Yönetici",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",
@@ -2451,9 +2469,11 @@ let saveT={};
 function saveRemote(kind,data){if(!SERVER)return;clearTimeout(saveT[kind]);const k=dayKey;saveT[kind]=setTimeout(()=>api('PUT','/api/state?d='+encodeURIComponent(k)+'&kind='+kind,data).catch(()=>toast('Нет связи с сервером, изменения сохранены только здесь')),600)}
 let lastAssignSave=0;function saveAssign(){lastAssignSave=Date.now();store.set('assign_'+dayKey,assign);saveRemote('assign',assign)}
 function saveMet(){lastLocalMark=Date.now();store.set('met_'+dayKey,met);saveRemote('met',met)}
-function showLogin(err,pinMode){$('#login').hidden=false;$('#loginErr').textContent=T(err||'');$('#pinRow').hidden=!pinMode;
+var WELCOME=false;
+function showLogin(err,pinMode){$('#login').hidden=false;const ln=$('#loginName');if(ln&&!ln.value)ln.value=store.get('uname','');$('#loginErr').textContent=T(err||'');$('#pinRow').hidden=!pinMode;
   if(pinMode){$('#loginPass').value=pass();$('#loginPin').value='';$('#loginPin').focus()}else $('#loginPass').focus()}
 $('#loginForm').addEventListener('submit',async e=>{e.preventDefault();const pw=$('#loginPass').value.trim().normalize('NFC');if(pw)store.set('pass',pw);
+  const nm=$('#loginName').value.trim().replace(/\s+/g,' ');if(nm)store.set('uname',nm);WELCOME=true;
   if(!$('#pinRow').hidden)store.set('pin',$('#loginPin').value.replace(/\D/g,''));$('#login').hidden=true;await serverBoot()});
 // two logins: operations see everything; guides see arrivals, departures, the guide screen and notifications
 let ROLE=store.get('role','ops'),ME=store.get('me',null),PINS={};
@@ -2468,18 +2488,28 @@ const tabOk=t=>(ROLE_TABS[ROLE]||ROLE_TABS.ops).includes(t);
 function sameG(a,b){const n=x=>gKey(x||'').trim();const A=String(a||'').trim().split(/\s+/).filter(Boolean),B=String(b||'').trim().split(/\s+/).filter(Boolean);
   if(!A.length||!B.length)return false;if(n(a)===n(b))return true;if(A.length===1||B.length===1)return n(A[0])===n(B[0]);return false}
 function setRole(r){ROLE=r==='guide'?'guide':r==='admin'?'admin':'ops';store.set('role',ROLE);if(ROLE==='ops'){SALES={};PRICES={};store.set('sales',{});store.set('prices',{})}document.body.classList.toggle('role-guide',ROLE==='guide');document.body.classList.toggle('role-admin',ROLE==='admin');
-  if(ROLE==='guide'&&ME){curGuide=ME;const w=$('#whoAmI');if(w)w.textContent='Гид: '+ME}
+  if(ROLE==='guide'&&ME){curGuide=ME}
   document.querySelectorAll('.tab').forEach(t=>{t.hidden=!tabOk(t.dataset.t)});
-  const who=$('#whoAmI');if(who)who.textContent=ROLE==='guide'?(ME?'Гид: '+ME:'Вход: гид'):ROLE==='admin'?'Вход: администратор':'Вход: операционный отдел';
+  renderWho();
   const cur2=document.querySelector('.tab[aria-selected="true"]');if(!cur2||cur2.hidden||ROLE==='guide'){const b=cur2&&!cur2.hidden?cur2:document.querySelector('.tab:not([hidden])');if(b)b.click()}
   if(DAY)renderAll()}
 const isOps=()=>ROLE!=='guide';
+// who is logged in: a guide is known by his PIN, office people type their name once on this device
+const uName=()=>ROLE==='guide'?(ME||''):(store.get('uname','')||'');
+const roleLbl=()=>T(ROLE==='admin'?'Администратор':ROLE==='guide'?'Гид':'Операционный отдел');
+const initials=n=>{const w=String(n||'').trim().split(/\s+/).filter(Boolean);return w.length?(w[0][0]+(w[1]?w[1][0]:'')).toLocaleUpperCase('tr'):ROLE==='admin'?'A':ROLE==='guide'?'G':'O'};
+function renderWho(){const el=$('#whoAmI');if(!el)return;const n=uName();el.className='user r-'+ROLE+(ROLE!=='guide'?' edit':'');
+  el.innerHTML=`<span class="av">${esc(initials(n))}</span><span class="un"><b>${esc(n||roleLbl())}</b><small>${n?esc(roleLbl()):''}</small></span>`;
+  el.onclick=ROLE==='guide'?null:()=>{const v=prompt(T('Ваше имя и фамилия'),uName());if(v===null)return;store.set('uname',v.trim().replace(/\s+/g,' '));renderWho()}}
+function welcome(){const n=uName();const h=new Date().getHours();const hi=T(h<5?'Доброй ночи':h<12?'Доброе утро':h<18?'Добрый день':'Добрый вечер');
+  const d=document.createElement('div');d.className='welcome';d.innerHTML=`<div class="wc"><span class="user r-${ROLE}" style="border:0;padding:0;background:none"><span class="av">${esc(initials(n))}</span></span><span class="wh">${esc(hi)}</span><span class="wn">${esc(n||roleLbl())}</span><span class="wr">${esc(roleLbl())}</span></div>`;
+  document.body.appendChild(d);setTimeout(()=>d.remove(),2600)}
 const isAdmin=()=>ROLE==='admin';
 async function serverBoot(){
   if(!pass()){showLogin();return}
   try{
     const res=await api('GET','/api/days');
-    ME=res.me||null;store.set('me',ME);setRole(res.role||'ops');
+    ME=res.me||null;store.set('me',ME);setRole(res.role||'ops');if(WELCOME){WELCOME=false;welcome()}
     if(isAdmin())try{await loadAdmin()}catch(e){}
     res.days.forEach(d=>{DAYS[d.key]=d});
     try{const st=await api('GET','/api/state?d=00.00&kind=settings');if(st.data&&st.data.termOk){SETTINGS=Object.assign({termOk:{}},st.data);store.set('settings',SETTINGS)}}catch(e){}
@@ -3691,7 +3721,7 @@ setTimeout(()=>{try{setGuideMode(guideMode)}catch(e){bootErr(e)}},0);
 try{const lastTab=store.get('tab','board');const tb=document.querySelector(`.tab[data-t="${lastTab}"]`);if(tb)tb.click()}catch(e){setTimeout(()=>bootErr(e),0)}
 try{setRole(ROLE)}catch(e){setTimeout(()=>bootErr(e),0)}
 setTimeout(()=>{if(SERVER)serverBoot();else{try{loadDay(dayKey)}catch(e){bootErr(e)}}},0);
-$('#logoutBtn').onclick=()=>{if(!confirm(T('Выйти и войти с другим паролем?')))return;store.set('pass','');store.set('pin','');store.set('me',null);store.set('role','ops');location.reload()};
+$('#logoutBtn').onclick=()=>{if(!confirm(T('Выйти и войти с другим паролем?')))return;store.set('pass','');store.set('pin','');store.set('me',null);store.set('uname','');store.set('role','ops');location.reload()};
 
 /* ---------- guests added by hand on the arrivals board ---------- */
 // EXTRA['g:<id>'] = an arrival group like the KAPAK ones, plus manual:true (late booking, urgent add, moved guests)
@@ -4322,7 +4352,7 @@ function saveSale(s,del){if(del)delete SALES[s.id];else SALES[s.id]=s;store.set(
 function savePrices(patch){Object.entries(patch).forEach(([k,v])=>{if(v==null)delete PRICES[k];else PRICES[k]=v});store.set('prices',PRICES);slPut('prices',patch);slRefresh()}
 function slRefresh(){try{if(!$('#v-guide').hidden){if(guideMode==='sales')renderSales();else if(guideMode==='guests')renderGuests()}}catch(e){}try{if(!$('#v-tours').hidden)renderSalesAdm()}catch(e){}}
 function addSale(tid,gi,itemId,o={}){const t=TOURS[tid],it=PRICES[itemId];if(!t||!it)return;const qty=+o.qty||1,price=o.price!=null?+o.price:slPrice(Object.assign({id:itemId},it),t);
-  const x=(t.gx||[])[gi];const s={id:'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),tid,gi:x?gi:-1,n:x?x.n:(o.n||''),item:itemId,name:it.n,qty,price,sum:qty*price,date:isoToday(),at:new Date().toISOString(),by:ROLE==='guide'?(ME||''):'Офис'};
+  const x=(t.gx||[])[gi];const s={id:'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),tid,gi:x?gi:-1,n:x?x.n:(o.n||''),item:itemId,name:it.n,qty,price,sum:qty*price,date:isoToday(),at:new Date().toISOString(),by:ROLE==='guide'?(ME||''):(uName()||'Администратор')};
   saveSale(s);toast(`${it.n}${x?' · '+x.n:''}: ${money(s.sum)}`)}
 
 // inside a guest's open line: what he has bought, and one-tap buttons for the price list
@@ -4419,7 +4449,7 @@ function repOpen(where,pre={},anchor=null){const today=pre.date||isoToday();
   const flights_=typeof flights!=='undefined'&&DAY?[...new Set(flights.map(f=>f.code).filter(c=>!/^[!?]/.test(c)))]:[];
   const buses=(()=>{try{return tours().filter(t=>dayOfTour(t,today)).map(t=>t.bus)}catch(e){return []}})();
   const hotels=DAY?[...new Set([...DAY.arr,...DAY.dep].map(g=>g.h))]:[];
-  repEdit={where,author:pre.author||(where==='guide'?(curGuide||''):'Офис')};
+  repEdit={where,author:pre.author||(where==='guide'?(curGuide||''):(uName()||'Офис'))};
   const el=$('#repForm');if(anchor){anchor.after(el)}else if(where==='ops'){$('#repBox').open=true;$('#repBox').appendChild(el)}else document.querySelector('.rep-bar').after(el);el.hidden=false;
   el.innerHTML=`<h3>📝 Рапорт</h3><div class="xg">
     <label>Дата<input type="date" id="repD" value="${today}"></label>

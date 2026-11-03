@@ -981,6 +981,7 @@ const TR_DICT={
 "не похоже ни на программу, ни на список группы":"ne programa ne de grup listesine benziyor",
 "на этот же автобус выбран ещё один файл — выберите для одного из них другой автобус":"bu otobüs için başka bir dosya da seçili — birine başka otobüs seçin",
 "Списки групп":"Grup listeleri","Excel, CSV или PDF · экскурсии":"Excel, CSV veya PDF · turlar","можно все группы сразу — сайт сам найдёт автобус по имени гида и дате":"tüm gruplar aynı anda olabilir — site otobüsü rehber adı ve tarihe göre kendisi bulur","Фото программ":"Program fotoğrafları","скриншоты или фото таблиц · Excel":"tablo ekran görüntüsü veya fotoğrafı · Excel","программы автобусов (ÇIKIŞ, MAĞAZA, REHBER, PAX)":"otobüs programları (ÇIKIŞ, MAĞAZA, REHBER, PAX)",
+"Ваше имя и фамилия":"Adınız ve soyadınız","(офис и администратор; гиду не нужно)":"(ofis ve yönetici; rehber için gerekmez)","Введите пароль. Гид после пароля вводит свой личный PIN.":"Şifreyi girin. Rehber, şifreden sonra kişisel PIN'ini girer.","Доброй ночи":"İyi geceler","Доброе утро":"Günaydın","Добрый день":"İyi günler","Добрый вечер":"İyi akşamlar","Нажмите, чтобы изменить имя":"Adı değiştirmek için dokunun","Администратор":"Yönetici",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",
