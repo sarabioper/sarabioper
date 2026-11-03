@@ -1281,8 +1281,10 @@ $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b||
 document.querySelector('header .brand').appendChild(langSwitch());$('#loginForm').prepend(langSwitch());
 ['#woLang','#wlLang'].forEach(id=>{const el=$(id);if(el)el.value=LANG});
 i18nStart();
-if(SERVER)serverBoot();else loadDay(dayKey);
-setGuideMode(guideMode);
-const lastTab=store.get('tab','board');const tb=document.querySelector(`.tab[data-t="${lastTab}"]`);if(tb)tb.click();
-setRole(ROLE);
+// the rest of the program (excursions, sales, reports, admin) is below this line: whatever is drawn at start
+// waits until all of it is loaded, and an error here can never stop the rest from loading
+setTimeout(()=>{try{setGuideMode(guideMode)}catch(e){bootErr(e)}},0);
+try{const lastTab=store.get('tab','board');const tb=document.querySelector(`.tab[data-t="${lastTab}"]`);if(tb)tb.click()}catch(e){setTimeout(()=>bootErr(e),0)}
+try{setRole(ROLE)}catch(e){setTimeout(()=>bootErr(e),0)}
+setTimeout(()=>{if(SERVER)serverBoot();else{try{loadDay(dayKey)}catch(e){bootErr(e)}}},0);
 $('#logoutBtn').onclick=()=>{if(!confirm(T('Выйти и войти с другим паролем?')))return;store.set('pass','');store.set('pin','');store.set('me',null);store.set('role','ops');location.reload()};
