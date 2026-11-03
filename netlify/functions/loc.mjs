@@ -18,19 +18,31 @@ async function driverFromPin(s, req) {
 const num = (v, lo, hi) => { const x = Number(v); return Number.isFinite(x) && x >= lo && x <= hi ? x : null; };
 
 // the jobs of one vehicle today (and tomorrow early morning), from the uploaded KAPAK
-async function jobsOf(s, veh) {
-  if (!veh) return [];
-  const { date } = istanbulNow();
-  const key = date.slice(8, 10) + "." + date.slice(5, 7);
+const digits = (p) => String(p || "").replace(/\D/g, "").slice(-10);
+const todayKey = () => { const { date } = istanbulNow(); return date.slice(8, 10) + "." + date.slice(5, 7); };
+// one phone can drive several vehicles in a day (MİNİ 1 in the morning, MİNİ 8 in the evening)
+async function vehsOf(s, me) {
+  const V = new Set(me.veh ? [String(me.veh).toUpperCase()] : []);
+  const ph = digits(me.phone);
+  if (ph.length === 10) {
+    const A = (await s.get("state/" + todayKey() + "/assign", { type: "json" })) || {};
+    for (const [v, a] of Object.entries(A)) if (v[0] !== "~" && a && digits(a.phone) === ph) V.add(v.toUpperCase());
+  }
+  return [...V];
+}
+async function jobsOf(s, vehs) {
+  if (!vehs.length) return [];
+  const key = todayKey();
   const day = await s.get("day/" + key, { type: "json" });
   if (!day) return [];
   const man = (await s.get("state/" + key + "/extra", { type: "json" })) || {};
   const vOf = (g) => ((man["rg:" + g.id] || {}).v) || g.v;
   const norm = (x) => String(x || "").toUpperCase().replace(/[İI]/g, "I").replace(/\s+/g, " ").trim();
-  const mine = (g) => norm(vOf(g)) === norm(veh);
-  const arr = (day.arr || []).filter((g) => !man["mv:" + g.id] && mine(g)).map((g) => ({ k: "arr", t: g.t, fl: g.fl, h: g.h, pax: g.pax, g: g.g, term: g.term }));
-  const extra = Object.entries(man).filter(([k, g]) => k.startsWith("g:") && g && mine(g)).map(([, g]) => ({ k: "arr", t: g.t, fl: g.fl, h: g.h, pax: g.pax, g: g.g, term: g.term }));
-  const dep = (day.dep || []).filter(mine).map((g) => ({ k: "dep", t: g.pu || g.t, fl: g.fl, ft: g.t, h: g.h, pax: g.pax, g: g.g, term: g.term }));
+  const VS = new Set(vehs.map(norm));
+  const mine = (g) => VS.has(norm(vOf(g)));
+  const arr = (day.arr || []).filter((g) => !man["mv:" + g.id] && mine(g)).map((g) => ({ k: "arr", t: g.t, fl: g.fl, h: g.h, pax: g.pax, g: g.g, term: g.term, v: vOf(g) }));
+  const extra = Object.entries(man).filter(([k, g]) => k.startsWith("g:") && g && mine(g)).map(([, g]) => ({ k: "arr", t: g.t, fl: g.fl, h: g.h, pax: g.pax, g: g.g, term: g.term, v: vOf(g) }));
+  const dep = (day.dep || []).filter(mine).map((g) => ({ k: "dep", t: g.pu || g.t, fl: g.fl, ft: g.t, h: g.h, pax: g.pax, g: g.g, term: g.term, v: vOf(g) }));
   return [...arr, ...extra, ...dep].sort((a, b) => String(a.t).localeCompare(String(b.t)));
 }
 
@@ -47,14 +59,16 @@ export default async (req) => {
     const all = await Promise.all(blobs.map((b) => s.get(b.key, { type: "json" })));
     const D = (await s.get("state/00.00/drivers", { type: "json" })) || {};
     // a driver removed by the administrator disappears from the map
-    return json({ now: Date.now(), locs: all.filter((x) => x && D[x.id]).map((x) => ({ ...x, name: D[x.id].name, veh: D[x.id].veh, phone: D[x.id].phone })) });
+    const L = [];
+    for (const x of all) if (x && D[x.id]) { const vehs = await vehsOf(s, D[x.id]); L.push({ ...x, name: D[x.id].name, veh: vehs.join(", ") || D[x.id].veh, phone: D[x.id].phone }); }
+    return json({ now: Date.now(), locs: L });
   }
 
   if (req.method !== "POST") return out({ error: "Не найдено" }, 404);
   const me = await driverFromPin(s, req);
   if (!me) return out({ error: "Неверный PIN водителя", pin: true }, 401);
 
-  if (path === "/api/loc/hello") return out({ name: me.name, veh: me.veh, jobs: await jobsOf(s, me.veh) });
+  if (path === "/api/loc/hello") { const vehs = await vehsOf(s, me); return out({ name: me.name, veh: vehs.join(", ") || me.veh, jobs: await jobsOf(s, vehs) }); }
 
   let b = {};
   try { b = await req.json(); } catch (e) { /* empty body */ }

@@ -149,7 +149,7 @@ export default async (req) => {
   if (req.method === "GET" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
     if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra", "reports", "pins", "prices", "sales"].includes(kind)) return json({ error: "Неверный тип" }, 400);
-    if (kind === "pins" && auth.role !== "admin") return forbidden();
+    if (kind === "pins" && !isOffice(auth)) return forbidden();
     // sales and the price list: the administrator and the guides (their own buses); operations see nothing
     if ((kind === "sales" || kind === "prices") && auth.role === "ops") return forbidden();
     const data = (await s.get("state/" + d + "/" + kind, { type: "json" })) || {};
@@ -183,7 +183,25 @@ export default async (req) => {
     const kind = url.searchParams.get("kind");
     // guides may only save their check-ins (and guest notes, kept with them) and excursion stops
     if (!isOffice(auth) && !["met", "tourmarks", "reports", "sales"].includes(kind)) return forbidden();
-    if (kind === "pins") return forbidden(); // PINs are set only in the admin cabinet
+    if (kind === "pins") {
+      // guide PINs: the office and the administrator; {name: pin} adds or changes one, {name: null} takes it away
+      if (!isOffice(auth)) return forbidden();
+      const body = (await req.json()) || {};
+      const pins = (await s.get("state/00.00/pins", { type: "json" })) || {};
+      const log = (await s.get("auth/log", { type: "json" })) || [];
+      const who = auth.role === "admin" ? "администратор" : "офис";
+      for (const [n, p] of Object.entries(body)) {
+        if (p == null || p === "") { if (pins[n]) { delete pins[n]; log.push({ at: new Date().toISOString(), what: `PIN забран: ${n} (${who})` }); } continue; }
+        const v = String(p).replace(/\D/g, "");
+        if (v.length < 4 || v.length > 8) return json({ error: "PIN — от 4 до 8 цифр: " + n }, 400);
+        if (Object.entries(pins).some(([k, x]) => k !== n && String(x) === v)) return json({ error: "Этот PIN уже у другого гида" }, 400);
+        log.push({ at: new Date().toISOString(), what: `${pins[n] ? "PIN изменён" : "PIN выдан"}: ${n} (${who})` });
+        pins[n] = v;
+      }
+      await s.setJSON("state/00.00/pins", pins);
+      await s.setJSON("auth/log", log.slice(-500));
+      return json({ ok: true, pins });
+    }
     if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra", "reports", "pins", "prices", "sales"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     const body = await req.json();
     if (kind === "extra") {

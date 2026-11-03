@@ -2531,7 +2531,7 @@ async function serverBoot(){
     if(keys.includes(todayKey()))dayKey=todayKey();else if(!DAYS[dayKey])dayKey=keys.pop()||null;
     // the login itself has worked here: a drawing error must not send the user back to the password screen
     try{loadDay(dayKey)}catch(e){bootErr(e)}
-    pullSales();pullTours(true);
+    pullSales();pullTours(true);loadPins();
     try{await refreshLive()}catch(e){if(e.message==='401')throw e;bootErr(e)}setInterval(()=>refreshLive().catch(bootErr),5*60*1000);
   }catch(e){if(e.message!=='401'&&!((e instanceof TypeError||e instanceof ReferenceError)&&!/fetch|network|load failed/i.test(e.message))){$('#modePill').textContent='Нет связи с сервером. Проверьте интернет и обновите страницу.';loadDay(null);showLogin('Не удалось войти: '+e.message+'. Введите пароль ещё раз.')}else if(e.message!=='401')bootErr(e)}
 }
@@ -2632,7 +2632,14 @@ function gTag(g){if(!g)return '';const ph=gPhone(g);return esc(g)+(ph?` · <a cl
 // guide phone book: type a name and a number, edit or delete; saved on the server for everyone
 let gpEdit=null;
 const normPh=p=>/^\s*(\+?\s*90|0?\s*5)/.test(p)&&p.replace(/\D/g,'').replace(/^90(?=5)/,'').replace(/^(?=5)/,'0').length===11?fmtPhone(p):p.trim().replace(/\s+/g,' ');
-const pinCell=n=>false?`<button type="button" class="btn sm${PINS[n]?'':' ghost'}" data-gppin="${esc(n)}" title="Личный PIN гида для входа">🔑 ${PINS[n]?esc(PINS[n]):'PIN'}</button>`:'';
+const pinOf=n=>PINS[n]||PINS[Object.keys(PINS).find(k=>sameG(k,n))]||'';
+const gPinWa=(n,pin)=>`SARABI OPS\n${location.origin}\nRehber: ${n}\nPIN: ${pin}\n(Rehber şifresi + bu PIN ile giriş yapın)`;
+const pinCell=n=>{if(!isOps())return '';const p=pinOf(n);const ph=String(gPhone(n)||'').replace(/\D/g,'').replace(/^0/,'90');
+  return p?`<button type="button" class="btn sm" data-gppin="${esc(n)}" title="Личный PIN гида · нажмите, чтобы изменить">🔑 ${esc(p)}</button>${ph.length>=12?`<a class="btn sm wa-go" target="_blank" rel="noopener" href="https://wa.me/${esc(ph)}?text=${encodeURIComponent(gPinWa(n,p))}" title="Отправить PIN гиду">WA</a>`:''}`
+    :`<button type="button" class="btn sm ghost" data-gppin="${esc(n)}" title="Выдать PIN">🔑 выдать PIN</button>`};
+const newGuidePin=()=>{const used=new Set(Object.values(PINS).map(String));let p='';while(!p||used.has(p))p=String(1000+Math.floor(Math.random()*9000));return p};
+async function setGuidePin(n,pin){try{const r=await api('PUT','/api/state?d=00.00&kind=pins',{[n]:pin||null});PINS=r.pins||PINS;renderGpImport();if(isAdmin())loadAdmin().catch(()=>{});toast(pin?`PIN для ${n}: ${pin}`:'PIN забран');return true}catch(e){toast('Не удалось сохранить PIN: '+String(e.message).replace(/[{}"]/g,' '));return false}}
+async function loadPins(){if(!SERVER||!isOps())return;try{const r=await api('GET','/api/state?d=00.00&kind=pins');PINS=r.data||{};renderGpImport()}catch(e){}}
 function renderGpImport(){
   const el=$('#gpList');if(!el)return;
   const today=[...new Set([...(DAY?DAY.arr:[]),...(DAY?DAY.dep:[])].map(x=>x.g).filter(Boolean))];
@@ -2647,10 +2654,10 @@ function renderGpImport(){
     <td class="pin">${pinCell(k)}</td><td class="act"><button type="button" class="btn sm" data-gped="${esc(k)}" title="Изменить">✎</button> <button type="button" class="btn sm" data-gpdel="${esc(k)}" title="Удалить">✕</button></td></tr>`).join('')}
   ${miss.map(g=>`<tr class="nophone"><td><b>${esc(g)}</b><span class="today">сегодня</span></td><td class="ph">нет номера</td><td></td><td class="pin">${pinCell(g)}</td><td class="act"><button type="button" class="btn sm" data-gpfill="${esc(g)}">+ номер</button></td></tr>`).join('')}
   </tbody></table></div>`;
-  el.querySelectorAll('[data-gppin]').forEach(b=>b.onclick=async()=>{const n=b.dataset.gppin;const used=new Set(Object.values(PINS).map(String));let sug=PINS[n]||'';while(!sug||used.has(sug))sug=String(1000+Math.floor(Math.random()*9000));
-    const v=prompt(T('PIN для гида')+' '+n+'\n'+T('4–8 цифр. Пусто — забрать PIN (гид больше не войдёт).'),PINS[n]||sug);if(v===null)return;const pin=v.replace(/\D/g,'');
-    if(pin&&(pin.length<4||pin.length>8))return toast('PIN — от 4 до 8 цифр');if(pin&&Object.entries(PINS).some(([k,x])=>k!==n&&String(x)===pin))return toast('Такой PIN уже у другого гида');
-    const P=Object.assign({},PINS);if(pin)P[n]=pin;else delete P[n];try{await api('PUT','/api/state?d=00.00&kind=pins',P);PINS=P;renderGpImport();toast(pin?`PIN для ${n}: ${pin}`:'PIN удалён')}catch(e){toast('Не удалось сохранить PIN')}});
+  el.querySelectorAll('[data-gppin]').forEach(b=>b.onclick=async()=>{const n=b.dataset.gppin;const cur=pinOf(n);
+    if(!cur){await setGuidePin(n,newGuidePin());return}
+    const v=prompt(T('PIN для гида')+' '+n+'\n'+T('4–8 цифр. Пусто — забрать PIN (гид больше не войдёт).'),cur);if(v===null)return;const pin=v.replace(/\D/g,'');
+    if(pin&&(pin.length<4||pin.length>8))return toast('PIN — от 4 до 8 цифр');await setGuidePin(Object.keys(PINS).find(k=>sameG(k,n))||n,pin)});
   el.querySelectorAll('[data-gpdel]').forEach(b=>b.onclick=()=>{if(!confirm(T('Удалить телефон гида')+' '+b.dataset.gpdel+'?'))return;delete GP[b.dataset.gpdel];delete gpOff()[b.dataset.gpdel];saveGP();gpChanged()});
   el.querySelectorAll('[data-gped]').forEach(b=>b.onclick=()=>{gpEdit=b.dataset.gped;$('#gpName').value=gpEdit;$('#gpPhone').value=GP[gpEdit];$('#gpAdd').textContent=T('Сохранить');$('#gpCancel').hidden=false;$('#gpPhone').focus()});
   el.querySelectorAll('[data-gpfill]').forEach(b=>b.onclick=()=>{$('#gpName').value=b.dataset.gpfill;$('#gpPhone').focus();$('#gpBox').scrollIntoView?.({block:'nearest'})});
@@ -2664,7 +2671,9 @@ $('#gpForm').addEventListener('submit',e=>{e.preventDefault();
   if(gpEdit&&gpEdit!==name)delete GP[gpEdit];
   const same=Object.keys(GP).find(k=>k!==gpEdit&&gKey(k)===gKey(name));if(same&&same!==name)delete GP[same];
   if(gpEdit&&gpEdit!==name&&gpOff()[gpEdit]){gpOff()[name]=true;delete gpOff()[gpEdit]}
-  GP[name]=ph;saveGP();toast(`Сохранено: ${name}`);gpReset();gpChanged()});
+  GP[name]=ph;saveGP();toast(`Сохранено: ${name}`);gpReset();gpChanged();
+  // a new guide gets his PIN at once
+  if(SERVER&&isOps()&&!pinOf(name))setGuidePin(name,newGuidePin())});
 $('#gpCancel').onclick=gpReset;
 
 function loadDay(k){
@@ -3039,8 +3048,20 @@ function wpApply(){
   const log=(assign['~log']||[]).slice(-19);log.push({at:new Date().toISOString(),n:WP.rows.length,chg:ch.filter(r=>r.st==='chg').map(r=>r.v),add:ch.filter(r=>r.st!=='chg').map(r=>r.v)});assign['~log']=log;
   saveAssign();
   toast(`Машины обновлены: ${ch.length}`);
-  WP=null;$('#wpText').value='';renderWpPreview();renderAll();
+  const rows=WP.rows;WP=null;$('#wpText').value='';renderWpPreview();renderAll();
+  wpDrivers(rows);
 }
+// the drivers' phones from the vehicle message: a new phone becomes a driver with a 6-digit PIN for the Sarabi Sürücü app
+async function wpDrivers(rows){if(!SERVER||!isOps()||typeof saveDrivers!=='function')return;
+  try{const r=await api('GET','/api/drivers');DRV=r.drivers||{}}catch(e){return}
+  const dg=p=>String(p||'').replace(/\D/g,'').slice(-10);const byPh=new Map();
+  rows.forEach(r=>{const d=dg(r.phone);if(d.length!==10)return;if(!byPh.has(d))byPh.set(d,{phone:r.phone,plate:r.plate,vehs:[]});byPh.get(d).vehs.push(r.v)});
+  const N=JSON.parse(JSON.stringify(DRV));const added=[];
+  byPh.forEach((x,d)=>{if(Object.values(N).some(o=>dg(o.phone)===d))return;const id='d'+Date.now().toString(36)+added.length;
+    N[id]={name:'Şoför '+(x.plate||x.vehs[0]),veh:x.vehs[0],phone:x.phone,pin:''};DRV=N;N[id].pin=drvPin();added.push(N[id])});
+  if(!added.length)return;await saveDrivers(N,`Новые водители: ${added.length}, PIN созданы`);
+  const box=$('#wpPreview');if(box)box.innerHTML=`<div class="wp-drv"><b>🚐 Новые водители — PIN для приложения:</b>${added.map(d=>{const ph=String(d.phone).replace(/\D/g,'').replace(/^0/,'90');
+    return `<div class="adm-d"><span><b>${esc(d.name)}</b></span><span>${esc(d.veh)}</span><span>${esc(d.phone)}</span><b class="num">🔑 ${esc(d.pin)}</b><span class="b">${ph.length>=12?`<a class="btn sm wa-go" target="_blank" rel="noopener" href="https://wa.me/${esc(ph)}?text=${encodeURIComponent(drvWa(d))}">WhatsApp</a>`:''}</span></div>`}).join('')}<p class="hint">Имя водителя можно поменять в блоке «🚐 Водители и PIN-коды» выше.</p></div>`}
 function renderWpLog(){
   const log=(assign['~log']||[]);const last=log[log.length-1];
   $('#wpLast').textContent=last?`· обновлено ${hm(last.at)}`:'· ещё не вставляли';
@@ -4579,7 +4600,7 @@ async function pullLocs(){if(!SERVER||ROLE==='guide')return;try{const r=await ap
 const ago=ms=>{const m=Math.round(ms/60000);return m<1?T('сейчас'):m<60?m+' '+T('мин назад'):Math.floor(m/60)+' ч '+(m%60)+' мин назад'};
 const locState=x=>!x.on?'off':locAt-x.at<4*60000?'live':locAt-x.at<20*60000?'idle':'old';
 // the vehicle's next job today, from the loaded KAPAK
-function nextJob(veh){if(!DAY||!veh)return null;try{const ts=buildTasks(()=>true).filter(t=>t.groups.some(g=>(g.v||'').toUpperCase()===veh.toUpperCase())&&!t.complete).sort((a,b)=>a.time-b.time);
+function nextJob(veh){if(!DAY||!veh)return null;const VS=new Set(String(veh).split(/\s*,\s*/).map(v=>v.toUpperCase()));try{const ts=buildTasks(()=>true).filter(t=>t.groups.some(g=>VS.has((g.v||'').toUpperCase()))&&!t.complete).sort((a,b)=>a.time-b.time);
   return ts.find(t=>t.time>=NOW-30)||ts[0]||null}catch(e){return null}}
 function locPopup(x){const st=locState(x);const nj=nextJob(x.veh);
   return `<b>${esc(x.veh||'—')}</b> · ${esc(x.name||'')}<br>${x.phone?`<a href="tel:${esc(String(x.phone).replace(/[^\d+]/g,''))}">📞 ${esc(x.phone)}</a><br>`:''}
@@ -4587,7 +4608,7 @@ function locPopup(x){const st=locState(x);const nj=nextJob(x.veh);
     ${nj?`<br>Дальше: <b>${fmt(nj.time)}</b> ${nj.kind==='arr'?'встреча '+esc(nj.f?[...nj.f.codes][0]:normFl(nj.groups[0].fl)):'сбор '+esc(nj.groups[0].h)}`:''}`}
 const LCOL={live:'#2E9E5B',idle:'#E8A317',old:'#8C9DAF',off:'#C2392E'};
 function locIcon(x){const st=locState(x);return L.divIcon({className:'vpin',iconSize:null,html:`<span class="vp ${st}" style="--c:${LCOL[st]}">🚐 ${esc(x.veh||x.name||'?')}</span>`})}
-function mapListHtml(){if(!LOCS.length)return `<p class="hint">Пока ни один водитель не включил смену. Водителей и их PIN добавляет администратор (🔐 Админ → Водители), приложение: <a href="${APK_URL}" target="_blank" rel="noopener">sarabi-driver.apk</a>.</p>`;
+function mapListHtml(){if(!LOCS.length)return `<p class="hint">Пока ни один водитель не включил смену. Водители и их PIN — в блоке «🚐 Водители и PIN-коды» ниже (или создаются сами при вставке машин из WhatsApp), приложение: <a href="${APK_URL}" target="_blank" rel="noopener">sarabi-driver.apk</a>.</p>`;
   const o={live:0,idle:1,old:2,off:3};
   return `<div class="vlist">${LOCS.slice().sort((a,b)=>o[locState(a)]-o[locState(b)]||String(a.veh).localeCompare(String(b.veh),'tr',{numeric:true})).map(x=>{const st=locState(x);const nj=nextJob(x.veh);
     return `<button type="button" class="vrow ${st}" data-loc="${esc(x.id)}"><span class="dot" style="background:${LCOL[st]}"></span><b>${esc(x.veh||'—')}</b><span>${esc(x.name||'')}</span><span class="hint">${st==='off'?'смена закрыта':ago(locAt-x.at)}</span>${nj?`<span class="hint">→ ${fmt(nj.time)} ${nj.kind==='arr'?esc(nj.f?[...nj.f.codes][0]:''):esc(nj.groups[0].h)}</span>`:''}</button>`}).join('')}</div>`}

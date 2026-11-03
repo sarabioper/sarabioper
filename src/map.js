@@ -14,7 +14,7 @@ async function pullLocs(){if(!SERVER||ROLE==='guide')return;try{const r=await ap
 const ago=ms=>{const m=Math.round(ms/60000);return m<1?T('сейчас'):m<60?m+' '+T('мин назад'):Math.floor(m/60)+' ч '+(m%60)+' мин назад'};
 const locState=x=>!x.on?'off':locAt-x.at<4*60000?'live':locAt-x.at<20*60000?'idle':'old';
 // the vehicle's next job today, from the loaded KAPAK
-function nextJob(veh){if(!DAY||!veh)return null;try{const ts=buildTasks(()=>true).filter(t=>t.groups.some(g=>(g.v||'').toUpperCase()===veh.toUpperCase())&&!t.complete).sort((a,b)=>a.time-b.time);
+function nextJob(veh){if(!DAY||!veh)return null;const VS=new Set(String(veh).split(/\s*,\s*/).map(v=>v.toUpperCase()));try{const ts=buildTasks(()=>true).filter(t=>t.groups.some(g=>VS.has((g.v||'').toUpperCase()))&&!t.complete).sort((a,b)=>a.time-b.time);
   return ts.find(t=>t.time>=NOW-30)||ts[0]||null}catch(e){return null}}
 function locPopup(x){const st=locState(x);const nj=nextJob(x.veh);
   return `<b>${esc(x.veh||'—')}</b> · ${esc(x.name||'')}<br>${x.phone?`<a href="tel:${esc(String(x.phone).replace(/[^\d+]/g,''))}">📞 ${esc(x.phone)}</a><br>`:''}
@@ -22,7 +22,7 @@ function locPopup(x){const st=locState(x);const nj=nextJob(x.veh);
     ${nj?`<br>Дальше: <b>${fmt(nj.time)}</b> ${nj.kind==='arr'?'встреча '+esc(nj.f?[...nj.f.codes][0]:normFl(nj.groups[0].fl)):'сбор '+esc(nj.groups[0].h)}`:''}`}
 const LCOL={live:'#2E9E5B',idle:'#E8A317',old:'#8C9DAF',off:'#C2392E'};
 function locIcon(x){const st=locState(x);return L.divIcon({className:'vpin',iconSize:null,html:`<span class="vp ${st}" style="--c:${LCOL[st]}">🚐 ${esc(x.veh||x.name||'?')}</span>`})}
-function mapListHtml(){if(!LOCS.length)return `<p class="hint">Пока ни один водитель не включил смену. Водителей и их PIN добавляет администратор (🔐 Админ → Водители), приложение: <a href="${APK_URL}" target="_blank" rel="noopener">sarabi-driver.apk</a>.</p>`;
+function mapListHtml(){if(!LOCS.length)return `<p class="hint">Пока ни один водитель не включил смену. Водители и их PIN — в блоке «🚐 Водители и PIN-коды» ниже (или создаются сами при вставке машин из WhatsApp), приложение: <a href="${APK_URL}" target="_blank" rel="noopener">sarabi-driver.apk</a>.</p>`;
   const o={live:0,idle:1,old:2,off:3};
   return `<div class="vlist">${LOCS.slice().sort((a,b)=>o[locState(a)]-o[locState(b)]||String(a.veh).localeCompare(String(b.veh),'tr',{numeric:true})).map(x=>{const st=locState(x);const nj=nextJob(x.veh);
     return `<button type="button" class="vrow ${st}" data-loc="${esc(x.id)}"><span class="dot" style="background:${LCOL[st]}"></span><b>${esc(x.veh||'—')}</b><span>${esc(x.name||'')}</span><span class="hint">${st==='off'?'смена закрыта':ago(locAt-x.at)}</span>${nj?`<span class="hint">→ ${fmt(nj.time)} ${nj.kind==='arr'?esc(nj.f?[...nj.f.codes][0]:''):esc(nj.groups[0].h)}</span>`:''}</button>`}).join('')}</div>`}
