@@ -108,6 +108,7 @@ async function serverBoot(){
     const keys=dayKeys();
     if(keys.includes(todayKey()))dayKey=todayKey();else if(!DAYS[dayKey])dayKey=keys.pop()||null;
     loadDay(dayKey);
+    pullSales();pullTours(true);
     await refreshLive();setInterval(refreshLive,5*60*1000);
   }catch(e){if(e.message!=='401'){$('#modePill').textContent='Нет связи с сервером. Проверьте интернет и обновите страницу.';loadDay(null);showLogin('Не удалось войти: '+e.message+'. Введите пароль ещё раз.')}}
 }
@@ -870,11 +871,11 @@ function bindMarks(T){
   T.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{const el=document.getElementById('tg_'+b.dataset.open);el.hidden=!el.hidden;b.textContent=el.hidden?'Показать список':'Скрыть список'});
 }
 function renderGuide(){
-  renderGKind();
+  renderGKind();const sb=$('#gmSalesBtn');if(sb){sb.hidden=gKind!=='tour';if(gKind!=='tour'&&guideMode==='sales')setGuideMode('tasks')}
   const g=curGuide;if(!g||!guideList().includes(g)){$('#guideHead').innerHTML=`<p class="hint">${gKind==='tour'?'Сегодня нет экскурсий с гидами. Программы — во вкладке «Экскурсии».':gKind==='dep'?'В этом дне нет гидов на сборы (Depart).':'В этом дне нет гидов на встречи (Arrival).'}</p>`;$('#tasks').innerHTML='';return}
   $('#gmTasks').dataset.kind=gKind;
   if(gKind==='tour'){try{TOURS}catch(e){return}$('#guideHead').innerHTML=`<div class="ghead"><div class="gname">${esc(g)}${gPhone(g)?` <a class="tel" style="font-size:.6em" href="tel:${esc(gPhone(g).replace(/\s/g,''))}">${esc(gPhone(g))}</a>`:''}</div><div class="gmeta"><span>🚌 Экскурсия · отмечайте «📍 Прибыли» и «🚌 Уехали» на каждой точке — другие автобусы это видят</span></div></div>`;
-    $('#tasks').innerHTML=guideTourHtml(g);bindTourCards($('#tasks'));if(guideMode==='guests')renderGuests();return}
+    $('#tasks').innerHTML=guideTourHtml(g);bindTourCards($('#tasks'));if(guideMode==='guests')renderGuests();if(guideMode==='sales')renderSales();return}
   if(!DAY)return;
   const tasks=guideTasks(g).filter(t=>t.kind===gKind);
   const vehs=[...new Set(tasks.flatMap(t=>t.groups.map(x=>x.v)).filter(Boolean))];
@@ -891,7 +892,7 @@ $('#hideDone').addEventListener('change',renderGuide);
 
 /* ---------- guide: reference list of all guests (no check-in buttons) ---------- */
 var guideMode=store.get('gmode','tasks');
-function setGuideMode(m){guideMode=m;store.set('gmode',m);document.querySelectorAll('.gm').forEach(b=>b.setAttribute('aria-pressed',b.dataset.gm===m));$('#gmTasks').hidden=m!=='tasks';$('#gmGuests').hidden=m!=='guests';if(m==='guests')renderGuests()}
+function setGuideMode(m){if(m==='sales'&&gKind!=='tour')m='tasks';guideMode=m;store.set('gmode',m);document.querySelectorAll('.gm').forEach(b=>b.setAttribute('aria-pressed',b.dataset.gm===m));$('#gmTasks').hidden=m!=='tasks';$('#gmGuests').hidden=m!=='guests';$('#gmSales').hidden=m!=='sales';if(m==='guests')renderGuests();if(m==='sales')renderSales()}
 document.querySelectorAll('.gm').forEach(b=>b.onclick=()=>setGuideMode(b.dataset.gm));
 const ex=p=>p[3]||{};
 function roomsOf(g){const m=new Map();(g.p||[]).forEach((p,i)=>{const e=ex(p);const k=e.room?'r'+e.room:'x';if(!m.has(k))m.set(k,{e,people:[]});m.get(k).people.push([p,i])});return [...m.values()]}
@@ -1108,7 +1109,7 @@ async function syncTick(force){if(!SERVER||SYNC.busy||(document.hidden&&!force))
     if(SYNC.d!==k){SYNC.v={};SYNC.d=k}
     const run=[];
     if(k){if(ch('v','eta'))run.push(pullEta());if(ch('v','met'))run.push(pullMarks());if(ch('v','extra'))run.push(pullExtra());if(ch('v','assign')){lastAssignPull=0;run.push(pullAssign())}}
-    if(ch('g','reports'))run.push(pullReports(true));if(ch('g','tours')||ch('g','tourmarks'))run.push(pullTours('sync'));
+    if(ch('g','reports'))run.push(pullReports(true));if(ch('g','prices')||ch('g','sales'))run.push(pullSales());if(ch('g','tours')||ch('g','tourmarks'))run.push(pullTours('sync'));
     // a piece that could not be taken right now (this phone saved it a moment ago) is retried on the next tick
     const nv=Object.assign({},r.v||{}),ng=Object.assign({},r.g||{});const keep=(o,n,busy)=>{if(busy)o[n]=(o===nv?SYNC.v:SYNC.g)[n]};
     keep(nv,'met',Date.now()-lastLocalMark<5000);keep(nv,'extra',Date.now()-xLastSave<8000||xEdit);keep(nv,'assign',Date.now()-lastAssignSave<15000);
@@ -1218,6 +1219,7 @@ async function importFiles(files,opt={}){
   const items=[],imgs=[],progs=[],grps=[];
   for(const file of files){if(isImgFile(file)){imgs.push(file);continue}try{const rows=await readRows(file);
     if(isGroupList(rows)){grps.push(file);continue}
+    if(isPriceList(rows)){try{items.push({file,price:importPrices(rows,file)})}catch(e){items.push({file,err:e.message})}continue}
     if(looksProgram(rows)){progs.push(file);continue}
     if(isDepNotice(rows)){items.push({file,rows,N:parseDepNotice(rows),isTourists:true,T:{isArac:false}});continue}
     const T=parseTourists(rows);
@@ -1227,6 +1229,7 @@ async function importFiles(files,opt={}){
   const out=[];let last=null;
   for(const it of items){
     if(it.err){out.push(`<span>${esc(it.file.name)}: не удалось прочитать (${esc(it.err)}).</span>`);continue}
+    if(it.price){out.push(it.price);continue}
     try{const r=it.N?await importDepNotice(it.N,it.file):it.isTourists?await importTourists(it.T,it.file):await importKapak(it.rows,it.file);last=r.key;out.push(r.html)}
     catch(e){if(e.message==='401')return;out.push(`<span>${esc(it.file.name)}: ${esc(e.message)}.</span>`)}
   }

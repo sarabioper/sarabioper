@@ -78,10 +78,11 @@ function groupGuestsHtml(t,iso){
   // one short line per guest; a tap opens flights, voucher and the Note / Report buttons. A written note stays visible.
   const row=({x,i},f)=>{const a=ageOn(x.dob,iso);const bday=x.dob&&days.has(x.dob.slice(5));const nr=reps.filter(r=>r.guest&&r.guest.toLocaleUpperCase('tr')===x.n.toLocaleUpperCase('tr')).length;const nt=note(i);
     const kid=/CHD|INF/.test(x.sex)||a!==''&&a<12;const r0=f.rows[0].x;
-    return `<details class="gx"${q&&f.rows.length>1&&(x.n.toLocaleUpperCase('tr').replace(/[\s-]+/g,'').includes(q))?' open':''}><summary><span class="gx-n"><span class="hint">${x.no}.</span> <b>${esc(x.n)}</b></span><span class="gx-m">${a!==''?(a===0?(LANG==='tr'?'<1 yaş':'<1 г.'):a+' '+(LANG==='tr'?'yaş':'л.')):''}${kid?' 👶':''}${bday?` <b class="bday">🎂 ${gxDm(x.dob)}</b>`:''}${nr?` <span class="chip rep-t">📝 ${nr}</span>`:''}</span><span class="gx-x">▾</span>
+    return `<details class="gx" data-gxo="${esc(t.id)}|${i}"${GXOPEN.has(t.id+'|'+i)||q&&f.rows.length>1&&(x.n.toLocaleUpperCase('tr').replace(/[\s-]+/g,'').includes(q))?' open':''}><summary><span class="gx-n"><span class="hint">${x.no}.</span> <b>${esc(x.n)}</b></span><span class="gx-m">${a!==''?(a===0?(LANG==='tr'?'<1 yaş':'<1 г.'):a+' '+(LANG==='tr'?'yaş':'л.')):''}${kid?' 👶':''}${bday?` <b class="bday">🎂 ${gxDm(x.dob)}</b>`:''}${nr?` <span class="chip rep-t">📝 ${nr}</span>`:''}${slBadge(t.id,i)}</span><span class="gx-x">▾</span>
       ${nt?`<span class="gnote">✎ ${esc(nt)}</span>`:''}</summary>
       <div class="gx-body"><div class="gx-d">${x.af?`<span>🛬 ${esc(x.af)} ${gxDm(x.ad)} ${esc(x.at)}</span>`:''}${x.rf||x.rd?`<span>🛫 ${esc(x.rf||'—')} ${gxDm(x.rd)} ${esc(x.rt)}</span>`:''}<span class="hint">${esc(x.sex)}${x.dob?' · '+gxDm(x.dob)+'.'+x.dob.slice(0,4):''}</span></div>
         <div class="gx-d hint">${r0.v?`<span>ваучер ${esc(r0.v)}</span>`:''}${x.trf&&isOps()?`<span>трансфер ${esc(x.trf)}</span>`:''}${x.pass&&isOps()?`<span>паспорт ${esc(x.pass)}</span>`:''}</div>
+        ${guestSaleHtml(t,i)}
         <div class="gx-b"><button type="button" class="btn sm" data-gxnote="${esc(t.id)}|${i}">✎ ${nt?'Изменить заметку':'Заметка'}</button><button type="button" class="btn sm" data-trep="${esc(t.id)}|${i}">📝 Рапорт</button></div></div></details>`};
   return `<div class="tguests">
     <div class="gx-top">${t.gcode?`<b>${esc(t.gcode)}</b>`:''}<span class="chip">👥 ${X.length}</span>${kids.length?`<span class="chip">👶 ${kids.length}</span>`:''}${bd.length?`<span class="chip bday">🎂 ${bd.map(x=>esc(x.n.split(' ')[0])+' '+gxDm(x.dob)).join(', ')}</span>`:''}${pay.length&&isOps()?`<span class="chip rep-t">💵 ${pay.length} семей</span>`:''}</div>
@@ -99,7 +100,10 @@ async function importGroupList(tid,file){
     saveTour(tid,t);TGOPEN.add(tid);tourRefresh();
     toast(`Список группы загружен: ${P.guests.length} гостей${P.hotels.length?', отели: '+P.hotels.length:''}`)}
   catch(e){toast('Не удалось прочитать список: '+e.message)}}
-function bindGroupGuests(el){
+var GXOPEN=GXOPEN||new Set();// guest lines left open stay open when the list is redrawn (after a sale, a note)
+function bindGroupGuests(el){bindSales(el);
+  el.querySelectorAll('[data-gxo]').forEach(d=>d.ontoggle=()=>{d.open?GXOPEN.add(d.dataset.gxo):GXOPEN.delete(d.dataset.gxo)});
+  el.querySelectorAll('[data-gso]').forEach(d=>d.ontoggle=()=>{d.open?GXOPEN.add('s:'+d.dataset.gso):GXOPEN.delete('s:'+d.dataset.gso)});
   el.querySelectorAll('[data-tgfile]').forEach(i=>i.onchange=e=>{const f=e.target.files[0];if(f)importGroupList(i.dataset.tgfile,f);e.target.value=''});
   el.querySelectorAll('[data-gxq]').forEach(i=>i.oninput=()=>{TGQ[i.dataset.gxq]=i.value;const pos=i.selectionStart;tourRefresh();const n=[...document.querySelectorAll(`[data-gxq="${CSS.escape(i.dataset.gxq)}"]`)].find(n=>n.offsetParent)||document.querySelector(`[data-gxq="${CSS.escape(i.dataset.gxq)}"]`);if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}});
   el.querySelectorAll('[data-gxnote]').forEach(b=>b.onclick=()=>{const [tid,i]=b.dataset.gxnote.split('|');const t=TOURS[tid];const x=(t.gx||[])[+i];if(!x)return;const k=tid+'|gn|'+i;

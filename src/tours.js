@@ -112,7 +112,7 @@ function renderLive(LB){const el=$('#tourLive');if(!el)return;
   ${LB.ev.length?`<details class="tfeed"><summary>Лента отметок (${LB.ev.length})</summary><ul>${LB.ev.slice(0,30).map(e=>`<li><span class="num">${fmt(e.at)}</span> <b>${esc(busNm(e.t))}</b> ${e.what} ${esc(e.s.n)}</li>`).join('')}</ul></details>`:''}`}
 
 function renderTours(){
-  const el=$('#tourList');if(!el)return;
+  const el=$('#tourList');if(!el)return;try{renderSalesAdm()}catch(e){}
   if(!tDate)tDate=isoToday();
   renderSampleBtn();
   $('#tDateLbl').innerHTML=`<b>${isoDM(tDate)}</b> <small>${tDate===isoToday()?'сегодня':isoWd(tDate)}</small>`;
@@ -287,15 +287,17 @@ $('#tSamples').onclick=()=>{const add=sampleMissing();if(!add.length)return;if(!
 $('#tBus').onchange=e=>{store.set('tourBus',e.target.value);renderTours()};
 // one button for everything: program tables (Excel or photo) and group guest lists (Excel / PDF) are told apart by their content
 $('#tXls').onchange=async e=>{const fs=[...e.target.files];e.target.value='';const im=fs.filter(f=>/^image\//.test(f.type)||/\.(jpe?g|png|webp|heic)$/i.test(f.name));
-  const grp=[],prog=[];for(const f of fs.filter(f=>!im.includes(f))){try{const rows=await readRows(f);if(isGroupList(rows))grp.push(f);else if(!/\.pdf$/i.test(f.name))prog.push(f);else toast(f.name+': '+T('не похоже ни на программу, ни на список группы'))}catch(err){toast(f.name+': '+err.message)}}
+  const grp=[],prog=[];for(const f of fs.filter(f=>!im.includes(f))){try{const rows=await readRows(f);if(isPriceList(rows)){importPrices(rows,f);toast('Прайс загружен: '+f.name);continue}if(isGroupList(rows))grp.push(f);else if(!/\.pdf$/i.test(f.name))prog.push(f);else toast(f.name+': '+T('не похоже ни на программу, ни на список группы'))}catch(err){toast(f.name+': '+err.message)}}
   if(prog.length)importTourFiles(prog);if(grp.length)importGroupFiles(grp);if(im.length)importTourImages(im)};
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b&&b.dataset.t==='tours'){renderTours();pullTours(true)}});
 setInterval(()=>{if(!$('#v-tours').hidden&&!tEdit&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#tourList')))renderTours()},60000);
 if(!$('#v-tours').hidden){renderTours();pullTours(true)}
 
 // guide screen, "Экскурсия" mode: today's bus programs where this person is the hotel guide or the kok guide
-function tourGuidesOn(iso){const S=new Set();tours().forEach(t=>{if(dayOfTour(t,iso)){if(t.guide)S.add(t.guide);if(t.kok)S.add(t.kok)}});return [...S]}
-function toursOfGuide(g,iso){return tours().filter(t=>dayOfTour(t,iso)&&(sameG(t.guide,g)||sameG(t.kok,g)))}
+function tourGuidesOn(iso){const S=new Set();tours().forEach(t=>{if(dayOfTour(t,iso))[t.guide,t.kok].flatMap(x=>String(x||'').split('/')).map(x=>x.trim()).filter(x=>x.length>1).forEach(x=>S.add(x))});return [...S]}
+// "HALİL/RÜSTEM": both are guides of that bus
+const gOfTour=(t,g)=>[t.guide,t.kok].flatMap(x=>String(x||'').split('/')).some(p=>p.trim()&&sameG(p.trim(),g));
+function toursOfGuide(g,iso){return tours().filter(t=>dayOfTour(t,iso)&&gOfTour(t,g))}
 function guideTourHtml(g){let iso=gTourDate||isoToday();let list=toursOfGuide(g,iso);if(!list.length&&iso!==isoToday()){iso=isoToday();gTourDate=null;list=toursOfGuide(g,iso)}
   if(!list.length)return `<p class="hint">Сегодня (${isoDM(iso)}) экскурсий у ${esc(g)} нет.</p>`;
   const LB=liveBoard(iso);return list.map(t=>tourCardHtml(t,iso,LB,{guide:true})).join('')}

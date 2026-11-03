@@ -32,12 +32,16 @@ export function dayForGuide(d, me) {
   delete out.recon; delete out.check; delete out.breakdown;
   return out;
 }
+// "HALİL/RÜSTEM" on one bus: each of them is a guide of that bus
+export function guideOfTour(t, me) {
+  return [t && t.guide, t && t.kok].flatMap((x) => String(x || "").split("/")).some((p) => p.trim() && sameGuide(p, me));
+}
 // tours: his own bus with its guests (without money and passport numbers); other buses only as a route, for coordination
 export function toursForGuide(T, me) {
   const out = {};
   for (const [k, t] of Object.entries(T || {})) {
     if (!t || !t.days) { if (k === "~places") out[k] = t; continue; }
-    if (sameGuide(t.guide, me) || sameGuide(t.kok, me)) out[k] = { ...t, gx: (t.gx || []).map(({ trf, pass, ...x }) => x) };
+    if (guideOfTour(t, me)) out[k] = { ...t, gx: (t.gx || []).map(({ trf, pass, ...x }) => x) };
     else out[k] = { id: t.id, bus: t.bus, name: t.name, pax: t.pax, days: t.days };
   }
   return out;

@@ -1,7 +1,7 @@
 import { store, json, authorized, forbidden, istanbulNow, isOffice } from "../lib/common.mjs";
 import { watchFromDay, watchDepFromDay } from "../lib/watch.mjs";
 import { poll } from "../lib/poll.mjs";
-import { guideFromPin, dayForGuide, toursForGuide, sameGuide } from "../lib/guide.mjs";
+import { guideFromPin, dayForGuide, toursForGuide, sameGuide, guideOfTour } from "../lib/guide.mjs";
 
 // Shared day storage, so every dispatcher and guide sees the same list.
 // GET  /api/days                          -> days of the last 7 days, with vehicle assignments and "met" marks
@@ -131,17 +131,23 @@ export default async (req) => {
 
   if (req.method === "GET" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
-    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra", "reports", "pins"].includes(kind)) return json({ error: "Неверный тип" }, 400);
+    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra", "reports", "pins", "prices", "sales"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     if (kind === "pins" && auth.role !== "admin") return forbidden();
     const data = (await s.get("state/" + d + "/" + kind, { type: "json" })) || {};
     if (me) {
       if (kind === "tours") return json({ data: toursForGuide(data, me) });
       if (kind === "reports") return json({ data: Object.fromEntries(Object.entries(data).filter(([, r]) => r && sameGuide(r.author, me))) });
       if (kind === "guides") return json({ data: Object.fromEntries(Object.entries(data).filter(([n]) => n !== "~off" && sameGuide(n, me))) });
+      if (kind === "sales") {
+        // a guide sees the sales of his own buses only
+        const T = (await s.get("state/00.00/tours", { type: "json" })) || {};
+        const own = new Set(Object.values(T).filter((t) => t && guideOfTour(t, me)).map((t) => t.id));
+        return json({ data: Object.fromEntries(Object.entries(data).filter(([, v]) => v && own.has(v.tid))) });
+      }
       if (kind === "tourmarks") {
         // other buses' stop times stay (coordination); notes about other buses' guests do not
         const T = (await s.get("state/00.00/tours", { type: "json" })) || {};
-        const own = new Set(Object.values(T).filter((t) => t && (sameGuide(t.guide, me) || sameGuide(t.kok, me))).map((t) => t.id));
+        const own = new Set(Object.values(T).filter((t) => t && guideOfTour(t, me)).map((t) => t.id));
         return json({ data: Object.fromEntries(Object.entries(data).filter(([k]) => !k.includes("|gn|") || own.has(k.split("|")[0]))) });
       }
       if (kind === "met" || kind === "extra") {
@@ -157,9 +163,9 @@ export default async (req) => {
   if (req.method === "PUT" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
     // guides may only save their check-ins (and guest notes, kept with them) and excursion stops
-    if (!isOffice(auth) && !["met", "tourmarks", "reports"].includes(kind)) return forbidden();
+    if (!isOffice(auth) && !["met", "tourmarks", "reports", "sales"].includes(kind)) return forbidden();
     if (kind === "pins") return forbidden(); // PINs are set only in the admin cabinet
-    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra", "reports", "pins"].includes(kind)) return json({ error: "Неверный тип" }, 400);
+    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra", "reports", "pins", "prices", "sales"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     const body = await req.json();
     if (kind === "extra") {
       // guests added by hand on the arrivals board (late booking, moved to another flight); one key per group
@@ -177,6 +183,21 @@ export default async (req) => {
           if (ch) await s.setJSON("watch/" + iso, watch);
         }
       }
+      return json({ ok: true });
+    }
+    if (kind === "sales" || kind === "prices") {
+      // sales: one key per sale; a guide may add or remove sales only for his own buses
+      const prev = (await s.get("state/" + d + "/" + kind, { type: "json" })) || {};
+      let own = null;
+      if (me) { const T = (await s.get("state/00.00/tours", { type: "json" })) || {}; own = new Set(Object.values(T).filter((t) => t && guideOfTour(t, me)).map((t) => t.id)); }
+      for (const [k, v] of Object.entries(body || {})) {
+        if (own) {
+          if (v == null) { if (prev[k] && own.has(prev[k].tid)) delete prev[k]; continue; }
+          if (typeof v !== "object" || !own.has(v.tid)) continue;
+          prev[k] = { ...v, by: me };
+        } else if (v == null) delete prev[k]; else prev[k] = v;
+      }
+      await s.setJSON("state/" + d + "/" + kind, prev);
       return json({ ok: true });
     }
     if (kind === "reports") {

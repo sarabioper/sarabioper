@@ -441,6 +441,19 @@ article.flight.open{border-bottom-left-radius:0;border-bottom-right-radius:0;mar
 .gsum{display:flex;flex-wrap:wrap;gap:6px 16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 14px;margin:10px 0;font-size:13px}
 .gsum b{font-size:15px}
 .gtrip{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin-bottom:10px;overflow:hidden}
+.gsale{display:grid;gap:6px}.gs-have{display:flex;flex-wrap:wrap;gap:4px}.gs-add>summary{list-style:none;display:inline-flex;cursor:pointer}.gs-add>summary::-webkit-details-marker{display:none}
+.gs-items{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}.gs-items .btn{font-size:12px}.gs-items .btn.pack{border-color:var(--accent,#b8860b);font-weight:600}.gs-items .btn b{margin-left:4px}
+.x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 3px}.x:hover{color:var(--crit)}.gs-b{font-size:11px;padding:1px 6px}
+.slc{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 12px;display:grid;gap:8px;margin-bottom:12px;min-width:0}
+.slc-n{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.slc-n>div{display:grid;background:var(--sunk);border-radius:8px;padding:6px 8px}.slc-n b{font-size:20px}.slc-n small{font-size:11px;color:var(--muted)}
+.slbar{position:relative;height:22px;border-radius:11px;background:var(--sunk);overflow:hidden}.slbar i{position:absolute;inset:0 auto 0 0;border-radius:11px}.slbar span{position:relative;display:block;text-align:center;font-size:12px;line-height:22px;font-weight:600}
+.slbar.ok i{background:#7fd1a0}.slbar.mid i{background:#f3cf6b}.slbar.low i{background:#f2a7a0}
+.sli{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px}.slf{display:grid;gap:4px}.slf select{padding:7px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit;max-width:100%}
+.sll>summary{cursor:pointer;font-size:13px;color:var(--muted)}.sl-r{font-size:13px;padding:3px 0;border-bottom:1px dashed var(--line)}
+.sla>summary{cursor:pointer}.sla{display:grid;gap:10px}.sla-top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:8px 0}.sla-top input{width:90px;padding:5px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}
+.sla-tbl{overflow-x:auto}.sla table,.slp{border-collapse:collapse;font-size:13px;width:100%}.sla th,.sla td{padding:5px 7px;border-bottom:1px solid var(--line);text-align:left}.sla .n{text-align:right}
+.slp input{width:76px;padding:3px 5px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--ink);text-align:right}
+.slpct{font-weight:700}.slpct.ok{color:var(--ok)}.slpct.mid{color:var(--warn)}.slpct.low{color:var(--crit)}
 .gtour{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;margin-bottom:14px;min-width:0}.gtour-h{margin:0;font-size:16px}
 .gtrip-h{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
 .gtrip-h .tt{font-family:var(--f-display);font-size:26px;font-weight:600;line-height:1}
@@ -619,6 +632,7 @@ mark{background:var(--signal-soft);color:inherit}
       <button type="button" class="btn sm" id="tSamples" hidden></button>
       <button type="button" class="btn sm primary" id="tNew">+ Программа</button>
     </div>
+    <div class="panel" id="salesAdm" hidden></div>
     <div class="tsum" id="tourSum"></div>
     <div class="xform" id="grpReview" hidden></div>
     <div id="tourLive"></div>
@@ -633,7 +647,7 @@ mark{background:var(--signal-soft);color:inherit}
     <div id="guideHead"></div>
     <div class="rep-bar"><button type="button" class="btn" id="repNew">📝 Написать рапорт</button><span id="repMine"></span></div>
     <div class="xform" id="repForm" hidden></div>
-    <div class="gmode" role="tablist"><button type="button" class="gm" data-gm="tasks" aria-pressed="true">Задания и отметки</button><button type="button" class="gm" data-gm="guests" aria-pressed="false">Мои гости</button></div>
+    <div class="gmode" role="tablist"><button type="button" class="gm" data-gm="tasks" aria-pressed="true">Задания и отметки</button><button type="button" class="gm" data-gm="guests" aria-pressed="false">Мои гости</button><button type="button" class="gm" data-gm="sales" aria-pressed="false" id="gmSalesBtn">💰 Продажи</button></div>
     <div id="gmTasks">
       <div class="gfilters"><label><input type="checkbox" id="hideDone"> скрыть выполненные</label></div>
       <div class="tasks" id="tasks"></div>
@@ -642,6 +656,7 @@ mark{background:var(--signal-soft);color:inherit}
       <div class="filters"><input id="gsQ" placeholder="Фамилия, отель, рейс" aria-label="Поиск гостя"><button class="btn" type="button" id="gsCopy">📋 Скопировать список гостей</button></div>
       <div id="guests"></div>
     </div>
+    <div id="gmSales" hidden><div id="sales"></div></div>
   </section>
 
   <section id="v-checks" hidden>
