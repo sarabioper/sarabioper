@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0F1E2E">
+<title>Sarabi Sürücü</title>
+<style>
+:root{--bg:#0F1E2E;--card:#16283B;--line:#25405C;--ink:#EEF3F8;--muted:#93A6BA;--amber:#E8A317;--ok:#3FBF7F;--bad:#E5574B}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:480px;margin:0 auto;padding:max(16px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom));display:grid;gap:14px}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.logo{font-weight:800;letter-spacing:1px;font-size:20px}.logo b{color:var(--amber)}
+.lang{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.lang button{border:0;background:none;color:var(--muted);padding:6px 10px;font-weight:700}.lang button.on{background:var(--amber);color:#1b1300}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:10px}
+h2{margin:0;font-size:18px}.hint{color:var(--muted);font-size:13px}
+input{width:100%;padding:14px;border-radius:10px;border:1px solid var(--line);background:#0c1825;color:var(--ink);font-size:24px;letter-spacing:8px;text-align:center}
+label.chk{display:flex;gap:10px;align-items:flex-start;font-size:14px}label.chk input{width:22px;height:22px;flex:none;margin-top:2px}
+.btn{border:0;border-radius:12px;padding:14px;font-size:17px;font-weight:700;background:var(--amber);color:#1b1300;width:100%}
+.btn:disabled{opacity:.45}.btn.ghost{background:none;border:1px solid var(--line);color:var(--muted);font-size:14px;padding:10px}
+.who{display:flex;align-items:center;gap:12px}.av{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:linear-gradient(135deg,#E8A317,#B9770E);color:#1b1300;font-size:18px}
+.who b{font-size:18px;display:block}.veh{display:inline-block;margin-top:2px;padding:2px 10px;border-radius:12px;background:#0c1825;border:1px solid var(--line);font-size:13px}
+.big{width:200px;height:200px;border-radius:50%;border:0;justify-self:center;font-size:20px;font-weight:800;display:grid;place-items:center;text-align:center;line-height:1.2;
+  background:radial-gradient(circle at 30% 30%,#4fd593,#2a9a63);color:#062314;box-shadow:0 0 0 10px rgba(63,191,127,.15)}
+.big.stop{background:radial-gradient(circle at 30% 30%,#ef7a6f,#c2392e);color:#2b0805;box-shadow:0 0 0 10px rgba(229,87,75,.18)}
+.big.on{animation:pulse 2s infinite}@keyframes pulse{0%,100%{box-shadow:0 0 0 10px rgba(229,87,75,.18)}50%{box-shadow:0 0 0 22px rgba(229,87,75,.05)}}
+.st{text-align:center;font-size:14px;color:var(--muted)}.st b{color:var(--ink)}.st .ok{color:var(--ok)}.st .bad{color:var(--bad)}
+.job{display:grid;grid-template-columns:62px 1fr;gap:10px;padding:10px 0;border-top:1px solid var(--line)}.job:first-of-type{border-top:0}
+.job .t{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}.job .k{display:block;font-size:12px;color:var(--amber);font-weight:700}.job small{color:var(--muted);display:block}
+.err{color:var(--bad);font-size:14px;min-height:1em}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+// SARABI driver: the phone shares its position while the shift is on; the office sees the vehicle on the map
+const NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
+const BASE=NATIVE?'https://moonlit-cobbler-a26928.netlify.app':'';
+const LS={get(k,d){try{const v=localStorage.getItem('drv_'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('drv_'+k,JSON.stringify(v))}catch(e){}}};
+const W={
+tr:{pin:'Sürücü PIN kodu',pinH:'PIN kodunu ofisten alırsınız (6 rakam)',consent:'Vardiya süresince konumumun Sarabi Travel operasyon ofisiyle paylaşılmasına, transferlerin takibi amacıyla açık rıza veriyorum. Vardiyayı bitirdiğimde paylaşım durur.',login:'Giriş',start:'VARDİYAYI<br>BAŞLAT',stop:'VARDİYAYI<br>BİTİR',sending:'Konum paylaşılıyor',off:'Vardiya kapalı — konum paylaşılmıyor',last:'son gönderim',acc:'doğruluk',jobs:'Bugünkü işler',nojobs:'Bugün için iş bulunamadı (KAPAK yüklenmemiş olabilir).',arr:'KARŞILAMA',dep:'DÖNÜŞ',pax:'kişi',guide:'Rehber',logout:'Çıkış',badpin:'PIN yanlış. Ofise sorun.',net:'İnternet yok, tekrar deneniyor…',perm:'Konum izni verilmedi. Ayarlardan “Konum: İzin ver” seçin.',settings:'Ayarları aç',bg:'Uygulama kapalıyken de konum gönderilir. Bitirmek için uygulamaya girip “Vardiyayı bitir”e basın.',web:'Tarayıcıda: ekran açık kaldığı sürece konum gönderilir. Arka planda çalışması için uygulamayı kurun.',flight:'uçuş',confirmStop:'Vardiyayı bitirmek istiyor musunuz?'},
+ru:{pin:'PIN водителя',pinH:'PIN выдаёт офис (6 цифр)',consent:'Даю согласие, что во время смены моё местоположение передаётся операционному отделу Sarabi Travel для контроля трансферов. После окончания смены передача останавливается.',login:'Войти',start:'НАЧАТЬ<br>СМЕНУ',stop:'ЗАКОНЧИТЬ<br>СМЕНУ',sending:'Местоположение передаётся',off:'Смена закрыта — местоположение не передаётся',last:'последняя отправка',acc:'точность',jobs:'Задания на сегодня',nojobs:'На сегодня заданий нет (возможно, KAPAK ещё не загружен).',arr:'ВСТРЕЧА',dep:'ВЫЛЕТ',pax:'чел',guide:'Гид',logout:'Выйти',badpin:'Неверный PIN. Спросите в офисе.',net:'Нет интернета, пробую снова…',perm:'Нет доступа к местоположению. В настройках выберите «Разрешить».',settings:'Открыть настройки',bg:'Местоположение передаётся, даже когда приложение закрыто. Чтобы закончить, откройте приложение и нажмите «Закончить смену».',web:'В браузере: передаётся, пока экран включён. Для работы в фоне установите приложение.',flight:'рейс',confirmStop:'Закончить смену?'}};
+let L=LS.get('lang','tr');const T=k=>W[L][k]||k;
+let S={pin:LS.get('pin',''),me:LS.get('me',null),on:LS.get('on',false),last:null,acc:null,err:'',jobs:LS.get('jobs',[]),sentAt:0,lastPos:null,wid:null,wake:null};
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function post(path,body){
+  if(NATIVE){const H=window.Capacitor.Plugins.CapacitorHttp;const r=await H.post({url:BASE+path,headers:{'content-type':'application/json','x-driver-pin':S.pin},data:body||{}});
+    let d=r.data;if(typeof d==='string'){try{d=JSON.parse(d)}catch(e){d={}}}return {status:r.status,data:d||{}}}
+  const r=await fetch(path,{method:'POST',headers:{'content-type':'application/json','x-driver-pin':S.pin},body:JSON.stringify(body||{})});
+  return {status:r.status,data:await r.json().catch(()=>({}))}}
+const hm=ms=>new Date(ms).toLocaleTimeString(L==='tr'?'tr-TR':'ru-RU',{hour:'2-digit',minute:'2-digit'});
+function dist(a,b){const R=6371e3,r=Math.PI/180,dl=(b[0]-a[0])*r,dn=(b[1]-a[1])*r;const x=Math.sin(dl/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
+// send at most once a minute, or right away after a real move
+async function onPos(p){const now=Date.now();const here=[p.lat,p.lng];S.acc=p.acc;
+  if(S.sentAt&&now-S.sentAt<60000&&!(S.lastPos&&dist(S.lastPos,here)>300))return;
+  try{const r=await post('/api/loc',p);if(r.status===401){S.err=T('badpin');await stopShift(true);return}S.sentAt=now;S.lastPos=here;S.last=now;S.err=''}catch(e){S.err=T('net')}render()}
+async function startWatch(){
+  if(NATIVE){const BG=window.Capacitor.Plugins.BackgroundGeolocation;
+    try{const N=window.Capacitor.Plugins.LocalNotifications;if(N&&N.requestPermissions)await N.requestPermissions()}catch(e){}
+    S.wid=await BG.addWatcher({backgroundTitle:'Sarabi · '+(S.me&&S.me.veh||''),backgroundMessage:T('sending'),requestPermissions:true,stale:false,distanceFilter:30},(loc,err)=>{
+      if(err){if(err.code==='NOT_AUTHORIZED'){S.err=T('perm');render()}return}
+      onPos({lat:loc.latitude,lng:loc.longitude,acc:loc.accuracy,spd:loc.speed,hdg:loc.bearing,t:loc.time})})}
+  else{if(!navigator.geolocation){S.err=T('perm');return}
+    S.wid=navigator.geolocation.watchPosition(x=>onPos({lat:x.coords.latitude,lng:x.coords.longitude,acc:x.coords.accuracy,spd:x.coords.speed,hdg:x.coords.heading,t:x.timestamp}),e=>{S.err=e.code===1?T('perm'):e.message;render()},{enableHighAccuracy:true,maximumAge:15000});
+    try{S.wake=await navigator.wakeLock.request('screen')}catch(e){}}}
+async function stopWatch(){try{if(S.wid!=null){if(NATIVE)await window.Capacitor.Plugins.BackgroundGeolocation.removeWatcher({id:S.wid});else navigator.geolocation.clearWatch(S.wid)}}catch(e){}S.wid=null;try{S.wake&&S.wake.release()}catch(e){}S.wake=null}
+async function startShift(){S.on=true;LS.set('on',true);S.sentAt=0;render();await startWatch();render()}
+async function stopShift(silent){if(!silent&&!confirm(T('confirmStop')))return;S.on=false;LS.set('on',false);await stopWatch();try{await post('/api/loc',{off:true})}catch(e){}render()}
+async function login(){const pin=document.getElementById('pin').value.replace(/\D/g,'');S.pin=pin;S.err='';
+  try{const r=await post('/api/loc/hello');if(r.status!==200){S.err=r.status===401?T('badpin'):'HTTP '+r.status;S.pin='';render();return}
+    S.me={name:r.data.name,veh:r.data.veh};S.jobs=r.data.jobs||[];LS.set('pin',pin);LS.set('me',S.me);LS.set('jobs',S.jobs);LS.set('consent',true)}catch(e){S.err=T('net')}render()}
+async function loadJobs(){if(!S.pin)return;try{const r=await post('/api/loc/hello');if(r.status===200){S.jobs=r.data.jobs||[];S.me={name:r.data.name,veh:r.data.veh};LS.set('jobs',S.jobs);LS.set('me',S.me);render()}else if(r.status===401){logout()}}catch(e){}}
+async function logout(){if(S.on)await stopShift(true);S.pin='';S.me=null;LS.set('pin','');LS.set('me',null);render()}
+function render(){const el=document.getElementById('app');
+  const head=`<header><span class="logo">SARABI <b>SÜRÜCÜ</b></span><span class="lang"><button class="${L==='tr'?'on':''}" data-l="tr">TR</button><button class="${L==='ru'?'on':''}" data-l="ru">RU</button></span></header>`;
+  if(!S.pin||!S.me){el.innerHTML=head+`<section class="card"><h2>${T('pin')}</h2><span class="hint">${T('pinH')}</span>
+    <input id="pin" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="••••••">
+    <label class="chk"><input type="checkbox" id="ok" ${LS.get('consent',false)?'checked':''}><span>${T('consent')}</span></label>
+    <button class="btn" id="go">${T('login')}</button><div class="err">${esc(S.err)}</div></section>`;
+    const go=document.getElementById('go'),ok=document.getElementById('ok'),pin=document.getElementById('pin');const upd=()=>go.disabled=!(ok.checked&&pin.value.replace(/\D/g,'').length===6);ok.onchange=upd;pin.oninput=upd;upd();go.onclick=login}
+  else{const n=S.me.name||'';const ini=n.split(/\s+/).filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    el.innerHTML=head+`<section class="card"><div class="who"><span class="av">${esc(ini)}</span><span><b>${esc(n)}</b><span class="veh">🚐 ${esc(S.me.veh||'—')}</span></span></div></section>
+    <button class="big ${S.on?'stop on':''}" id="sh">${S.on?T('stop'):T('start')}</button>
+    <div class="st">${S.on?`<span class="ok">● ${T('sending')}</span>${S.last?`<br>${T('last')}: <b>${hm(S.last)}</b>${S.acc!=null?` · ${T('acc')} ±${Math.round(S.acc)} m`:''}`:''}<br><small>${NATIVE?T('bg'):T('web')}</small>`:T('off')}</div>
+    <div class="err" style="text-align:center">${esc(S.err)}${S.err===T('perm')&&NATIVE?` <button class="btn ghost" id="set">${T('settings')}</button>`:''}</div>
+    <section class="card"><h2>${T('jobs')}</h2>${S.jobs.length?S.jobs.map(j=>`<div class="job"><span class="t">${esc(j.t||'—')}</span><span><span class="k">${j.k==='arr'?'✈ '+T('arr'):'🏨 '+T('dep')}</span><b>${j.k==='arr'?esc(j.fl)+' → '+esc(j.h):esc(j.h)+' → '+esc(j.fl)+(j.ft?' ('+esc(j.ft)+')':'')}</b><small>${esc(j.pax||'')} ${T('pax')}${j.g?' · '+T('guide')+': '+esc(j.g):''}${j.term?' · '+esc(j.term):''}</small></span></div>`).join(''):`<span class="hint">${T('nojobs')}</span>`}</section>
+    <button class="btn ghost" id="out">${T('logout')}</button>`;
+    document.getElementById('sh').onclick=()=>S.on?stopShift():startShift();document.getElementById('out').onclick=logout;
+    const st=document.getElementById('set');if(st)st.onclick=()=>window.Capacitor.Plugins.BackgroundGeolocation.openSettings()}
+  el.querySelectorAll('[data-l]').forEach(b=>b.onclick=()=>{L=b.dataset.l;LS.set('lang',L);render()})}
+render();
+if(S.pin&&S.me){loadJobs();if(S.on)startWatch()}
+setInterval(loadJobs,10*60*1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.on&&!NATIVE&&!S.wake)try{navigator.wakeLock.request('screen').then(w=>S.wake=w)}catch(e){}});
+</script>
+</body>
+</html>

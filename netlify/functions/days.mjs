@@ -28,7 +28,8 @@ export default async (req) => {
     if (req.method === "GET") {
       const pw = (await s.get("auth/passwords", { type: "json" })) || {};
       const pins = (await s.get("state/00.00/pins", { type: "json" })) || {};
-      return json({ passwords: { ops: pw.ops || process.env.OPS_PASSWORD || "", guide: pw.guide || process.env.GUIDE_PASSWORD || "" }, fromEnv: { ops: !pw.ops, guide: !pw.guide }, pins, log: log.slice(-200).reverse() });
+      const drivers = (await s.get("state/00.00/drivers", { type: "json" })) || {};
+      return json({ drivers, passwords: { ops: pw.ops || process.env.OPS_PASSWORD || "", guide: pw.guide || process.env.GUIDE_PASSWORD || "" }, fromEnv: { ops: !pw.ops, guide: !pw.guide }, pins, log: log.slice(-200).reverse() });
     }
     if (req.method === "PUT") {
       const body = (await req.json()) || {};
@@ -64,6 +65,25 @@ export default async (req) => {
           else if (old[n] !== pins[n]) add("PIN изменён: " + n);
         }
         await s.setJSON("state/00.00/pins", pins);
+      }
+      if (body.drivers) {
+        // drivers with the tracking app: {id: {name, veh, phone, pin}}; PIN — 6 digits, different for everyone
+        const old = (await s.get("state/00.00/drivers", { type: "json" })) || {};
+        const D = {}; const seen = new Set();
+        for (const [id, d] of Object.entries(body.drivers)) {
+          if (!d || !String(d.name || "").trim()) continue;
+          const pin = String(d.pin || "").replace(/\D/g, "");
+          if (pin.length !== 6) return json({ error: "PIN водителя — 6 цифр: " + d.name }, 400);
+          if (seen.has(pin)) return json({ error: "Одинаковый PIN у двух водителей: " + pin }, 400);
+          seen.add(pin);
+          D[id] = { name: String(d.name).trim().slice(0, 60), veh: String(d.veh || "").trim().slice(0, 30), phone: String(d.phone || "").trim().slice(0, 30), pin };
+        }
+        for (const id of new Set([...Object.keys(old), ...Object.keys(D)])) {
+          if (old[id] && !D[id]) { add("Водитель удалён: " + old[id].name); await s.delete("loc/" + id).catch(() => {}); }
+          else if (!old[id]) add("Водитель добавлен: " + D[id].name + (D[id].veh ? " · " + D[id].veh : ""));
+          else if (old[id].pin !== D[id].pin) add("PIN водителя изменён: " + D[id].name);
+        }
+        await s.setJSON("state/00.00/drivers", D);
       }
       await s.setJSON("auth/log", log.slice(-500));
       return json({ ok: true });

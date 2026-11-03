@@ -368,6 +368,14 @@ body.role-guide #guidePick,body.role-guide #gKind{display:none}
 .vtbl{width:100%}
 .vtbl a{color:inherit}
 .vtbl th{text-align:left;padding:8px 10px;font-size:12px;color:var(--muted);font-weight:600}
+.vmap{margin-bottom:12px}.vmap>summary{cursor:pointer}.vmap-in{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:10px;margin-top:10px}
+.vmap-map{height:420px;border-radius:8px;border:1px solid var(--line);z-index:0}
+@media (max-width:760px){.vmap-in{grid-template-columns:1fr}.vmap-map{height:320px}}
+.vlist{display:grid;gap:4px;max-height:420px;overflow:auto}.vrow{display:grid;grid-template-columns:auto auto 1fr;gap:2px 8px;align-items:center;text-align:left;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);padding:6px 8px;font:inherit;font-size:13px;cursor:pointer}
+.vrow .hint{grid-column:2/-1}.vrow .dot{width:10px;height:10px;border-radius:50%}.vrow.off{opacity:.6}
+.vpin{background:none;border:0}.vp{display:inline-block;white-space:nowrap;transform:translate(-50%,-50%);padding:3px 8px;border-radius:12px;background:var(--c);color:#fff;font:600 12px system-ui,sans-serif;box-shadow:0 2px 6px rgba(0,0,0,.3);border:2px solid #fff}
+.adm-drv{display:grid;gap:6px}.adm-d{display:grid;grid-template-columns:1.3fr 1fr 1fr 110px auto;gap:6px;align-items:center}.adm-d input{padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit;min-width:0}
+@media (max-width:760px){.adm-d{grid-template-columns:1fr 1fr}.adm-d .b{grid-column:1/-1}}
 .ctl-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:16px 0 4px}.ctl-head h2{margin:0;font-size:18px}
 .ctl-sec{margin:10px 0 4px;font-size:15px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 .ctl-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
@@ -570,6 +578,7 @@ mark{background:var(--signal-soft);color:inherit}
       <div id="repList"></div></details>
     <div class="ctl-head"><h2>Гиды дня</h2><span class="hint" id="ctlDay"></span></div>
     <div id="ctlGuides"></div>
+    <div id="ctlMap" style="margin-top:12px"></div>
     <div class="panel" id="salesAdm" hidden></div>
     <div class="filters" hidden>
       <select id="opsGuide" aria-label="Гид"><option value="">Все гиды</option></select>
@@ -628,6 +637,7 @@ mark{background:var(--signal-soft);color:inherit}
   </section>
 
   <section id="v-veh" hidden>
+    <div id="vehMap"></div>
     <details class="panel wapaste" id="wpBox">
       <summary><b>📲 Машины из WhatsApp</b> <span class="hint" id="wpLast"></span></summary>
       <p class="hint">Скопируйте сообщение с машинами из группы (ARRİVAL / DEPAR) и вставьте сюда. Можно вставить сразу несколько сообщений. Программа сама разложит номера и телефоны водителей по машинам. Пришло обновление — просто вставьте новое сообщение, программа покажет, что поменялось.</p>
@@ -718,6 +728,7 @@ mark{background:var(--signal-soft);color:inherit}
     <div class="adm">
       <div class="panel adm-box"><h3>🔑 Пароли входа</h3><p class="hint">Меняет только администратор. После смены все, кто вошёл со старым паролем, увидят окно входа.</p><div id="admPw"></div></div>
       <div class="panel adm-box"><h3>👤 PIN-коды гидов</h3><p class="hint">Гид входит общим паролем гидов + своим PIN. Без PIN гид не войдёт. PIN можно сразу отправить гиду в WhatsApp.</p><div id="admPins"></div></div>
+      <div class="panel adm-box"><h3>🚐 Водители (приложение Sarabi Sürücü)</h3><p class="hint">Водитель ставит приложение на Android, вводит свой PIN из 6 цифр и нажимает «Vardiyayı başlat» — машина появляется на карте у операционного отдела (Машины) и у вас (Контроль). Машина — как в KAPAK, например BUS 3 или MİNİ 7: тогда водитель видит в приложении свои задания на сегодня.</p><div id="admDrv"></div></div>
       <div class="panel adm-box"><h3>📜 Журнал изменений</h3><div id="admLog"></div></div>
     </div>
   </section>

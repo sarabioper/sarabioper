@@ -1,0 +1,7 @@
+{
+  "appId": "com.sarabitravel.driver",
+  "appName": "Sarabi Sürücü",
+  "webDir": "www",
+  "android": { "useLegacyBridge": true },
+  "plugins": { "CapacitorHttp": { "enabled": true } }
+}

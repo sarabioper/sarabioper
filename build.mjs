@@ -36,6 +36,7 @@ ${r("src/groupimport.js")}
 ${r("src/sales.js")}
 ${r("src/reports.js")}
 ${r("src/admin.js")}
+${r("src/map.js")}
 ${r("src/scan.js")}
 ${r("src/tourocr.js")}
 </script>
