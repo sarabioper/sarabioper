@@ -54,7 +54,7 @@ function bindSlCards(el){bindSales(el);
   el.querySelectorAll('[data-slwa]').forEach(b=>b.onclick=()=>copy(slWa(TOURS[b.dataset.slwa]),true))}
 
 // guide screen, mode "💰 Продажи": the buses of this guide today
-function renderSales(){const box=$('#sales');if(!box)return;const g=curGuide;let iso=gTourDate||isoToday();let L=g?toursOfGuide(g,iso):[];if(!L.length&&iso!==isoToday()){iso=isoToday();L=g?toursOfGuide(g,iso):[]}
+function renderSales(){const box=$('#sales');if(!box)return;const g=curGuide;let iso=gTourDate||isoToday();let L=toursFor(g,iso);if(!L.length&&iso!==isoToday()){iso=isoToday();L=toursFor(g,iso)}
   box.innerHTML=L.length?L.map(t=>slCard(t,{form:true,list:true})).join(''):`<p class="hint">${isoDM(iso)}: экскурсий у ${esc(g||'гида')} нет. Продажи ведутся в режиме «🚌 Экскурсия».</p>`;bindSlCards(box)}
 
 /* ---- price list file (ПРАЙС: name | price | | discount price | what is included) ---- */

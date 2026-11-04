@@ -824,12 +824,18 @@ let gKind=store.get('gkind','arr');
 const tourGuidesToday=()=>{try{return tourGuidesOn(isoToday())}catch(e){return []}};// tours.js may not be loaded yet at boot
 // guide list depends on the task type: KAPAK guides for arrivals/departures, bus programs for excursions
 function guideList(){if(!isOps())return ME?[ME]:[];if(gKind==='tour')return tourGuidesToday().sort((a,b)=>a.localeCompare(b,'tr'));if(!DAY)return [];return guides().filter(g=>[...DAY.arr,...DAY.dep].some(x=>x.g===g&&(gKind==='arr'?DAY.arr.includes(x):DAY.dep.includes(x))))}
+const ruN=(n,a,b,c)=>{n=Math.abs(n)%100;const d=n%10;return n>10&&n<20?c:d===1?a:d>=2&&d<=4?b:c};
 function renderGKind(){const el=$('#gKind');if(!el)return;
-  const n=k=>k==='tour'?tourGuidesToday().length:DAY?new Set((k==='arr'?DAY.arr:DAY.dep).map(x=>x.g).filter(Boolean)).size:0;
-  el.innerHTML=[['arr','✈️ Встреча · Arrival'],['dep','🛫 Сбор · Depart'],['tour','🚌 Экскурсия']].map(([k,l])=>`<button type="button" class="gk gk-${k}" aria-pressed="${gKind===k}" data-gk="${k}">${l}<small>${n(k)} гидов</small></button>`).join('');
+  const n=k=>k==='tour'&&isOps()?(()=>{try{return busesOn(isoToday()).length}catch(e){return 0}})():k==='tour'?tourGuidesToday().length:DAY?new Set((k==='arr'?DAY.arr:DAY.dep).map(x=>x.g).filter(Boolean)).size:0;
+  el.innerHTML=[['arr','✈️ Встреча · Arrival'],['dep','🛫 Сбор · Depart'],['tour','🚌 Экскурсия']].map(([k,l])=>`<button type="button" class="gk gk-${k}" aria-pressed="${gKind===k}" data-gk="${k}">${l}<small>${n(k)} ${k==='tour'&&isOps()?ruN(n(k),'автобус','автобуса','автобусов'):ruN(n(k),'гид','гида','гидов')}</small></button>`).join('');
   el.querySelectorAll('[data-gk]').forEach(b=>b.onclick=()=>{gKind=b.dataset.gk;store.set('gkind',gKind);renderGuidePick();renderGuide()})}
 function renderGuidePick(){
   renderGKind();
+  // excursions in the office: a card per bus (guides together, day of the program, where it is now) instead of a cloud of names
+  if(gKind==='tour'&&isOps()){let html='';try{html=busPickHtml()}catch(e){}$('#guidePick').innerHTML=html;$('#guidePick').classList.add('bpick');
+    const t=TOURPICK&&TOURS[TOURPICK];curGuide=t?(gSplit(t.guide)[0]||t.guide||t.bus):null;
+    $('#guidePick').querySelectorAll('[data-bp]').forEach(b=>b.onclick=()=>{TOURPICK=b.dataset.bp;gTourDate=null;renderGuidePick();renderGuide();renderGuests()});return}
+  $('#guidePick').classList.remove('bpick');
   const gl=guideList();if(!curGuide||!gl.includes(curGuide))curGuide=gl[0]||null;
   $('#guidePick').innerHTML=gl.map(g=>`<button type="button" aria-pressed="${g===curGuide}" data-g="${esc(g)}">${esc(g)}</button>`).join('');
   $('#guidePick').querySelectorAll('button').forEach(b=>b.onclick=()=>{curGuide=b.dataset.g;store.set('guide',curGuide);renderGuidePick();renderGuide();renderGuests()});
@@ -943,7 +949,7 @@ function guestTrips(g){
 function renderGuests(){
   // excursion mode: the guest lists of this guide's buses (short lines, details on tap)
   const fl=$('#gmGuests .filters');if(fl)fl.hidden=gKind==='tour';
-  if(gKind==='tour'&&$('#guests')){const g=curGuide;let iso=gTourDate||isoToday();let L=g?toursOfGuide(g,iso):[];if(!L.length&&iso!==isoToday()){iso=isoToday();L=g?toursOfGuide(g,iso):[]}
+  if(gKind==='tour'&&$('#guests')){const g=curGuide;let iso=gTourDate||isoToday();let L=toursFor(g,iso);if(!L.length&&iso!==isoToday()){iso=isoToday();L=toursFor(g,iso)}
     $('#guests').innerHTML=L.length?L.map(t=>`<section class="gtour"><h3 class="gtour-h">🚌 ${esc(t.bus||'')} <span class="hint">${esc(t.name||'')} · ${isoDM(t.days[0].d)}–${isoDM(t.days[t.days.length-1].d)}${t.pax?' · '+esc(t.pax)+' pax':''}</span></h3>${(t.gx||[]).length?groupGuestsHtml(t,iso):'<p class="hint">Список гостей этого автобуса ещё не загружен.</p>'}</section>`).join(''):`<p class="hint">${isoDM(iso)}: экскурсий у ${esc(g||'гида')} нет.</p>`;
     bindTourCards($('#guests'));return}
   if(!DAY||!$('#guests'))return;

@@ -694,6 +694,9 @@ article.flight.open{border-bottom-left-radius:0;border-bottom-right-radius:0;mar
 .sla-tbl{overflow-x:auto}.sla table,.slp{border-collapse:collapse;font-size:13px;width:100%}.sla th,.sla td{padding:5px 7px;border-bottom:1px solid var(--line);text-align:left}.sla .n{text-align:right}
 .slp input{width:76px;padding:3px 5px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--ink);text-align:right}
 .slpct{font-weight:700}.slpct.ok{color:var(--ok)}.slpct.mid{color:var(--warn)}.slpct.low{color:var(--crit)}
+.bpick{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+.bp{display:grid;gap:2px;text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:9px 11px;font:inherit;font-size:13px;cursor:pointer}
+.bp b{font-size:15px}.bp-g{font-weight:600}.bp-now{font-size:12px;color:var(--signal-ink,#0b5b8a)}.bp[aria-pressed="true"]{border:2px solid var(--ink);background:var(--sunk)}.bp.fin{opacity:.55}
 .gtour{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;margin-bottom:14px;min-width:0}.gtour-h{margin:0;font-size:16px}
 .gtrip-h{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
 .gtrip-h .tt{font-family:var(--f-display);font-size:26px;font-weight:600;line-height:1}
@@ -1980,6 +1983,7 @@ const TR_DICT={
 "Списки групп":"Grup listeleri","Excel, CSV или PDF · экскурсии":"Excel, CSV veya PDF · turlar","можно все группы сразу — сайт сам найдёт автобус по имени гида и дате":"tüm gruplar aynı anda olabilir — site otobüsü rehber adı ve tarihe göre kendisi bulur","Фото программ":"Program fotoğrafları","скриншоты или фото таблиц · Excel":"tablo ekran görüntüsü veya fotoğrafı · Excel","программы автобусов (ÇIKIŞ, MAĞAZA, REHBER, PAX)":"otobüs programları (ÇIKIŞ, MAĞAZA, REHBER, PAX)",
 "Ваше имя и фамилия":"Adınız ve soyadınız","(офис и администратор; гиду не нужно)":"(ofis ve yönetici; rehber için gerekmez)","Введите пароль. Гид после пароля вводит свой личный PIN.":"Şifreyi girin. Rehber, şifreden sonra kişisel PIN'ini girer.","Доброй ночи":"İyi geceler","Доброе утро":"Günaydın","Добрый день":"İyi günler","Добрый вечер":"İyi akşamlar","Нажмите, чтобы изменить имя":"Adı değiştirmek için dokunun","Администратор":"Yönetici",
 "Где машины":"Araçlar nerede","на линии":"hatta","Пока ни один водитель не включил смену.":"Henüz hiçbir şoför vardiyasını başlatmadı.","Водителей и их PIN добавляет администратор":"Şoförleri ve PIN kodlarını yönetici ekler","приложение:":"uygulama:","Водители":"Şoförler","смена закрыта":"vardiya kapalı","стоит":"duruyor","км/ч":"km/s","Дальше:":"Sıradaki:","мин назад":"dk önce","сейчас":"şimdi","Карта не загрузилась, проверьте интернет.":"Harita yüklenmedi, interneti kontrol edin.",
+"гида":"rehber","гид ":"rehber ","автобусов":"otobüs","автобуса":"otobüs","вместе":"birlikte","кок:":"kok:","день ":"gün ","Сегодня автобусов на экскурсиях нет.":"Bugün turda otobüs yok.",
 "Не пришёл":"Gelmedi",
 "не пришёл":"gelmedi",
 "Не сел":"İnmedi",
@@ -3235,12 +3239,18 @@ let gKind=store.get('gkind','arr');
 const tourGuidesToday=()=>{try{return tourGuidesOn(isoToday())}catch(e){return []}};// tours.js may not be loaded yet at boot
 // guide list depends on the task type: KAPAK guides for arrivals/departures, bus programs for excursions
 function guideList(){if(!isOps())return ME?[ME]:[];if(gKind==='tour')return tourGuidesToday().sort((a,b)=>a.localeCompare(b,'tr'));if(!DAY)return [];return guides().filter(g=>[...DAY.arr,...DAY.dep].some(x=>x.g===g&&(gKind==='arr'?DAY.arr.includes(x):DAY.dep.includes(x))))}
+const ruN=(n,a,b,c)=>{n=Math.abs(n)%100;const d=n%10;return n>10&&n<20?c:d===1?a:d>=2&&d<=4?b:c};
 function renderGKind(){const el=$('#gKind');if(!el)return;
-  const n=k=>k==='tour'?tourGuidesToday().length:DAY?new Set((k==='arr'?DAY.arr:DAY.dep).map(x=>x.g).filter(Boolean)).size:0;
-  el.innerHTML=[['arr','✈️ Встреча · Arrival'],['dep','🛫 Сбор · Depart'],['tour','🚌 Экскурсия']].map(([k,l])=>`<button type="button" class="gk gk-${k}" aria-pressed="${gKind===k}" data-gk="${k}">${l}<small>${n(k)} гидов</small></button>`).join('');
+  const n=k=>k==='tour'&&isOps()?(()=>{try{return busesOn(isoToday()).length}catch(e){return 0}})():k==='tour'?tourGuidesToday().length:DAY?new Set((k==='arr'?DAY.arr:DAY.dep).map(x=>x.g).filter(Boolean)).size:0;
+  el.innerHTML=[['arr','✈️ Встреча · Arrival'],['dep','🛫 Сбор · Depart'],['tour','🚌 Экскурсия']].map(([k,l])=>`<button type="button" class="gk gk-${k}" aria-pressed="${gKind===k}" data-gk="${k}">${l}<small>${n(k)} ${k==='tour'&&isOps()?ruN(n(k),'автобус','автобуса','автобусов'):ruN(n(k),'гид','гида','гидов')}</small></button>`).join('');
   el.querySelectorAll('[data-gk]').forEach(b=>b.onclick=()=>{gKind=b.dataset.gk;store.set('gkind',gKind);renderGuidePick();renderGuide()})}
 function renderGuidePick(){
   renderGKind();
+  // excursions in the office: a card per bus (guides together, day of the program, where it is now) instead of a cloud of names
+  if(gKind==='tour'&&isOps()){let html='';try{html=busPickHtml()}catch(e){}$('#guidePick').innerHTML=html;$('#guidePick').classList.add('bpick');
+    const t=TOURPICK&&TOURS[TOURPICK];curGuide=t?(gSplit(t.guide)[0]||t.guide||t.bus):null;
+    $('#guidePick').querySelectorAll('[data-bp]').forEach(b=>b.onclick=()=>{TOURPICK=b.dataset.bp;gTourDate=null;renderGuidePick();renderGuide();renderGuests()});return}
+  $('#guidePick').classList.remove('bpick');
   const gl=guideList();if(!curGuide||!gl.includes(curGuide))curGuide=gl[0]||null;
   $('#guidePick').innerHTML=gl.map(g=>`<button type="button" aria-pressed="${g===curGuide}" data-g="${esc(g)}">${esc(g)}</button>`).join('');
   $('#guidePick').querySelectorAll('button').forEach(b=>b.onclick=()=>{curGuide=b.dataset.g;store.set('guide',curGuide);renderGuidePick();renderGuide();renderGuests()});
@@ -3354,7 +3364,7 @@ function guestTrips(g){
 function renderGuests(){
   // excursion mode: the guest lists of this guide's buses (short lines, details on tap)
   const fl=$('#gmGuests .filters');if(fl)fl.hidden=gKind==='tour';
-  if(gKind==='tour'&&$('#guests')){const g=curGuide;let iso=gTourDate||isoToday();let L=g?toursOfGuide(g,iso):[];if(!L.length&&iso!==isoToday()){iso=isoToday();L=g?toursOfGuide(g,iso):[]}
+  if(gKind==='tour'&&$('#guests')){const g=curGuide;let iso=gTourDate||isoToday();let L=toursFor(g,iso);if(!L.length&&iso!==isoToday()){iso=isoToday();L=toursFor(g,iso)}
     $('#guests').innerHTML=L.length?L.map(t=>`<section class="gtour"><h3 class="gtour-h">🚌 ${esc(t.bus||'')} <span class="hint">${esc(t.name||'')} · ${isoDM(t.days[0].d)}–${isoDM(t.days[t.days.length-1].d)}${t.pax?' · '+esc(t.pax)+' pax':''}</span></h3>${(t.gx||[]).length?groupGuestsHtml(t,iso):'<p class="hint">Список гостей этого автобуса ещё не загружен.</p>'}</section>`).join(''):`<p class="hint">${isoDM(iso)}: экскурсий у ${esc(g||'гида')} нет.</p>`;
     bindTourCards($('#guests'));return}
   if(!DAY||!$('#guests'))return;
@@ -4191,11 +4201,23 @@ setInterval(()=>{if(!$('#v-tours').hidden&&!tEdit&&!(document.activeElement&&doc
 if(!$('#v-tours').hidden){renderTours();pullTours(true)}
 
 // guide screen, "Экскурсия" mode: today's bus programs where this person is the hotel guide or the kok guide
-function tourGuidesOn(iso){const S=new Set();tours().forEach(t=>{if(dayOfTour(t,iso))[t.guide,t.kok].flatMap(x=>String(x||'').split('/')).map(x=>x.trim()).filter(x=>x.length>1).forEach(x=>S.add(x))});return [...S]}
+function tourGuidesOn(iso){const S=new Set();tours().forEach(t=>{if(dayOfTour(t,iso))[t.guide,t.kok].flatMap(gSplit).forEach(x=>S.add(x))});return [...S]}
 // "HALİL/RÜSTEM": both are guides of that bus
-const gOfTour=(t,g)=>[t.guide,t.kok].flatMap(x=>String(x||'').split('/')).some(p=>p.trim()&&sameG(p.trim(),g));
+const gSplit=x=>String(x||'').split(/\s*[\/'#+&]\s*|\s+VE\s+/i).map(p=>p.trim()).filter(p=>p.length>1);
+const gOfTour=(t,g)=>[t.guide,t.kok].flatMap(gSplit).some(p=>sameG(p,g));
 function toursOfGuide(g,iso){return tours().filter(t=>dayOfTour(t,iso)&&gOfTour(t,g))}
-function guideTourHtml(g){let iso=gTourDate||isoToday();let list=toursOfGuide(g,iso);if(!list.length&&iso!==isoToday()){iso=isoToday();gTourDate=null;list=toursOfGuide(g,iso)}
+var TOURPICK=null;
+function toursFor(g,iso){if(isOps()&&TOURPICK&&TOURS[TOURPICK]&&dayOfTour(TOURS[TOURPICK],iso))return [TOURS[TOURPICK]];return g?toursOfGuide(g,iso):[]}
+// buses on the road today, one card each; the same program loaded twice is shown once
+function busesOn(iso){const seen=new Map();tours().filter(t=>dayOfTour(t,iso)).forEach(t=>{const k=gSplit(t.guide).map(nk).sort().join('+')+'|'+t.days[0].d+'|'+nk(t.bus||'');const o=seen.get(k);if(!o||(t.gx||[]).length>(o.gx||[]).length)seen.set(k,t)});
+  return [...seen.values()].sort((a,b)=>String(a.bus).localeCompare(String(b.bus),'tr',{numeric:true}))}
+function busPickHtml(){const iso=isoToday();const L=busesOn(iso);if(!L.length)return '<p class="hint">Сегодня автобусов на экскурсиях нет.</p>';
+  if(!TOURPICK||!L.some(t=>t.id===TOURPICK))TOURPICK=L[0].id;
+  return L.map(t=>{const d=dayOfTour(t,iso);const n=t.days.indexOf(d.day)+1;const gs=gSplit(t.guide);let now='';try{now=tourNow(t,d.day).txt}catch(e){}const fin=/закончен/i.test(now);
+    return `<button type="button" class="bp${fin?' fin':''}" aria-pressed="${t.id===TOURPICK}" data-bp="${esc(t.id)}"><b>🚌 ${esc(t.bus||'—')}</b>
+      <span class="bp-g">${gs.map(esc).join(' + ')||'—'}${gs.length>1?' <span class="chip">вместе</span>':''}</span>${t.kok?`<span class="hint">кок: ${esc(t.kok)}</span>`:''}
+      <span class="hint">день ${n} из ${t.days.length} · ${isoDM(t.days[0].d)}–${isoDM(t.days[t.days.length-1].d)}${gxLive(t).length||+t.pax?' · '+(gxLive(t).length||t.pax)+' pax':''}</span>${now?`<span class="bp-now">${esc(now)}</span>`:''}</button>`}).join('')}
+function guideTourHtml(g){let iso=gTourDate||isoToday();let list=toursFor(g,iso);if(!list.length&&iso!==isoToday()){iso=isoToday();gTourDate=null;list=toursFor(g,iso)}
   if(!list.length)return `<p class="hint">Сегодня (${isoDM(iso)}) экскурсий у ${esc(g)} нет.</p>`;
   const LB=liveBoard(iso);return list.map(t=>tourCardHtml(t,iso,LB,{guide:true})).join('')}
 if(!$('#v-guide').hidden){renderGuidePick();renderGuide()}
@@ -4463,7 +4485,7 @@ function bindSlCards(el){bindSales(el);
   el.querySelectorAll('[data-slwa]').forEach(b=>b.onclick=()=>copy(slWa(TOURS[b.dataset.slwa]),true))}
 
 // guide screen, mode "💰 Продажи": the buses of this guide today
-function renderSales(){const box=$('#sales');if(!box)return;const g=curGuide;let iso=gTourDate||isoToday();let L=g?toursOfGuide(g,iso):[];if(!L.length&&iso!==isoToday()){iso=isoToday();L=g?toursOfGuide(g,iso):[]}
+function renderSales(){const box=$('#sales');if(!box)return;const g=curGuide;let iso=gTourDate||isoToday();let L=toursFor(g,iso);if(!L.length&&iso!==isoToday()){iso=isoToday();L=toursFor(g,iso)}
   box.innerHTML=L.length?L.map(t=>slCard(t,{form:true,list:true})).join(''):`<p class="hint">${isoDM(iso)}: экскурсий у ${esc(g||'гида')} нет. Продажи ведутся в режиме «🚌 Экскурсия».</p>`;bindSlCards(box)}
 
 /* ---- price list file (ПРАЙС: name | price | | discount price | what is included) ---- */

@@ -294,11 +294,23 @@ setInterval(()=>{if(!$('#v-tours').hidden&&!tEdit&&!(document.activeElement&&doc
 if(!$('#v-tours').hidden){renderTours();pullTours(true)}
 
 // guide screen, "Экскурсия" mode: today's bus programs where this person is the hotel guide or the kok guide
-function tourGuidesOn(iso){const S=new Set();tours().forEach(t=>{if(dayOfTour(t,iso))[t.guide,t.kok].flatMap(x=>String(x||'').split('/')).map(x=>x.trim()).filter(x=>x.length>1).forEach(x=>S.add(x))});return [...S]}
+function tourGuidesOn(iso){const S=new Set();tours().forEach(t=>{if(dayOfTour(t,iso))[t.guide,t.kok].flatMap(gSplit).forEach(x=>S.add(x))});return [...S]}
 // "HALİL/RÜSTEM": both are guides of that bus
-const gOfTour=(t,g)=>[t.guide,t.kok].flatMap(x=>String(x||'').split('/')).some(p=>p.trim()&&sameG(p.trim(),g));
+const gSplit=x=>String(x||'').split(/\s*[\/'#+&]\s*|\s+VE\s+/i).map(p=>p.trim()).filter(p=>p.length>1);
+const gOfTour=(t,g)=>[t.guide,t.kok].flatMap(gSplit).some(p=>sameG(p,g));
 function toursOfGuide(g,iso){return tours().filter(t=>dayOfTour(t,iso)&&gOfTour(t,g))}
-function guideTourHtml(g){let iso=gTourDate||isoToday();let list=toursOfGuide(g,iso);if(!list.length&&iso!==isoToday()){iso=isoToday();gTourDate=null;list=toursOfGuide(g,iso)}
+var TOURPICK=null;
+function toursFor(g,iso){if(isOps()&&TOURPICK&&TOURS[TOURPICK]&&dayOfTour(TOURS[TOURPICK],iso))return [TOURS[TOURPICK]];return g?toursOfGuide(g,iso):[]}
+// buses on the road today, one card each; the same program loaded twice is shown once
+function busesOn(iso){const seen=new Map();tours().filter(t=>dayOfTour(t,iso)).forEach(t=>{const k=gSplit(t.guide).map(nk).sort().join('+')+'|'+t.days[0].d+'|'+nk(t.bus||'');const o=seen.get(k);if(!o||(t.gx||[]).length>(o.gx||[]).length)seen.set(k,t)});
+  return [...seen.values()].sort((a,b)=>String(a.bus).localeCompare(String(b.bus),'tr',{numeric:true}))}
+function busPickHtml(){const iso=isoToday();const L=busesOn(iso);if(!L.length)return '<p class="hint">Сегодня автобусов на экскурсиях нет.</p>';
+  if(!TOURPICK||!L.some(t=>t.id===TOURPICK))TOURPICK=L[0].id;
+  return L.map(t=>{const d=dayOfTour(t,iso);const n=t.days.indexOf(d.day)+1;const gs=gSplit(t.guide);let now='';try{now=tourNow(t,d.day).txt}catch(e){}const fin=/закончен/i.test(now);
+    return `<button type="button" class="bp${fin?' fin':''}" aria-pressed="${t.id===TOURPICK}" data-bp="${esc(t.id)}"><b>🚌 ${esc(t.bus||'—')}</b>
+      <span class="bp-g">${gs.map(esc).join(' + ')||'—'}${gs.length>1?' <span class="chip">вместе</span>':''}</span>${t.kok?`<span class="hint">кок: ${esc(t.kok)}</span>`:''}
+      <span class="hint">день ${n} из ${t.days.length} · ${isoDM(t.days[0].d)}–${isoDM(t.days[t.days.length-1].d)}${gxLive(t).length||+t.pax?' · '+(gxLive(t).length||t.pax)+' pax':''}</span>${now?`<span class="bp-now">${esc(now)}</span>`:''}</button>`}).join('')}
+function guideTourHtml(g){let iso=gTourDate||isoToday();let list=toursFor(g,iso);if(!list.length&&iso!==isoToday()){iso=isoToday();gTourDate=null;list=toursFor(g,iso)}
   if(!list.length)return `<p class="hint">Сегодня (${isoDM(iso)}) экскурсий у ${esc(g)} нет.</p>`;
   const LB=liveBoard(iso);return list.map(t=>tourCardHtml(t,iso,LB,{guide:true})).join('')}
 if(!$('#v-guide').hidden){renderGuidePick();renderGuide()}
