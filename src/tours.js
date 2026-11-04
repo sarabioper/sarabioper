@@ -287,7 +287,7 @@ $('#tSamples').onclick=()=>{const add=sampleMissing();if(!add.length)return;if(!
 $('#tBus').onchange=e=>{store.set('tourBus',e.target.value);renderTours()};
 // one button for everything: program tables (Excel or photo) and group guest lists (Excel / PDF) are told apart by their content
 $('#tXls').onchange=async e=>{const fs=[...e.target.files];e.target.value='';const im=fs.filter(f=>/^image\//.test(f.type)||/\.(jpe?g|png|webp|heic)$/i.test(f.name));
-  const grp=[],prog=[];for(const f of fs.filter(f=>!im.includes(f))){try{const rows=await readRows(f);if(isPriceList(rows)){importPrices(rows,f);toast('Прайс загружен: '+f.name);continue}if(isGroupList(rows))grp.push(f);else if(!/\.pdf$/i.test(f.name))prog.push(f);else toast(f.name+': '+T('не похоже ни на программу, ни на список группы'))}catch(err){toast(f.name+': '+err.message)}}
+  const grp=[],prog=[];for(const f of fs.filter(f=>!im.includes(f))){try{const rows=await readRows(f);if(isPriceList(rows)){importPrices(rows,f);toast('Прайс загружен: '+f.name);continue}if(isSeason(rows)&&isAdmin()){await importSeason(f);$('.tab[data-t="season"]').click();continue}if(isGroupList(rows))grp.push(f);else if(!/\.pdf$/i.test(f.name))prog.push(f);else toast(f.name+': '+T('не похоже ни на программу, ни на список группы'))}catch(err){toast(f.name+': '+err.message)}}
   if(prog.length)importTourFiles(prog);if(grp.length)importGroupFiles(grp);if(im.length)importTourImages(im)};
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b&&b.dataset.t==='tours'){renderTours();pullTours(true)}});
 setInterval(()=>{if(!$('#v-tours').hidden&&!tEdit&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#tourList')))renderTours()},60000);

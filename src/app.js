@@ -83,7 +83,7 @@ let ROLE=store.get('role','ops'),ME=store.get('me',null),PINS={};
 // who sees which tab: the administrator — Control, Excursions, Guide screen and the cabinet;
 // operations — everything except Control and Excursions; a guide (with his PIN) — only his own arrivals,
 // departures, vehicles and excursions (Arrivals / Departures / Excursions open his own task screen)
-const ROLE_TABS={admin:['ops','tours','guide','admin'],ops:['board','dep','veh','guide','checks','contacts','data'],guide:['board','dep','veh','tours']};
+const ROLE_TABS={admin:['ops','tours','guide','season','admin'],ops:['board','dep','veh','guide','checks','contacts','data'],guide:['board','dep','veh','tours']};
 const GUIDE_TABS=ROLE_TABS.guide;
 const GUIDE_KIND={board:'arr',dep:'dep',tours:'tour'};
 const tabOk=t=>(ROLE_TABS[ROLE]||ROLE_TABS.ops).includes(t);
@@ -1336,7 +1336,7 @@ setInterval(()=>{if(followNow&&DAY&&!play){NOW=nowMinutes();renderAll()}},60000)
 $('#nowBtn').onclick=()=>{followNow=true;NOW=nowMinutes();store.set('now_'+dayKey,NOW);renderAll()};
 ['#fVeh','#fHotel','#fOp'].forEach(s=>$(s).addEventListener('change',()=>DAY&&renderBoard()));$('#fQ').addEventListener('input',()=>DAY&&renderBoard());
 $('#copyWa').onclick=()=>copy($('#waMsg').textContent);
-const views=['board','ops','dep','veh','tours','guide','checks','contacts','data','admin'];
+const views=['board','ops','dep','veh','tours','guide','checks','contacts','data','season','admin'];
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b||b.hidden)return;
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t===b));
   // a guide's Arrivals / Departures / Excursions are his own task screen in that mode
