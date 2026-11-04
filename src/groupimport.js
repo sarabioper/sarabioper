@@ -9,7 +9,16 @@ function nameScore(a,b){const A=nameToks(a),B=nameToks(b);if(!A.length||!B.lengt
   // each word of the file name against the closest word of the guide's name ("TEVFİK"~"TOFİK", "OĞUZ"~"OĞUZHAN")
   const best=A.map(x=>Math.max(...B.map(y=>{const s=sim(x,y);return y.startsWith(x)||x.startsWith(y)?Math.max(s,0.85):s})));
   return best.reduce((p,c)=>p+c,0)/A.length}
-function tourScore(meta,t){return Math.max(nameScore(meta.name,t.guide),nameScore(meta.name,t.kok),nameScore(meta.name,t.bus),meta.group&&new RegExp('\\b'+meta.group+'\\.?\\s*GRUP','i').test(t.name||'')?0.9:0)}
+// people in the file name ("HALİL HACI + RÜSTEM ASLAN") against the people of the bus ("HALİL/RÜSTEM", kok guide):
+// what counts is that every first name in the file belongs to this bus
+const persons=s=>String(s||'').split(/\s*[+/&,]\s*|\s+VE\s+/i).map(x=>nameToks(x)).filter(x=>x.length);
+function personScore(file,t){const F=persons(file);const B=[...persons(t.guide),...persons(t.kok)];if(!F.length||!B.length)return 0;
+  const fm=(a,b)=>{const s=sim(a,b);return a===b||(a.length>=4&&b.length>=4&&(a.startsWith(b)||b.startsWith(a)))?1:s};
+  const per=F.map(p=>Math.max(...B.map(q=>{const f=fm(p[0],q[0]);if(f<0.85)return 0;return p[1]&&q[1]?(fm(p[1],q[1])>=0.85?1:0.9):0.92})));
+  return per.every(x=>x>0)?per.reduce((a,b)=>a+b,0)/per.length:0}
+function tourScore(meta,t){const base=Math.max(personScore(meta.name,t),nameScore(meta.name,t.guide),nameScore(meta.name,t.kok),nameScore(meta.name,t.bus));
+  // the group number only helps a name that already fits; alone it proves nothing
+  return base+(base>=0.6&&meta.group&&new RegExp('\\b'+meta.group+'\\.?\\s*GRUP','i').test(t.name||'')?0.05:0)}
 let GIMP=null,GIMPW='tours';// review of a batch before anything is saved; shown in Excursions or under the upload box
 const gimpEl=()=>$(GIMPW==='data'?'#grpReviewD':'#grpReview');
 function checkGroup(it){const t=TOURS[it.tid];it.warn=[];if(!t){it.warn.push('автобус не найден — выберите вручную или сначала загрузите программу');return}
@@ -19,7 +28,8 @@ function checkGroup(it){const t=TOURS[it.tid];it.warn=[];if(!t){it.warn.push('а
   const ads=it.P.guests.map(x=>x.ad).filter(Boolean);if(ads.length){const cnt={};ads.forEach(a=>cnt[a]=(cnt[a]||0)+1);const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0][0];
     const d=Math.round((Date.parse(start)-Date.parse(top))/864e5);if(d<-1||d>3)it.warn.push(`гости прилетают ${isoDM(top)}, а программа начинается ${isoDM(start)}`)}
   const pax=+t.pax||0,n=it.P.guests.length;if(pax&&Math.abs(pax-n)>2)it.warn.push(`в списке ${n} гостей, а у автобуса PAX ${pax}`);
-  if((t.gx||[]).length)it.note=`заменит текущий список (${t.gx.length} гостей)`;else it.note='';
+  if(it.P.parts>1)it.note2=`в файле ${it.P.parts} части: ${it.P.code}`;
+  if((t.gx||[]).length){const M=mergeGuests(t.gx,it.P.guests);it.note=`уже загружено ${gxLive(t).length} гостей → ${mergeMsg(M,it.P.guests.length)}`;it.added=M.added}else{it.note='';it.added=null}
   const same=GIMP.items.filter(o=>o!==it&&o.tid===it.tid&&!o.skip);
   if(same.length){const dup=same.find(o=>o.sig===it.sig);if(dup&&GIMP.items.indexOf(dup)<GIMP.items.indexOf(it)){it.skip=true;it.warn.push('копия того же файла — пропущу')}else if(!dup){it.conflict=true;it.warn.push('на этот же автобус выбран ещё один файл — выберите для одного из них другой автобус')}}}
 async function importGroupFiles(files,where){GIMPW=where==='data'?'data':'tours';['#grpReview','#grpReviewD'].forEach(s=>{const e=$(s);if(e){e.hidden=true;e.innerHTML=''}});
@@ -42,10 +52,10 @@ function renderGroupImport(){const el=gimpEl();if(!el)return;if(!GIMP){el.hidden
   el.hidden=false;el.innerHTML=`<h3>📋 Списки групп: проверьте, кто куда</h3>
     <div class="gi-list">${GIMP.items.map((it,i)=>`<div class="gi ${it.bad?'bad':it.warn&&it.warn.length?'warn':'ok'}"><div class="gi-f"><b>${esc(it.f.name)}</b>${it.P?` <span class="chip">👥 ${it.P.guests.length}</span>${it.P.code?` <span class="hint">${esc(it.P.code)}</span>`:''}`:''}</div>
       ${it.bad?`<div class="gi-w">✗ ${esc(it.bad)}</div>`:`<label class="gi-sel">→ <select data-gisel="${i}">${opts(it.tid)}</select>${it.tid&&it.score>=0.72&&it.score<1.01?'<span class="hint"> найдено по имени гида</span>':''}</label>
-      ${it.warn.map(w=>`<div class="gi-w">⚠ ${esc(w)}</div>`).join('')}${it.hint&&!it.tid?`<div class="hint">${esc(it.hint)}</div>`:''}${it.note?`<div class="hint">${esc(it.note)}</div>`:''}`}</div>`).join('')}</div>
+      ${it.warn.map(w=>`<div class="gi-w">⚠ ${esc(w)}</div>`).join('')}${it.hint&&!it.tid?`<div class="hint">${esc(it.hint)}</div>`:''}${it.note?`<div class="hint">${esc(it.note)}</div>`:''}${it.note2?`<div class="hint">${esc(it.note2)}</div>`:''}${it.added&&it.added.length?`<div class="hint">🆕 ${it.added.map(x=>esc(x.n)).join(', ')}</div>`:''}`}</div>`).join('')}</div>
     <p class="xact"><span class="hint">Будет загружено: ${ok.length} из ${GIMP.items.length}</span><span class="sp"></span><button type="button" class="btn" id="giCancel">Отмена</button><button type="button" class="btn primary" id="giGo"${ok.length?'':' disabled'}>Загрузить ${ok.length}</button></p>`;
   el.querySelectorAll('[data-gisel]').forEach(s=>s.onchange=()=>{GIMP.items[+s.dataset.gisel].tid=s.value;GIMP.items[+s.dataset.gisel].score=1;renderGroupImport()});
   $('#giCancel').onclick=()=>{GIMP=null;renderGroupImport()};
   $('#giGo').onclick=()=>{const warned=ok.filter(it=>it.warn.length);if(warned.length&&!confirm(T('Есть предупреждения')+` (${warned.length}). `+T('Всё равно загрузить?')))return;
-    ok.forEach(it=>{const t=JSON.parse(JSON.stringify(TOURS[it.tid]));t.gx=it.P.guests;t.guests=it.P.guests.map(x=>x.n);t.gcode=it.P.code;t.ghotels=it.P.hotels;if(!+t.pax)t.pax=String(it.P.guests.length);saveTour(t.id,t)});
-    toast(`Списки загружены: ${ok.length}`);GIMP=null;renderGroupImport();renderTours()}}
+    const msgs=ok.map(it=>{const t=JSON.parse(JSON.stringify(TOURS[it.tid]));const M=applyGuests(t,it.P);saveTour(t.id,t);return `${t.bus}: ${mergeMsg(M,it.P.guests.length)}`});
+    toast(`Списки загружены: ${msgs.join(' · ')}`);GIMP=null;renderGroupImport();renderTours()}}

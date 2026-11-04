@@ -8,7 +8,7 @@ const SL_TARGET=()=>+(PRICES['~target']||350);
 const slItems=()=>Object.entries(PRICES).filter(([k,v])=>k.startsWith('i:')&&v&&v.n).map(([k,v])=>Object.assign({id:k},v)).sort((a,b)=>(a.k==='pack'?0:1)-(b.k==='pack'?0:1)||(b.full||0)-(a.full||0));
 // a bus sells the packages at the individual or the group (TOPLU) price
 const slPrice=(it,t)=>it.k==='pack'?(+(t&&t.plist==='grp'?it.grp:it.ind)||+it.full||0):(+it.full||0);
-const slPax=t=>{const X=t.gx||[];const n=X.filter(x=>!/INF/i.test(x.sex)).length;return n||+t.pax||0};
+const slPax=t=>{const X=(t.gx||[]).filter(x=>!x.gone);const n=X.filter(x=>!/INF/i.test(x.sex)).length;return n||+t.pax||0};
 const slOf=tid=>Object.values(SALES).filter(s=>s&&s.tid===tid);
 const slGuest=(tid,gi)=>slOf(tid).filter(s=>s.gi===gi);
 const money=v=>Math.round(+v||0).toLocaleString('ru').replace(/ /g,' ')+' $';
@@ -45,7 +45,7 @@ function slCard(t,o={}){const S=slStats(t);const cls=S.pct>=100?'ok':S.pct>=60?'
     <div class="tact"><button type="button" class="btn sm" data-slwa="${esc(t.id)}">📋 Отчёт в WhatsApp</button></div></section>`}
 // quick sale from the Sales block: guest + item
 function slFormHtml(t){const X=t.gx||[];const items=slItems();if(!items.length)return '<p class="hint">Прайс ещё не загружен — его загружает офис.</p>';
-  return `<div class="slf"><select data-slg="${esc(t.id)}"><option value="-1">— гость (можно без имени) —</option>${X.map((x,i)=>`<option value="${i}"${SLG&&SLG.tid===t.id&&SLG.gi===i?' selected':''}>${x.no}. ${esc(x.n)}</option>`).join('')}</select>
+  return `<div class="slf"><select data-slg="${esc(t.id)}"><option value="-1">— гость (можно без имени) —</option>${X.map((x,i)=>x.gone?'':`<option value="${i}"${SLG&&SLG.tid===t.id&&SLG.gi===i?' selected':''}>${x.no}. ${esc(x.n)}</option>`).join('')}</select>
     <div class="gs-items">${items.map(it=>`<button type="button" class="btn sm${it.k==='pack'?' pack':''}" data-slq="${esc(t.id)}|${esc(it.id)}">${esc(it.n)} <b>${money(slPrice(it,t))}</b></button>`).join('')}</div></div>`}
 function slWa(t){const S=slStats(t);return [`💰 *${t.bus||''}* · ${t.guide||''} · ${isoDM(t.days[0].d)}–${isoDM(t.days[t.days.length-1].d)}`,`Продано: *${money(S.sum)}* · на человека ${money(S.per)} (цель ${money(SL_TARGET())}) · ${S.pct}%`,`Купили: ${S.buyers} из ${S.pax}`,'',...S.items.map(x=>`${x.n} ×${x.q} = ${money(x.s)}`)].join('\n')}
 function bindSlCards(el){bindSales(el);
