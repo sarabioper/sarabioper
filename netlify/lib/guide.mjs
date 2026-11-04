@@ -33,8 +33,13 @@ export function dayForGuide(d, me) {
   return out;
 }
 // "HALİL/RÜSTEM" on one bus: each of them is a guide of that bus
+const parts = (x) => String(x || "").split(/\s*[\/'#+&]\s*|\s+VE\s+/i).map((p) => p.trim()).filter((p) => p.length > 1);
+const squash = (x) => normName(x).replace(/[^A-Z]/g, "");
 export function guideOfTour(t, me) {
-  return [t && t.guide, t && t.kok].flatMap((x) => String(x || "").split("/")).some((p) => p.trim() && sameGuide(p, me));
+  if (!t || !me) return false;
+  const T = [t.guide, t.kok].flatMap(parts), M = parts(me).length ? parts(me) : [me];
+  if ([t.guide, t.kok].some((x) => x && squash(x) === squash(me))) return true;
+  return M.some((m) => T.some((p) => sameGuide(p, m) || squash(p) === squash(m)));
 }
 // tours: his own bus with its guests (without money and passport numbers); other buses only as a route, for coordination
 export function toursForGuide(T, me) {

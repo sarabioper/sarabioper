@@ -153,7 +153,7 @@ const x=dayOfTour(t,iso);const st=tourNow(t,x.day);let lastA=-1;x.day.s.forEach(
           ${m.a!=null?`<small class="ok">📍 ${fmt(m.a)}${m.d!=null?' → 🚌 '+fmt(m.d):''}</small>`:''}
           ${s.k==='shop'&&m.a!=null?`<label class="sale">Продажа <input value="${esc(m.s||'')}" data-sale="${key}" placeholder="сумма"></label>`:''}</span>
         <span class="tb">${m.a==null?`<button type="button" class="btn sm" data-ta="${key}">📍 ${s.k==='start'?'Выехали':'Прибыли'}</button>`:m.d==null&&s.k!=='start'&&s.k!=='hotel'&&s.k!=='transfer'?`<button type="button" class="btn sm primary" data-td="${key}">🚌 Уехали</button>`:''}${m.a!=null?`<button type="button" class="btn sm ghost" data-tu="${key}" title="Отменить">↺</button>`:''}</span></li>`}).join('');
-    return `<article class="tcard" data-iso="${iso}"><header class="tch"><div><b class="tbus">${esc(t.bus||'BUS ?')}</b> ${t.name?`<span>${esc(t.name)}</span>`:''} <button type="button" class="chip tg-btn" data-tguests="${esc(t.id)}" aria-expanded="${TGOPEN.has(t.id)}">👥 ${esc(t.pax||'?')}${(t.guests||[]).length?` · ${t.guests.length} имён`:''} ▾</button></div>
+    return `<article class="tcard" data-iso="${iso}"><header class="tch"><div><b class="tbus">${esc(t.bus||'BUS ?')}</b> ${t.name?`<span>${esc(t.name)}</span>`:''}${!o.guide&&isOps()&&(()=>{try{return dupOf(t)}catch(e){return null}})()?` <span class="chip" style="background:var(--warn-soft);color:var(--warn)" title="Та же программа загружена ещё раз — эту копию можно удалить: Изменить → Удалить">⚠ копия ${esc(dupOf(t).bus||'')}</span>`:''} <button type="button" class="chip tg-btn" data-tguests="${esc(t.id)}" aria-expanded="${TGOPEN.has(t.id)}">👥 ${esc(t.pax||'?')}${(t.guests||[]).length?` · ${t.guests.length} имён`:''} ▾</button></div>
       <div class="tdays" role="group" aria-label="Дни программы">${t.days.map((d,i)=>`<button type="button" data-tgo="${d.d}" aria-pressed="${i===x.i}" title="${isoDM(d.d)}">${i===0?'« ':''}${i+1}${i===t.days.length-1?' »':''}<small>${isoDM(d.d)}</small></button>`).join('')}</div>
       <div class="tst-now ${st.cls}">${esc(st.txt)}</div></header>
       <div class="tppl">${t.guide?`<span>Гид отеля: ${gTag(t.guide)}</span>`:''}${t.kok?`<span>Кок гид: ${gTag(t.kok)}</span>`:''}${t.plate||t.driver?`<span>🚌 ${esc(t.plate||'')} ${esc(t.driver||'')}${t.dphone?` · <a class="tel" href="tel:${esc(t.dphone.replace(/\s/g,''))}">${esc(t.dphone)}</a>`:''}</span>`:''}${t.hotel?`<span>🏨 ${esc(t.hotel)}</span>`:''}</div>
@@ -297,12 +297,18 @@ if(!$('#v-tours').hidden){renderTours();pullTours(true)}
 function tourGuidesOn(iso){const S=new Set();tours().forEach(t=>{if(dayOfTour(t,iso))[t.guide,t.kok].flatMap(gSplit).forEach(x=>S.add(x))});return [...S]}
 // "HALİL/RÜSTEM": both are guides of that bus
 const gSplit=x=>String(x||'').split(/\s*[\/'#+&]\s*|\s+VE\s+/i).map(p=>p.trim()).filter(p=>p.length>1);
-const gOfTour=(t,g)=>[t.guide,t.kok].flatMap(gSplit).some(p=>sameG(p,g));
+const gSq=x=>gKey(x||'').replace(/[^A-Z]/g,'');
+const gOfTour=(t,g)=>{if(!g)return false;if([t.guide,t.kok].some(x=>x&&gSq(x)===gSq(g)))return true;const M=gSplit(g).length?gSplit(g):[g];
+  return M.some(m=>[t.guide,t.kok].flatMap(gSplit).some(p=>sameG(p,m)||gSq(p)===gSq(m)))};
 function toursOfGuide(g,iso){return tours().filter(t=>dayOfTour(t,iso)&&gOfTour(t,g))}
 var TOURPICK=null;
 function toursFor(g,iso){if(isOps()&&TOURPICK&&TOURS[TOURPICK]&&dayOfTour(TOURS[TOURPICK],iso))return [TOURS[TOURPICK]];return g?toursOfGuide(g,iso):[]}
 // buses on the road today, one card each; the same program loaded twice is shown once
-function busesOn(iso){const seen=new Map();tours().filter(t=>dayOfTour(t,iso)).forEach(t=>{const k=gSplit(t.guide).map(nk).sort().join('+')+'|'+t.days[0].d+'|'+nk(t.bus||'');const o=seen.get(k);if(!o||(t.gx||[]).length>(o.gx||[]).length)seen.set(k,t)});
+// the same program loaded twice ("HALİL/RÜST EM" from one photo, "HALİL'RÜSTEM" from another): same people, same first day
+const tourKey=t=>gSplit(t.guide).map(gSq).sort().join('+')+'|'+(t.days[0]||{}).d;
+function dupOf(t){const k=tourKey(t);const o=tours().filter(x=>x.id!==t.id&&tourKey(x)===k);if(!o.length)return null;
+  const best=[t,...o].sort((a,b)=>(b.gx||[]).length-(a.gx||[]).length||String(a.id).localeCompare(String(b.id)))[0];return best.id===t.id?null:best}
+function busesOn(iso){const seen=new Map();tours().filter(t=>dayOfTour(t,iso)).forEach(t=>{const k=tourKey(t);const o=seen.get(k);if(!o||(t.gx||[]).length>(o.gx||[]).length)seen.set(k,t)});
   return [...seen.values()].sort((a,b)=>String(a.bus).localeCompare(String(b.bus),'tr',{numeric:true}))}
 function busPickHtml(){const iso=isoToday();const L=busesOn(iso);if(!L.length)return '<p class="hint">Сегодня автобусов на экскурсиях нет.</p>';
   if(!TOURPICK||!L.some(t=>t.id===TOURPICK))TOURPICK=L[0].id;
