@@ -30,12 +30,13 @@ function renderAdmin(){if(!$('#v-admin')||!isAdmin())return;
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b&&b.dataset.t==='admin'&&isAdmin())loadAdmin().catch(()=>{})});
 
 /* ---- drivers with the tracking app: name, vehicle, phone, 6-digit PIN; operations and the administrator give them out ---- */
-var DRV={};
+var DRV={},DRVBOT=null;
 const drvBox=()=>ROLE==='admin'?$('#admDrv'):ROLE==='ops'?$('#vehDrv'):null;
-async function loadDrivers(){if(!SERVER||ROLE==='guide')return;try{const r=await api('GET','/api/drivers');DRV=r.drivers||{};renderDrivers()}catch(e){}}
+async function loadDrivers(){if(!SERVER||ROLE==='guide')return;try{const r=await api('GET','/api/drivers');DRV=r.drivers||{};DRVBOT=r.bot||null;renderDrivers()}catch(e){}}
 const drvPin=()=>{const used=new Set(Object.values(DRV).map(d=>String(d.pin)));let p='';while(!p||used.has(p))p=String(100000+Math.floor(Math.random()*900000));return p};
 async function saveDrivers(D,msg){try{await api('PUT','/api/drivers',{drivers:D});DRV=D;toast(msg||'Сохранено');renderDrivers();if(isAdmin())loadAdmin().catch(()=>{})}catch(e){toast('Не сохранилось: '+String(e.message).replace(/[{}"]/g,' '));loadDrivers()}}
-function drvWa(d){return [`SARABI · Sürücü uygulaması`,`1) Uygulamayı indirin ve kurun: ${APK_URL}`,`   (Google Play Koruma uyarısında "Yine de yükle"ye basın)`,`2) PIN kodunuz: ${d.pin}`,`3) Vardiya başlarken "VARDİYAYI BAŞLAT", bitince "VARDİYAYI BİTİR".`,`Konum yalnızca vardiya süresince paylaşılır.`].join('\n')}
+function drvWa(d){return [`SARABI · Sürücü`,`PIN kodunuz: ${d.pin}`,'',`📱 ANDROID: uygulamayı indirin ve kurun: ${APK_URL}`,`   (Google Play Koruma uyarısında "Yine de yükle"ye basın)`,`   Vardiya başlarken "VARDİYAYI BAŞLAT", bitince "VARDİYAYI BİTİR".`,
+  ...(DRVBOT?['',`🍏 iPHONE (veya Telegram ile): https://t.me/${DRVBOT}`,`   Bota PIN kodunuzu yazın, sonra 📎 → Konum → "Canlı Konumu Paylaş" → "Ben kapatana kadar".`,`   Vardiya bitince /bitir yazın.`]:[]),'',`Konum yalnızca vardiya süresince paylaşılır.`].join('\n')}
 function renderDrivers(){const el=drvBox();if(!el)return;const D=DRV||{};
   const vehs=[...new Set([...(DAY?[...DAY.arr,...DAY.dep].map(g=>g.v):[]),...Object.keys(assign||{})].filter(v=>v&&!/^~/.test(v)))].sort((a,b)=>a.localeCompare(b,'tr',{numeric:true}));
   const rows=Object.entries(D).sort((a,b)=>String(a[1].veh).localeCompare(String(b[1].veh),'tr',{numeric:true}));
@@ -44,7 +45,8 @@ function renderDrivers(){const el=drvBox();if(!el)return;const D=DRV||{};
       return `<div class="adm-d"><input data-dv="${esc(id)}|name" value="${esc(d.name)}" placeholder="Имя водителя"><input data-dv="${esc(id)}|veh" value="${esc(d.veh||'')}" list="drvVehL" placeholder="Машина (BUS 3)"><input data-dv="${esc(id)}|phone" value="${esc(d.phone||'')}" placeholder="Телефон" inputmode="tel">
         <b class="num" title="PIN">🔑 ${esc(d.pin)}</b><span class="b"><button type="button" class="btn sm" data-dvpin="${esc(id)}" title="Новый PIN">🎲</button>${ph.length>=10?`<a class="btn sm wa-go" target="_blank" rel="noopener" href="https://wa.me/${esc(ph)}?text=${encodeURIComponent(drvWa(d))}">WhatsApp</a>`:`<button type="button" class="btn sm" data-dvcopy="${esc(id)}">📋 Текст</button>`}<button type="button" class="btn sm ghost" data-dvdel="${esc(id)}" title="Удалить">✕</button></span></div>`}).join('')||'<p class="hint">Водителей пока нет.</p>'}
     <div class="adm-d"><input data-dvnew="name" placeholder="Новый водитель: имя"><input data-dvnew="veh" list="drvVehL" placeholder="Машина"><input data-dvnew="phone" placeholder="Телефон" inputmode="tel"><span></span><span class="b"><button type="button" class="btn primary" data-dvadd>+ Добавить</button></span></div></div>
-    <p class="hint">Приложение (Android): <a href="${APK_URL}" target="_blank" rel="noopener">sarabi-driver.apk</a> · проверить в браузере: <a href="/driver.html" target="_blank" rel="noopener">/driver.html</a></p>`;
+    <p class="hint">Android: <a href="${APK_URL}" target="_blank" rel="noopener">sarabi-driver.apk</a> · iPhone: ${DRVBOT?`Telegram-бот <a href="https://t.me/${esc(DRVBOT)}" target="_blank" rel="noopener">@${esc(DRVBOT)}</a> подключён <button type="button" class="btn sm ghost" data-tgsetup>⟳</button>`:`<button type="button" class="btn sm" data-tgsetup>Подключить Telegram-бота</button> (сначала ключ TELEGRAM_BOT_TOKEN в Netlify)`} · проверить в браузере: <a href="/driver.html" target="_blank" rel="noopener">/driver.html</a></p>`;
+  const ts=el.querySelector('[data-tgsetup]');if(ts)ts.onclick=async()=>{ts.disabled=true;try{const r=await api('GET','/api/tg/setup');DRVBOT=r.bot;toast('Telegram-бот подключён: @'+r.bot);renderDrivers()}catch(e){toast(String(e.message).replace(/[{}"]/g,' ').replace(/error:/,''));ts.disabled=false}};
   el.querySelectorAll('[data-dv]').forEach(i=>i.onchange=()=>{const [id,f]=i.dataset.dv.split('|');const N=JSON.parse(JSON.stringify(D));N[id][f]=i.value.trim();if(f==='veh')N[id][f]=N[id][f].toLocaleUpperCase('tr');saveDrivers(N,'Водитель сохранён')});
   el.querySelectorAll('[data-dvpin]').forEach(b=>b.onclick=()=>{const N=JSON.parse(JSON.stringify(D));N[b.dataset.dvpin].pin=drvPin();saveDrivers(N,'Новый PIN: '+N[b.dataset.dvpin].pin+' — отправьте водителю')});
   el.querySelectorAll('[data-dvcopy]').forEach(b=>b.onclick=()=>copy(drvWa(D[b.dataset.dvcopy]),true));

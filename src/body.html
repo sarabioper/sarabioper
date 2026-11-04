@@ -368,7 +368,7 @@ body.role-guide #guidePick,body.role-guide #gKind{display:none}
 .vtbl{width:100%}
 .vtbl a{color:inherit}
 .vtbl th{text-align:left;padding:8px 10px;font-size:12px;color:var(--muted);font-weight:600}
-.vmap{margin-bottom:12px}.vmap>summary{cursor:pointer}.vmap-in{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:10px;margin-top:10px}
+.vmap{margin-bottom:12px}.valert{display:grid;gap:4px;margin:8px 0}.va{text-align:left;border:1px solid var(--crit);background:var(--crit-soft);color:var(--ink);border-radius:6px;padding:6px 9px;font:inherit;font-size:13px;cursor:pointer}.vrow.never{opacity:.6}.vmap>summary{cursor:pointer}.vmap-in{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:10px;margin-top:10px}
 .vmap-map{height:420px;border-radius:8px;border:1px solid var(--line);z-index:0}
 @media (max-width:760px){.vmap-in{grid-template-columns:1fr}.vmap-map{height:320px}}
 .vlist{display:grid;gap:4px;max-height:420px;overflow:auto}.vrow{display:grid;grid-template-columns:auto auto 1fr;gap:2px 8px;align-items:center;text-align:left;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);padding:6px 8px;font:inherit;font-size:13px;cursor:pointer}
@@ -543,9 +543,9 @@ mark{background:var(--signal-soft);color:inherit}
     </div>
     <nav class="tabs" role="tablist" id="tabs">
       <button class="tab" role="tab" data-t="board" aria-selected="true">Прилёты</button>
-      <button class="tab" role="tab" data-t="ops">Контроль<span class="cnt" id="repCnt" hidden>0</span></button>
+      <button class="tab" role="tab" data-t="ops">Контроль<span class="cnt" id="repCnt" hidden>0</span><span class="cnt" id="ctlVCnt" hidden>0</span></button>
       <button class="tab" role="tab" data-t="dep">Вылеты<span class="cnt" id="depCnt" hidden>0</span></button>
-      <button class="tab" role="tab" data-t="veh">Машины</button>
+      <button class="tab" role="tab" data-t="veh">Машины<span class="cnt" id="vehCnt" hidden>0</span></button>
       <button class="tab" role="tab" data-t="tours">Экскурсии</button>
       <button class="tab" role="tab" data-t="guide">Гид</button>
       <button class="tab" role="tab" data-t="checks">Проверка<span class="cnt" id="chkCnt">0</span></button>

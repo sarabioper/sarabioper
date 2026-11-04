@@ -25,7 +25,7 @@ export default async (req) => {
   // drivers and their PINs: operations and the administrator
   if (path === "/api/drivers") {
     if (!isOffice(auth)) return forbidden();
-    if (req.method === "GET") return json({ drivers: (await s.get("state/00.00/drivers", { type: "json" })) || {} });
+    if (req.method === "GET") return json({ drivers: (await s.get("state/00.00/drivers", { type: "json" })) || {}, bot: ((await s.get("state/00.00/tg", { type: "json" })) || {}).bot || null });
     if (req.method === "PUT") {
       const body = (await req.json()) || {};
       const log = (await s.get("auth/log", { type: "json" })) || [];
