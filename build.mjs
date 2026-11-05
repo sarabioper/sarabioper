@@ -39,6 +39,7 @@ ${r("src/admin.js")}
 ${r("src/map.js")}
 ${r("src/season.js")}
 ${r("src/flightsrc.js")}
+${r("src/find.js")}
 ${r("src/scan.js")}
 ${r("src/tourocr.js")}
 </script>
