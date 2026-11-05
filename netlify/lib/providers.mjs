@@ -140,3 +140,34 @@ export async function airLabsDepFlight(key, code) {
   if (!x || (x.dep_iata && x.dep_iata !== AIRPORT)) return null;
   return fromAirLabsDep(x);
 }
+
+// Aviationstack departures from AYT (the airport's departure board), same record as AirLabs departures.
+const fromAvsDep = (x) => {
+  const d = x.departure || {}, a = x.arrival || {};
+  return {
+    rich: true,
+    status: x.flight_status || "scheduled",
+    sch: hhmm(d.scheduled),
+    est: hhmm(d.estimated),
+    act: hhmm(d.actual),
+    delay: d.delay ?? null,
+    to: a.iata || "",
+    term: d.terminal || "",
+    gate: d.gate || "",
+    date: String(d.scheduled || "").slice(0, 10) || x.flight_date,
+  };
+};
+export async function aviationstackDepartures(key, watch, pages = 1, today) {
+  let flights = {}, requests = 0;
+  for (let page = 0; page < pages; page++) {
+    const r = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${encodeURIComponent(key)}&dep_iata=${AIRPORT}&limit=100&offset=${page * 100}`);
+    requests++;
+    const body = await r.json();
+    if (body.error) throw new Error("Aviationstack: " + (body.error.message || body.error.code));
+    const rows = body.data || [];
+    Object.assign(flights, collect(rows, fromAvsDep, (x) => x.flight && x.flight.iata, (x) => x.flight && x.flight.codeshared && x.flight.codeshared.flight_iata, watch, today));
+    const total = body.pagination ? body.pagination.total : rows.length;
+    if ((page + 1) * 100 >= total) break;
+  }
+  return { flights, requests };
+}

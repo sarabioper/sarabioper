@@ -1,5 +1,6 @@
 import { store, istanbulNow } from "./common.mjs";
-import { airLabsAirport, airLabsFlight, aviationstackAirport, aviationstackFlight, airLabsDepartures, airLabsDepFlight } from "./providers.mjs";
+import { airLabsAirport, airLabsFlight, aviationstackAirport, aviationstackFlight, airLabsDepartures, airLabsDepFlight, aviationstackDepartures } from "./providers.mjs";
+import { flightCfg } from "./flightcfg.mjs";
 import { activeFlights, missingSoon, toMin, watchDepFromDay, activeDeps } from "./watch.mjs";
 
 // The flight list comes from the uploaded KAPAK. No KAPAK for today -> no requests at all.
@@ -23,9 +24,15 @@ export async function poll({ force = false } = {}) {
   }
   if (!Object.keys(watch).length && !Object.keys(watchDep).length) return { skipped: "На сегодня Капак не загружен, рейсы не отслеживаются" };
 
-  const airlabsKey = process.env.AIRLABS_KEY;
-  const avsKey = process.env.AVIATIONSTACK_KEY;
-  if (!airlabsKey && !avsKey) return { skipped: "Ключ API рейсов не задан на сервере" };
+  const cfg = await flightCfg(s);
+  // the service chosen on the site for arrivals / departures ("auto": AirLabs first, Aviationstack as a fallback)
+  const arrMode = cfg.arr, depMode = cfg.dep;
+  const airlabsKey = arrMode === "auto" || arrMode === "AirLabs" ? process.env.AIRLABS_KEY : null;
+  const avsKey = arrMode === "auto" || arrMode === "Aviationstack" ? process.env.AVIATIONSTACK_KEY : null;
+  const depAirlabs = (depMode === "auto" || depMode === "AirLabs") && process.env.AIRLABS_KEY;
+  const depAvs = (depMode === "Aviationstack" || (depMode === "auto" && !process.env.AIRLABS_KEY)) && process.env.AVIATIONSTACK_KEY;
+  if (!airlabsKey && !avsKey && !depAirlabs && !depAvs) return { skipped: arrMode === "off" && depMode === "off" ? "Слежение за рейсами выключено" : "Ключ API рейсов не задан на сервере" };
+  const avsLimit = cfg.limits.Aviationstack, alLimit = cfg.limits.AirLabs;
 
   const snapKey = "live/" + now.date;
   const snap = (await s.get(snapKey, { type: "json" })) || { date: now.date, flights: {}, checked: {} };
@@ -47,7 +54,8 @@ export async function poll({ force = false } = {}) {
 
   // 1) AirLabs. On the Free plan it has no live times: detected once, then skipped for a day.
   const airlabsBasic = meta.airlabsBasicAt && Date.now() - Date.parse(meta.airlabsBasicAt) < 24 * 3600 * 1000;
-  if (airlabsKey && !airlabsBasic && (active.length || force) && (force || minsSince("AirLabs") >= Number(process.env.AIRLABS_EVERY_MIN || 20) - 1)) {
+  const alLeft = () => alLimit - (meta.used.AirLabs || 0);
+  if (airlabsKey && alLeft() > 0 && !(airlabsBasic && arrMode === "auto") && (active.length || force) && (force || minsSince("AirLabs") >= Number(process.env.AIRLABS_EVERY_MIN || 20) - 1)) {
     try {
       const r = await airLabsAirport(airlabsKey, watch, Number(process.env.AIRLABS_PAGES || 1), now.date);
       count("AirLabs", r.requests); meta.lastAirLabs = new Date().toISOString();
@@ -65,9 +73,10 @@ export async function poll({ force = false } = {}) {
   }
 
   // 2) Aviationstack (main if no AirLabs, fallback if AirLabs failed)
-  const avsWanted = avsKey && active.length && (!airlabsKey || errors.length || airlabsBasic);
+  // chosen directly -> asked on its own; in "auto" only when AirLabs is missing, failed, or without live data
+  const avsWanted = avsKey && (active.length || force) && (arrMode === "Aviationstack" || !airlabsKey || errors.length || airlabsBasic || alLeft() <= 0);
   if (avsWanted) {
-    const left = Number(process.env.AVS_MONTHLY_LIMIT || 100) - (meta.used.Aviationstack || 0);
+    const left = avsLimit - (meta.used.Aviationstack || 0);
     const leftToday = Number(process.env.AVS_PER_DAY || 3) - (meta.today.Aviationstack || 0);
     // our flights landing within 90 minutes, or already late and still not landed
     const soon = active.filter((w) => {
@@ -86,7 +95,7 @@ export async function poll({ force = false } = {}) {
         const single = Number(process.env.AVS_SINGLE_PER_POLL || 0);
         const need = soon.filter((w) => { const l = found[w.code] || snap.flights[w.code]; return !l || !(l.est || l.act); }).slice(0, single);
         for (const w of need) {
-          if (Number(process.env.AVS_MONTHLY_LIMIT || 100) - (meta.used.Aviationstack || 0) <= 0) break;
+          if (avsLimit - (meta.used.Aviationstack || 0) <= 0) break;
           const rec = await aviationstackFlight(avsKey, w.code, now.date); count("Aviationstack", 1);
           if (rec) found[w.code] = rec;
         }
@@ -96,9 +105,9 @@ export async function poll({ force = false } = {}) {
 
   // 3) departures from AYT: one AirLabs request every AIRLABS_DEP_EVERY_MIN (60) while a pick-up or take-off is near
   let depFound = 0;
-  if (airlabsKey && !airlabsBasic && (activeD.length || (force && Object.keys(watchDep).length)) && (force || minsSince("AirLabsDep") >= Number(process.env.AIRLABS_DEP_EVERY_MIN || 60) - 1)) {
+  if (depAirlabs && !airlabsBasic && alLeft() > 0 && (activeD.length || (force && Object.keys(watchDep).length)) && (force || minsSince("AirLabsDep") >= Number(process.env.AIRLABS_DEP_EVERY_MIN || 60) - 1)) {
     try {
-      const r = await airLabsDepartures(airlabsKey, watchDep, Number(process.env.AIRLABS_PAGES || 1), now.date);
+      const r = await airLabsDepartures(process.env.AIRLABS_KEY, watchDep, Number(process.env.AIRLABS_PAGES || 1), now.date);
       count("AirLabs", r.requests); meta.lastAirLabsDep = new Date().toISOString();
       const st = new Date().toISOString();
       for (const [k, v] of Object.entries(r.flights)) {
@@ -112,22 +121,31 @@ export async function poll({ force = false } = {}) {
       const miss = activeD.filter((w) => !snap.dep[w.code] && w.pu != null && w.pu - nowMin <= 120 && (snap.depChecked[w.code] || 0) < 2).slice(0, Number(process.env.AIRLABS_DEP_SINGLE || 2));
       for (const w of miss) {
         snap.depChecked[w.code] = (snap.depChecked[w.code] || 0) + 1;
-        const rec = await airLabsDepFlight(airlabsKey, w.code); count("AirLabs", 1);
+        const rec = await airLabsDepFlight(process.env.AIRLABS_KEY, w.code); count("AirLabs", 1);
         if (rec && (!rec.date || rec.date === now.date)) { snap.dep[w.code] = { ...rec, at: st, src: "AirLabs" }; depFound++; }
       }
       snap.depUpdated = st;
     } catch (e) { errors.push(String(e.message || e)); }
   }
 
-  if (!provider && depFound) {
-    snap.updated = snap.updated || null;
+  // departures by Aviationstack: the airport's departure board every AVS_DEP_EVERY_MIN (120) while a pick-up or take-off is near
+  if (depAvs && (activeD.length || (force && Object.keys(watchDep).length)) && avsLimit - (meta.used.Aviationstack || 0) > 0 && (force || minsSince("AvsDep") >= Number(process.env.AVS_DEP_EVERY_MIN || 120) - 1)) {
+    try {
+      const r = await aviationstackDepartures(process.env.AVIATIONSTACK_KEY, watchDep, 1, now.date);
+      count("Aviationstack", r.requests); meta.lastAvsDep = new Date().toISOString();
+      const st = new Date().toISOString();
+      for (const [k, v] of Object.entries(r.flights)) { snap.dep[k] = { ...v, at: st, src: "Aviationstack" }; depFound++; }
+      snap.depUpdated = st;
+    } catch (e) { errors.push(String(e.message || e)); }
+  }
+
+  // no arrivals this time: still keep what departures brought and the request counters
+  if (!provider) {
     await s.setJSON(snapKey, snap);
     meta.lastError = errors.length ? errors.join(" / ") : null;
     await s.setJSON("live/meta", meta);
-    return { ok: true, provider: "AirLabs", found: 0, depFound, active: active.length, used: meta.used };
-  }
-  if (!provider) {
-    if (errors.length) { meta.lastError = errors.join(" / "); await s.setJSON("live/meta", meta); return { error: meta.lastError }; }
+    if (depFound) return { ok: true, provider: depAvs ? "Aviationstack" : "AirLabs", found: 0, depFound, active: active.length, used: meta.used };
+    if (errors.length) return { error: meta.lastError };
     return { skipped: "Не время для запроса", active: active.length, used: meta.used };
   }
   const stamp = new Date().toISOString();

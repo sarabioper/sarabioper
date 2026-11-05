@@ -392,6 +392,12 @@ body.role-guide #guidePick,body.role-guide #gKind{display:none}
 .sz-src{display:flex;flex-wrap:wrap;gap:3px;align-items:center}.sz-src .chip{font-size:11px;padding:0 6px}.sz-tot{display:grid;justify-items:end}.sz-tot b{font-size:20px;line-height:1}.sz-tot small{font-size:10px;color:var(--muted)}
 .sz-st{font-size:11px;font-weight:600;padding:1px 7px;border-radius:9px;margin-top:3px;white-space:nowrap}.sz-st.stop{background:var(--crit-soft);color:var(--crit)}.sz-st.free{background:#d6f2e0;color:#14532d}.sz-st.money{background:var(--sunk)}
 .sz-gs{display:grid;gap:3px}.sz-g{display:grid;grid-template-columns:18px 64px 1fr;gap:0 6px;font-size:13px;padding:3px 6px;border-radius:5px;background:var(--sunk)}.sz-g .hint{grid-column:3;font-size:11px}.sz-g .gd{font-weight:600}.sz-g.nog{background:var(--warn-soft)}
+.provp{display:grid;gap:10px}#provPanel{margin:8px 0;width:100%}.pv-open{cursor:pointer;text-decoration:underline dotted}.pv-top{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.pv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px}.pv{border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;gap:6px;background:var(--surface)}.pv.on{border-color:#2e9e5b}.pv.nokey{opacity:.75}
+.pv-h{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.pv-h b{font-size:15px}.pv-q{display:grid;gap:3px;font-size:13px}.pv-q .bar{display:block;height:8px;border-radius:4px;background:var(--sunk);overflow:hidden}.pv-q .bar i{display:block;height:100%}
+.pv-l{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}.pv-l input{width:90px;padding:3px 6px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--ink)}
+.pv-w{font-size:12px;color:var(--warn)}.pv-m{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}.pv-ml{min-width:130px;font-weight:600;font-size:14px}
+.pv-m .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.pv-m .seg button{border:0;background:var(--surface);color:var(--ink);padding:6px 11px;font:inherit;font-size:13px;cursor:pointer}.pv-m .seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}.pv-m .seg button:disabled{opacity:.4;cursor:not-allowed}
 .ctl-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:16px 0 4px}.ctl-head h2{margin:0;font-size:18px}
 .ctl-sec{margin:10px 0 4px;font-size:15px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 .ctl-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
@@ -551,6 +557,7 @@ mark{background:var(--signal-soft);color:inherit}
       <span class="who"><span class="user" id="whoAmI" title="Нажмите, чтобы изменить имя"></span><button type="button" class="btn sm ghost" id="logoutBtn">Выйти</button></span>
       <span class="demo-pill" id="modePill">Статусы рейсов в демо-режиме</span>
       <span class="livectl" id="liveCtl" hidden><button class="btn sm" id="liveBtn" type="button">⟳ Обновить рейсы</button><small class="hint" id="liveQuota"></small></span>
+      <div class="panel provp" id="provPanel" hidden></div>
     </div>
     <div class="clock">
       <div class="now num" id="nowLbl">09:00</div>
@@ -751,6 +758,7 @@ mark{background:var(--signal-soft);color:inherit}
       <div class="panel adm-box"><h3>🔑 Пароли входа</h3><p class="hint">Меняет только администратор. После смены все, кто вошёл со старым паролем, увидят окно входа.</p><div id="admPw"></div></div>
       <div class="panel adm-box"><h3>👤 PIN-коды гидов</h3><p class="hint">Гид входит общим паролем гидов + своим PIN. Без PIN гид не войдёт. PIN можно сразу отправить гиду в WhatsApp.</p><div id="admPins"></div></div>
       <div class="panel adm-box"><h3>🚐 Водители (приложение Sarabi Sürücü)</h3><p class="hint">Водитель ставит приложение на Android, вводит свой PIN из 6 цифр и нажимает «Vardiyayı başlat» — машина появляется на карте у операционного отдела (Машины) и у вас (Контроль). Машина — как в KAPAK, например BUS 3 или MİNİ 7: тогда водитель видит в приложении свои задания на сегодня.</p><div id="admDrv"></div></div>
+      <div class="panel adm-box provp" id="admProv"></div>
       <div class="panel adm-box"><h3>📜 Журнал изменений</h3><div id="admLog"></div></div>
     </div>
   </section>

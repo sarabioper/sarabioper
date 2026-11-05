@@ -141,11 +141,11 @@ const hm=iso=>new Date(iso).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-di
 function renderQuota(){
   const box=$('#liveCtl');if(!SERVER){box.hidden=true;return}
   box.hidden=false;const q=LIVE&&LIVE.quota;const btn=$('#liveBtn');const lbl=$('#liveQuota');
-  if(!q||!q.provider){btn.disabled=true;lbl.textContent='';btn.title='Ключ API рейсов не задан на сервере';return}
+  if(!q||!q.provider){btn.disabled=true;lbl.textContent=q&&q.arrMode==='off'&&q.depMode==='off'?'Слежение за рейсами выключено ⚙':'Сервисы рейсов ⚙';btn.title='Нет доступного сервиса рейсов';return}
   const wait=q.nextAt&&Date.now()<Date.parse(q.nextAt);
   const why=q.left<=0?'Лимит запросов на этот месяц исчерпан':q.manualToday>=q.manualPerDay?'Ручные обновления на сегодня закончились':wait?`Следующее ручное обновление в ${hm(q.nextAt)}`:'';
   btn.disabled=!!why;btn.title=why||`Один запрос к сервису рейсов. Можно раз в ${q.gapMin} мин.`;
-  lbl.textContent=(why?why+' · ':'')+`${q.provider}: запросов в месяц осталось ${q.left} из ${q.limit} · ручных сегодня ${q.manualToday} из ${q.manualPerDay}`+(q.airlabsBasic?' · AirLabs на бесплатном тарифе даёт только расписание, живые времена берутся из Aviationstack':'');
+  lbl.textContent=(why?why+' · ':'')+`✈ ${q.arrMode==='off'?'выкл':q.arr||'—'} · 🛫 ${q.depMode==='off'?'выкл':q.dep||'—'} · ${q.provider}: осталось ${q.left} из ${q.limit} · ручных сегодня ${q.manualToday} из ${q.manualPerDay} ⚙`+(q.airlabsBasic?' · AirLabs на бесплатном тарифе даёт только расписание, живые времена берутся из Aviationstack':'');
   lbl.classList.toggle('low',q.left<=Math.max(5,q.limit*0.1)||!!why);
 }
 async function manualRefresh(){

@@ -595,6 +595,12 @@ body.role-guide #guidePick,body.role-guide #gKind{display:none}
 .sz-src{display:flex;flex-wrap:wrap;gap:3px;align-items:center}.sz-src .chip{font-size:11px;padding:0 6px}.sz-tot{display:grid;justify-items:end}.sz-tot b{font-size:20px;line-height:1}.sz-tot small{font-size:10px;color:var(--muted)}
 .sz-st{font-size:11px;font-weight:600;padding:1px 7px;border-radius:9px;margin-top:3px;white-space:nowrap}.sz-st.stop{background:var(--crit-soft);color:var(--crit)}.sz-st.free{background:#d6f2e0;color:#14532d}.sz-st.money{background:var(--sunk)}
 .sz-gs{display:grid;gap:3px}.sz-g{display:grid;grid-template-columns:18px 64px 1fr;gap:0 6px;font-size:13px;padding:3px 6px;border-radius:5px;background:var(--sunk)}.sz-g .hint{grid-column:3;font-size:11px}.sz-g .gd{font-weight:600}.sz-g.nog{background:var(--warn-soft)}
+.provp{display:grid;gap:10px}#provPanel{margin:8px 0;width:100%}.pv-open{cursor:pointer;text-decoration:underline dotted}.pv-top{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.pv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px}.pv{border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;gap:6px;background:var(--surface)}.pv.on{border-color:#2e9e5b}.pv.nokey{opacity:.75}
+.pv-h{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.pv-h b{font-size:15px}.pv-q{display:grid;gap:3px;font-size:13px}.pv-q .bar{display:block;height:8px;border-radius:4px;background:var(--sunk);overflow:hidden}.pv-q .bar i{display:block;height:100%}
+.pv-l{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}.pv-l input{width:90px;padding:3px 6px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--ink)}
+.pv-w{font-size:12px;color:var(--warn)}.pv-m{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}.pv-ml{min-width:130px;font-weight:600;font-size:14px}
+.pv-m .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.pv-m .seg button{border:0;background:var(--surface);color:var(--ink);padding:6px 11px;font:inherit;font-size:13px;cursor:pointer}.pv-m .seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}.pv-m .seg button:disabled{opacity:.4;cursor:not-allowed}
 .ctl-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:16px 0 4px}.ctl-head h2{margin:0;font-size:18px}
 .ctl-sec{margin:10px 0 4px;font-size:15px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 .ctl-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
@@ -754,6 +760,7 @@ mark{background:var(--signal-soft);color:inherit}
       <span class="who"><span class="user" id="whoAmI" title="Нажмите, чтобы изменить имя"></span><button type="button" class="btn sm ghost" id="logoutBtn">Выйти</button></span>
       <span class="demo-pill" id="modePill">Статусы рейсов в демо-режиме</span>
       <span class="livectl" id="liveCtl" hidden><button class="btn sm" id="liveBtn" type="button">⟳ Обновить рейсы</button><small class="hint" id="liveQuota"></small></span>
+      <div class="panel provp" id="provPanel" hidden></div>
     </div>
     <div class="clock">
       <div class="now num" id="nowLbl">09:00</div>
@@ -954,6 +961,7 @@ mark{background:var(--signal-soft);color:inherit}
       <div class="panel adm-box"><h3>🔑 Пароли входа</h3><p class="hint">Меняет только администратор. После смены все, кто вошёл со старым паролем, увидят окно входа.</p><div id="admPw"></div></div>
       <div class="panel adm-box"><h3>👤 PIN-коды гидов</h3><p class="hint">Гид входит общим паролем гидов + своим PIN. Без PIN гид не войдёт. PIN можно сразу отправить гиду в WhatsApp.</p><div id="admPins"></div></div>
       <div class="panel adm-box"><h3>🚐 Водители (приложение Sarabi Sürücü)</h3><p class="hint">Водитель ставит приложение на Android, вводит свой PIN из 6 цифр и нажимает «Vardiyayı başlat» — машина появляется на карте у операционного отдела (Машины) и у вас (Контроль). Машина — как в KAPAK, например BUS 3 или MİNİ 7: тогда водитель видит в приложении свои задания на сегодня.</p><div id="admDrv"></div></div>
+      <div class="panel adm-box provp" id="admProv"></div>
       <div class="panel adm-box"><h3>📜 Журнал изменений</h3><div id="admLog"></div></div>
     </div>
   </section>
@@ -2573,11 +2581,11 @@ const hm=iso=>new Date(iso).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-di
 function renderQuota(){
   const box=$('#liveCtl');if(!SERVER){box.hidden=true;return}
   box.hidden=false;const q=LIVE&&LIVE.quota;const btn=$('#liveBtn');const lbl=$('#liveQuota');
-  if(!q||!q.provider){btn.disabled=true;lbl.textContent='';btn.title='Ключ API рейсов не задан на сервере';return}
+  if(!q||!q.provider){btn.disabled=true;lbl.textContent=q&&q.arrMode==='off'&&q.depMode==='off'?'Слежение за рейсами выключено ⚙':'Сервисы рейсов ⚙';btn.title='Нет доступного сервиса рейсов';return}
   const wait=q.nextAt&&Date.now()<Date.parse(q.nextAt);
   const why=q.left<=0?'Лимит запросов на этот месяц исчерпан':q.manualToday>=q.manualPerDay?'Ручные обновления на сегодня закончились':wait?`Следующее ручное обновление в ${hm(q.nextAt)}`:'';
   btn.disabled=!!why;btn.title=why||`Один запрос к сервису рейсов. Можно раз в ${q.gapMin} мин.`;
-  lbl.textContent=(why?why+' · ':'')+`${q.provider}: запросов в месяц осталось ${q.left} из ${q.limit} · ручных сегодня ${q.manualToday} из ${q.manualPerDay}`+(q.airlabsBasic?' · AirLabs на бесплатном тарифе даёт только расписание, живые времена берутся из Aviationstack':'');
+  lbl.textContent=(why?why+' · ':'')+`✈ ${q.arrMode==='off'?'выкл':q.arr||'—'} · 🛫 ${q.depMode==='off'?'выкл':q.dep||'—'} · ${q.provider}: осталось ${q.left} из ${q.limit} · ручных сегодня ${q.manualToday} из ${q.manualPerDay} ⚙`+(q.airlabsBasic?' · AirLabs на бесплатном тарифе даёт только расписание, живые времена берутся из Aviationstack':'');
   lbl.classList.toggle('low',q.left<=Math.max(5,q.limit*0.1)||!!why);
 }
 async function manualRefresh(){
@@ -4843,6 +4851,37 @@ function seasonXlsx(){if(typeof XLSX==='undefined')return toast('Библиот�
   sheet('Откуда',[['Отель / партнёр','Выездов'],...A.S],[24,10]);
   XLSX.writeFile(wb,`Plan sezona ${isoDM(deps[0].date)}-${isoDM(deps[deps.length-1].date)}.xlsx`)}
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b&&b.dataset.t==='season'){renderSeason();loadSeason()}});
+
+/* ---------- flight data services: which one follows arrivals and departures, how much of the monthly quota is left ---------- */
+// office: opens from the quota line in the header; administrator: in the 🔐 Admin cabinet
+let PROV=null,provOpen=false;
+const PMODES=[['auto','Авто'],['AirLabs','AirLabs'],['Aviationstack','Aviationstack'],['off','Выкл']];
+async function loadProv(){if(!SERVER||!isOps())return;try{PROV=await api('GET','/api/flights/providers');renderProv()}catch(e){}}
+async function setProv(patch){try{PROV=await api('PUT','/api/flights/providers',Object.assign({arr:PROV.cfg.arr,dep:PROV.cfg.dep},patch));toast('Сохранено: прилёты — '+PROV.cfg.arr+', вылеты — '+PROV.cfg.dep);renderProv();refreshLive().catch(()=>{})}catch(e){toast('Не сохранилось: '+String(e.message).replace(/[{}"]/g,' '))}}
+const daysTo=iso=>Math.max(0,Math.ceil((Date.parse(iso+'T00:00:00+03:00')-Date.now())/864e5));
+function provHtml(){if(!PROV)return '<p class="hint">Загрузка…</p>';const P=PROV.providers,c=PROV.cfg;
+  const card=p=>{const x=P[p];const pct=x.limit?Math.round(x.used/x.limit*100):0;const used=[x.last&&('прилёты '+hm(x.last)),x.lastDep&&('вылеты '+hm(x.lastDep))].filter(Boolean).join(', ');
+    const role=[c.arr!=='off'&&PROV.now.arr===p?'✈ прилёты':'',c.dep!=='off'&&PROV.now.dep===p?'🛫 вылеты':''].filter(Boolean).join(' + ');
+    return `<div class="pv${x.key?'':' nokey'}${role?' on':''}"><div class="pv-h"><b>${p}</b>${role?`<span class="chip ok">сейчас: ${role}</span>`:''}${x.key?'':'<span class="chip">ключа нет</span>'}</div>
+      ${x.key?`<div class="pv-q"><span class="bar"><i style="width:${Math.min(100,pct)}%;background:${pct>=90?'var(--crit)':pct>=70?'var(--warn)':'var(--signal)'}"></i></span><span><b>${x.left}</b> осталось из ${x.limit} · использовано ${x.used} · сегодня ${x.today}</span></div>
+        <div class="hint">${used?'последний запрос: '+used:'в этом месяце запросов ещё не было'}</div>${x.basic?'<div class="pv-w">⚠ бесплатный тариф AirLabs даёт только расписание, без задержек — в режиме «Авто» прилёты берутся из Aviationstack</div>':''}
+        <label class="pv-l">Лимит в месяц по тарифу <input type="number" min="1" step="1" value="${x.limit}" data-pvlim="${p}"></label>`
+      :`<div class="hint">Чтобы подключить: ключ ${p==='AirLabs'?'AIRLABS_KEY':'AVIATIONSTACK_KEY'} в Netlify → Environment variables, затем обновить сайт.</div>`}</div>`};
+  const modes=(dir,lbl)=>`<div class="pv-m"><span class="pv-ml">${lbl}</span><div class="seg">${PMODES.map(([v,t])=>{const dis=(v==='AirLabs'||v==='Aviationstack')&&!P[v].key;return `<button type="button" data-pvdir="${dir}" data-pvm="${v}" aria-pressed="${c[dir]===v}"${dis?' disabled title="Нет ключа"':''}>${t}</button>`}).join('')}</div>
+    <span class="hint">${c[dir]==='off'?'не отслеживаются':PROV.now[dir]?'работает: <b>'+PROV.now[dir]+'</b>':'<b style="color:var(--crit)">нет доступного сервиса</b>'}</span></div>`;
+  return `<div class="pv-top"><b>✈️ Сервисы рейсов</b><span class="hint">лимиты обновятся ${isoDM(PROV.reset)} (через ${daysTo(PROV.reset)} дн.)</span><span class="sp"></span><button type="button" class="btn sm ghost" data-pvreload>⟳</button></div>
+    <div class="pv-grid">${['AirLabs','Aviationstack'].map(card).join('')}</div>
+    ${modes('arr','Прилёты · Arrival')}${modes('dep','Вылеты · Depar')}
+    <p class="hint">«Авто»: сначала AirLabs, если он без живых данных, исчерпан или с ошибкой — Aviationstack. Выбрали сервис — работает только он.${c.changedAt?` Изменено ${new Date(c.changedAt).toLocaleString('ru',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} (${esc(c.changedBy||'')}).`:''}</p>
+    ${PROV.lastError?`<p class="pv-w">Последняя ошибка: ${esc(PROV.lastError)}</p>`:''}`}
+function renderProv(){[['#provPanel',provOpen&&ROLE==='ops'],['#admProv',isAdmin()]].forEach(([id,show])=>{const el=$(id);if(!el)return;el.hidden=!show;if(!show)return;el.innerHTML=provHtml();
+  el.querySelectorAll('[data-pvm]').forEach(b=>b.onclick=()=>setProv({[b.dataset.pvdir]:b.dataset.pvm}));
+  el.querySelectorAll('[data-pvlim]').forEach(i=>i.onchange=()=>setProv({limits:{[i.dataset.pvlim]:+i.value}}));
+  const r=el.querySelector('[data-pvreload]');if(r)r.onclick=loadProv})}
+// the quota line in the header opens the panel
+(()=>{const q=$('#liveQuota');if(!q)return;q.classList.add('pv-open');q.title='Нажмите: сервисы рейсов, лимиты, выбор для прилётов и вылетов';
+  q.onclick=()=>{provOpen=!provOpen;if(provOpen)loadProv();renderProv()}})();
+$('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b&&b.dataset.t==='admin')loadProv()});
 
 /* ---------- find a guest with the camera: passport (MRZ), name sign, booking on a screen, or typed name ---------- */
 // OCR runs on the phone (tesseract.js). The picture is never stored or sent anywhere; only the recognised words are used to search today's lists.
