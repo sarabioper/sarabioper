@@ -149,7 +149,7 @@ const x=dayOfTour(t,iso);const st=tourNow(t,x.day);let lastA=-1;x.day.s.forEach(
       const late=isToday&&i===firstOpen&&plan!=null&&now>plan+10;
       return `<li class="tst k-${s.k} ${m.a!=null?(m.d!=null?'done':'here'):''} ${late?'late':''}">
         <span class="tt num">${s.t||'—'}${s.m?`<small>маг. ${esc(s.m)}</small>`:''}</span>
-        <span class="tn"><span class="ti">${TK[s.k][0]}</span> ${esc(s.n)}${late?`<small class="lt">опаздывают ${now-plan} мин</small>`:''}
+        <span class="tn"><span class="ti">${(TK[s.k]||["•"])[0]}</span> ${esc(s.n)}${late?`<small class="lt">опаздывают ${now-plan} мин</small>`:''}
           ${m.a!=null?`<small class="ok">📍 ${fmt(m.a)}${m.d!=null?' → 🚌 '+fmt(m.d):''}</small>`:''}
           ${s.k==='shop'&&m.a!=null?`<label class="sale">Продажа <input value="${esc(m.s||'')}" data-sale="${key}" placeholder="сумма"></label>`:''}</span>
         <span class="tb">${m.a==null?`<button type="button" class="btn sm" data-ta="${key}">📍 ${s.k==='start'?'Выехали':'Прибыли'}</button>`:m.d==null&&s.k!=='start'&&s.k!=='hotel'&&s.k!=='transfer'?`<button type="button" class="btn sm primary" data-td="${key}">🚌 Уехали</button>`:''}${m.a!=null?`<button type="button" class="btn sm ghost" data-tu="${key}" title="Отменить">↺</button>`:''}</span></li>`}).join('');
@@ -181,7 +181,7 @@ function bindTourCards(el){
 }
 function tourWa(t,iso){const x=dayOfTour(t,iso);if(!x)return '';const tr=LANG==='tr';
   const L=[`*${isoDM(iso)} · ${t.bus||'BUS'}${t.name?' · '+t.name:''}*`,`${tr?'Rehber':'Гид'}: ${t.guide||'-'}${gPhone(t.guide)?' ('+gPhone(t.guide)+')':''}`,t.kok?`${tr?'Kok rehber':'Кок гид'}: ${t.kok}${gPhone(t.kok)?' ('+gPhone(t.kok)+')':''}`:'',`PAX: ${t.pax||'-'}`,''];
-  x.day.s.forEach(s=>{const m=stopState(t,s);L.push(`${s.t||'--:--'} ${TK[s.k][0]} ${s.n}${s.m?(tr?' · mağaza ':' · магазин ')+s.m:''}${m.a!=null?' ✓ '+fmt(m.a):''}${m.s?' · '+(tr?'satış':'продажа')+' '+m.s:''}`)});
+  x.day.s.forEach(s=>{const m=stopState(t,s);L.push(`${s.t||'--:--'} ${(TK[s.k]||["•"])[0]} ${s.n}${s.m?(tr?' · mağaza ':' · магазин ')+s.m:''}${m.a!=null?' ✓ '+fmt(m.a):''}${m.s?' · '+(tr?'satış':'продажа')+' '+m.s:''}`)});
   return L.filter((l,i)=>l||i===4).join('\n')}
 
 /* ---- editor ---- */
@@ -244,8 +244,10 @@ function parseTourSheet(rows,name){
     day.s.push({id:rid(),t:tm||(k==='shop'?mg:''),n,k,m:k==='shop'?mg:''})}
   t.days=t.days.filter(d=>d.s.length);return t.days.length?t:null}
 // the same program uploaded again (same guides, same first day) replaces the old one and keeps its guest list and id
-function upsertTour(t){const k=x=>[nk(x.guide||''),nk(x.kok||''),(x.days[0]||{}).d].join('|');const old=tours().find(o=>o.days&&o.days.length&&k(o)===k(t)&&(!t.bus||!o.bus||nk(o.bus)===nk(t.bus)));
-  if(old){t=Object.assign({},t,{id:old.id,bus:t.bus||old.bus,name:t.name||old.name,plate:old.plate||t.plate,driver:old.driver||t.driver,dphone:old.dphone||t.dphone,hotel:old.hotel||t.hotel,guests:old.guests,gx:old.gx,gcode:old.gcode,ghotels:old.ghotels})}
+function upsertTour(t){const k=x=>[nk(x.guide||''),nk(x.kok||''),(x.days[0]||{}).d].join('|');let old=tours().find(o=>o.days&&o.days.length&&k(o)===k(t)&&(!t.bus||!o.bus||nk(o.bus)===nk(t.bus)));
+  if(!old){const s0=Date.parse((t.days[0]||{}).d);old=tours().find(o=>o.fromList&&Math.abs(Date.parse(o.days[0].d)-s0)<=3*864e5&&gSplit(t.guide).some(g=>gOfTour(o,g)))}
+  if(old&&old.fromList)t.bus=t.bus||old.bus;
+  if(old){t=Object.assign({},t,{id:old.id,bus:t.bus||old.bus,name:t.name||old.name,plate:old.plate||t.plate,driver:old.driver||t.driver,dphone:old.dphone||t.dphone,hotel:old.hotel||t.hotel,guests:old.guests,gx:old.gx,gcode:old.gcode,ghotels:old.ghotels,plist:old.plist})}delete t.fromList;
   if(!t.bus)t.bus=String(t.guide||'').split(/[\s/]+/)[0]||'?';saveTour(t.id,t);return t}
 async function importTourFiles(files,o={}){
   let n=0;for(const f of files){try{const wb=XLSX.read(await f.arrayBuffer(),{cellDates:false});

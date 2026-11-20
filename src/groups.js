@@ -99,15 +99,17 @@ function groupGuestsHtml(t,iso){
   // one short line per guest; a tap opens flights, voucher and the Note / Report buttons. A written note stays visible.
   const row=({x,i},f)=>{const a=ageOn(x.dob,iso);const bday=x.dob&&days.has(x.dob.slice(5));const nr=reps.filter(r=>r.guest&&r.guest.toLocaleUpperCase('tr')===x.n.toLocaleUpperCase('tr')).length;const nt=note(i);
     const kid=/CHD|INF/.test(x.sex)||a!==''&&a<12;const r0=f.rows[0].x;
-    return `<details class="gx" data-gxo="${esc(t.id)}|${i}"${GXOPEN.has(t.id+'|'+i)||q&&f.rows.length>1&&(x.n.toLocaleUpperCase('tr').replace(/[\s-]+/g,'').includes(q))?' open':''}><summary><span class="gx-n"><span class="hint">${x.no}.</span> <b>${esc(x.n)}</b>${fresh(x)?` <span class="chip gx-new" title="Добавлен ${gxDm(x.add)}">🆕</span>`:''}${x.room?` <span class="hint">${esc(x.room)}</span>`:''}</span><span class="gx-m">${a!==''?(a===0?(LANG==='tr'?'<1 yaş':'<1 г.'):a+' '+(LANG==='tr'?'yaş':'л.')):''}${kid?' 👶':''}${bday?` <b class="bday">🎂 ${gxDm(x.dob)}</b>`:''}${nr?` <span class="chip rep-t">📝 ${nr}</span>`:''}${slBadge(t.id,i)}</span><span class="gx-x">▾</span>
+    return `<details class="gx" data-gxo="${esc(t.id)}|${i}"${GXOPEN.has(t.id+'|'+i)||q&&f.rows.length>1&&(x.n.toLocaleUpperCase('tr').replace(/[\s-]+/g,'').includes(q))?' open':''}><summary><span class="gx-n"><span class="hint">${x.no}.</span> <b>${esc(x.n)}</b>${fresh(x)?` <span class="chip gx-new" title="Добавлен ${gxDm(x.add)}">🆕</span>`:''}${x.room?` <span class="hint">${esc(x.room)}</span>`:''}</span><span class="gx-m">${a!==''?(a===0?(LANG==='tr'?'<1 yaş':'<1 г.'):a+' '+(LANG==='tr'?'yaş':'л.')):''}${kid?' 👶':''}${bday?` <b class="bday">🎂 ${gxDm(x.dob)}</b>`:''}${nr?` <span class="chip rep-t">📝 ${nr}</span>`:''}${gxRef(t.id,i)?` <span class="chip gx-refc" title="Этого гостя привёл / передал гид">🤝 ${esc(gxRef(t.id,i))}</span>`:''}${slBadge(t.id,i)}</span><span class="gx-x">▾</span>
       ${nt?`<span class="gnote">✎ ${esc(nt)}</span>`:''}</summary>
       <div class="gx-body"><div class="gx-d">${x.af?`<span>🛬 ${esc(x.af)} ${gxDm(x.ad)} ${esc(x.at)}</span>`:''}${x.rf||x.rd?`<span>🛫 ${esc(x.rf||'—')} ${gxDm(x.rd)} ${esc(x.rt)}</span>`:''}<span class="hint">${esc(x.sex)}${x.dob?' · '+gxDm(x.dob)+'.'+x.dob.slice(0,4):''}</span></div>
         <div class="gx-d hint">${r0.v?`<span>ваучер ${esc(r0.v)}</span>`:''}${x.trf&&isOps()?`<span>трансфер ${esc(x.trf)}</span>`:''}${x.pass&&isOps()?`<span>паспорт ${esc(x.pass)}</span>`:''}</div>
+        <label class="gx-ref">🤝 Привёл гид <input list="gxRefL" data-gxref="${esc(t.id)}|${i}" value="${esc(gxRef(t.id,i))}" placeholder="кто передал этого гостя"></label>
         ${guestSaleHtml(t,i)}
         <div class="gx-b"><button type="button" class="btn sm" data-gxnote="${esc(t.id)}|${i}">✎ ${nt?'Изменить заметку':'Заметка'}</button><button type="button" class="btn sm" data-trep="${esc(t.id)}|${i}">📝 Рапорт</button></div></div></details>`};
   return `<div class="tguests">
     <div class="gx-top">${t.gcode?`<b>${esc(t.gcode)}</b>`:''}<span class="chip">👥 ${X.length}</span>${nNew?`<span class="chip gx-new">🆕 +${nNew}</span>`:''}${kids.length?`<span class="chip">👶 ${kids.length}</span>`:''}${bd.length?`<span class="chip bday">🎂 ${bd.map(x=>esc(x.n.split(' ')[0])+' '+gxDm(x.dob)).join(', ')}</span>`:''}${pay.length&&isOps()?`<span class="chip rep-t">💵 ${pay.length} семей</span>`:''}</div>
     ${(t.ghotels||[]).length?`<div class="gx-hot">🏨 ${t.ghotels.map(esc).join(' · ')}</div>`:''}
+    <datalist id="gxRefL">${refGuides().map(g=>`<option value="${esc(g)}">`).join('')}</datalist>
     <input class="gx-q" data-gxq="${esc(t.id)}" value="${esc(TGQ[t.id]||'')}" placeholder="Поиск: фамилия, телефон, рейс" aria-label="Поиск гостя">
     <div class="gx-list">${fams.filter(show).map(f=>{const r0=f.rows[0].x;const cm=[...new Set(f.rows.map(r=>r.x.c).filter(Boolean))].join(' · ');const ph=r0.phone;
       return `<div class="gx-fam"><div class="gx-fh">${ph?`<a class="tel" href="tel:${esc(ph.replace(/[^\d+]/g,''))}">📞 ${esc(ph)}</a><a class="wa" target="_blank" rel="noopener" href="https://wa.me/${esc(ph.replace(/\D/g,''))}">WhatsApp</a>`:'<span class="hint">без телефона</span>'}${cm?`<span class="gx-c ${/ОПЛАТ|ДОПЛАТ|USD|ДОЛГ|НА МЕСТЕ/i.test(cm)?'pay':''}" title="${esc(cm)}">💬 ${esc(cm)}</span>`:''}</div>
@@ -134,8 +136,17 @@ async function importGroupList(tid,file){
     saveTour(tid,t);TGOPEN.add(tid);tourRefresh();
     toast(`Список группы: ${mergeMsg(M,P.guests.length)}`)}
   catch(e){toast('Не удалось прочитать список: '+e.message)}}
+const gxRef=(tid,i)=>(TM[tid+'|ref|'+i]||{}).g||'';
+function refGuides(){const S=new Set();try{(typeof guides==='function'&&DAY?guides():[]).forEach(g=>S.add(g))}catch(e){}try{Object.keys(GP||{}).forEach(g=>S.add(g))}catch(e){}try{Object.keys(PINS||{}).forEach(g=>S.add(g))}catch(e){}
+  try{tours().forEach(t=>[t.guide,t.kok].flatMap(gSplit).forEach(g=>S.add(g)))}catch(e){}return [...S].filter(Boolean).sort((a,b)=>a.localeCompare(b,'tr'))}
 var GXOPEN=GXOPEN||new Set();// guest lines left open stay open when the list is redrawn (after a sale, a note)
 function bindGroupGuests(el){bindSales(el);
+  // one family usually comes from the same guide: the name goes to all members who have none yet
+  el.querySelectorAll('[data-gxref]').forEach(inp=>inp.onchange=()=>{const [tid,i]=inp.dataset.gxref.split('|');const t=TOURS[tid];const x=(t.gx||[])[+i];if(!x)return;const g=inp.value.trim();
+    const who=ROLE==='guide'?(ME||''):(uName()||'Офис');const at=new Date().toISOString();
+    const idx=(t.gx||[]).map((y,j)=>j).filter(j=>j===+i||(x.fam&&t.gx[j].fam===x.fam&&!t.gx[j].gone&&!gxRef(tid,j)));
+    idx.forEach(j=>saveTM(tid+'|ref|'+j,g?{g,at,by:who}:null));
+    toast(g?`Привёл ${g}: ${idx.length>1?idx.length+' гостя (семья)':x.n}`:'Убрано');tourRefresh()});
   el.querySelectorAll('[data-gxo]').forEach(d=>d.ontoggle=()=>{d.open?GXOPEN.add(d.dataset.gxo):GXOPEN.delete(d.dataset.gxo)});
   el.querySelectorAll('[data-gso]').forEach(d=>d.ontoggle=()=>{d.open?GXOPEN.add('s:'+d.dataset.gso):GXOPEN.delete('s:'+d.dataset.gso)});
   el.querySelectorAll('[data-tgfile]').forEach(i=>i.onchange=e=>{const f=e.target.files[0];if(f)importGroupList(i.dataset.tgfile,f);e.target.value=''});
