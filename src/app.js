@@ -116,7 +116,8 @@ async function serverBoot(){
     if(isAdmin())try{await loadAdmin()}catch(e){}
     res.days.forEach(d=>{DAYS[d.key]=d});
     try{const st=await api('GET','/api/state?d=00.00&kind=settings');if(st.data&&st.data.termOk){SETTINGS=Object.assign({termOk:{}},st.data);store.set('settings',SETTINGS)}}catch(e){}
-    try{const gp=await api('GET','/api/state?d=00.00&kind=guides');GP=Object.assign({},GP,gp.data||{});store.set('guidePhones',GP);renderGpImport()}catch(e){}
+    // the server's book is the truth (an old copy on a phone must not bring deleted guides back)
+    try{const gp=await api('GET','/api/state?d=00.00&kind=guides');if(gp.data&&Object.keys(gp.data).length||!isOps())GP=gp.data||{};store.set('guidePhones',GP);renderGpImport()}catch(e){}
     const keys=dayKeys();
     if(keys.includes(todayKey()))dayKey=todayKey();else if(!DAYS[dayKey])dayKey=keys.pop()||null;
     // the login itself has worked here: a drawing error must not send the user back to the password screen
@@ -216,7 +217,7 @@ function gMatch(n){if(!n)return '';if(n[0]!=='~'&&GP[n])return n;const k=gKey(n)
 const gpOff=()=>GP['~off']||(GP['~off']={});
 function notifyOn(n){const k=gMatch(n)||n;return !gpOff()[k]}
 // guide name with a tappable phone, for every place a guide is shown
-// driver line for a vehicle: "🚐 Murat · 0545 172 54 25" with a tap-to-call link
+// driver line for a vehicle: "🚐 Murat · 0530 000 00 00" with a tap-to-call link
 function dTag(a){a=a||{};const ph=String(a.phone||'').trim();if(!ph&&!a.driver)return '';return `<span class="dtag">🚐 ${a.driver?esc(a.driver)+(ph?' · ':''):(ph?'водитель ':'')}${ph?`<a class="tel" href="tel:${esc(ph.replace(/[^\d+]/g,''))}">${esc(ph)}</a>`:''}</span>`}
 function gTag(g){if(!g)return '';const ph=gPhone(g);return esc(g)+(ph?` · <a class="tel" href="tel:${esc(ph.replace(/\s/g,''))}">${esc(ph)}</a>`:'')}
 // guide phone book: type a name and a number, edit or delete; saved on the server for everyone
@@ -265,6 +266,26 @@ $('#gpForm').addEventListener('submit',e=>{e.preventDefault();
   // a new guide gets his PIN at once
   if(SERVER&&isOps()&&!pinOf(name))setGuidePin(name,newGuidePin())});
 $('#gpCancel').onclick=gpReset;
+// replace the whole book with a pasted list ("1 NAME SURNAME 0530 000 00 00" per line, from a table, WhatsApp or a photo's text)
+function gpParse(txt){const out=[];String(txt||'').split(/\r?\n/).forEach(l=>{const m=l.match(/(\+?\d[\d\s().-]{8,}\d)\s*$/);if(!m)return;
+  const ph=normPh(m[1]);if(ph.replace(/\D/g,'').length<10)return;
+  const name=l.slice(0,m.index).replace(/^\s*\d+[.)]?\s+/,'').replace(/[|;,\t+—-]+/g,' ').trim().replace(/\s+/g,' ').replace(/i/g,'İ').replace(/ı/g,'I').toUpperCase();
+  if(name.length>=3)out.push([name,ph])});return out}
+function gpBulkPreview(){const L=gpParse($('#gpBulk').value);const keep=new Set(L.map(x=>gKey(x[0])));const gone=gpKeys().filter(k=>!keep.has(gKey(k)));
+  $('#gpBulkInfo').innerHTML=L.length?`Новый список: <b>${L.length}</b> гидов.${gone.length?` Удалятся из книги (${gone.length}): ${gone.map(esc).join(', ')}`:''}`:'Вставьте строки: имя фамилия и телефон.';$('#gpBulkGo').disabled=!L.length}
+$('#gpBulk').oninput=gpBulkPreview;
+$('#gpBulkGo').onclick=async()=>{const L=gpParse($('#gpBulk').value);if(!L.length)return;const gone=gpKeys().filter(k=>!L.some(x=>gKey(x[0])===gKey(k)));
+  if(!confirm(`Заменить книгу гидов: ${L.length} гидов${gone.length?`, удалить ${gone.length}`:''}?`))return;
+  const off=gpOff();const N={};L.forEach(([n,ph])=>{N[n]=ph});const O={};Object.keys(off).forEach(k=>{if(N[k])O[k]=true});if(Object.keys(O).length)N['~off']=O;
+  GP=N;saveGP();$('#gpBulk').value='';gpBulkPreview();gpChanged();toast(`Книга гидов заменена: ${L.length}`);gpPinTidy()};
+// after a new list: PINs of guides who left, and guides who have no PIN yet
+function gpPinTidy(){const el=$('#gpPinTidy');if(!el||!SERVER||!isOps())return;const keys=gpKeys();
+  const stale=Object.keys(PINS).filter(n=>PINS[n]&&!keys.some(k=>sameG(k,n)));const none=keys.filter(k=>!pinOf(k));
+  el.innerHTML=(stale.length?`<p class="hint">PIN остался у тех, кого нет в книге (${stale.length}): ${stale.map(esc).join(', ')} <button type="button" class="btn sm" id="gpPinDrop">Забрать у них PIN</button></p>`:'')
+    +(none.length?`<p class="hint">Без PIN (${none.length}): ${none.map(esc).join(', ')} <button type="button" class="btn sm" id="gpPinGive">Выдать всем PIN</button></p>`:'');
+  const d=$('#gpPinDrop');if(d)d.onclick=async()=>{if(!confirm('Эти гиды больше не смогут войти. Забрать PIN?'))return;try{const r=await api('PUT','/api/state?d=00.00&kind=pins',Object.fromEntries(stale.map(n=>[n,null])));PINS=r.pins||PINS;toast('PIN забраны: '+stale.length)}catch(e){toast('Не удалось')}renderGpImport();gpPinTidy()};
+  const g=$('#gpPinGive');if(g)g.onclick=async()=>{const add={};const used=new Set(Object.values(PINS).map(String));none.forEach(n=>{let p='';while(!p||used.has(p))p=String(1000+Math.floor(Math.random()*9000));used.add(p);add[n]=p});
+    try{const r=await api('PUT','/api/state?d=00.00&kind=pins',add);PINS=r.pins||PINS;toast('PIN выданы: '+none.length)}catch(e){toast('Не удалось')}renderGpImport();gpPinTidy()}}
 
 function loadDay(k){
   if(!k||!DAYS[k]){DAY=null;$('#dateLbl').textContent='Операционный центр · день ещё не загружен';renderDaySel();$('#board').innerHTML='<p class="hint">Пока нет ни одного дня. Откройте вкладку «Загрузить день» и перетащите Excel KAPAK.</p>';const tb=document.querySelector('.tab[data-t=data]');if(tb)tb.click();renderDayStatus();return}
