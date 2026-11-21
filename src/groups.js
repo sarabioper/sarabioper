@@ -99,17 +99,16 @@ function groupGuestsHtml(t,iso){
   // one short line per guest; a tap opens flights, voucher and the Note / Report buttons. A written note stays visible.
   const row=({x,i},f)=>{const a=ageOn(x.dob,iso);const bday=x.dob&&days.has(x.dob.slice(5));const nr=reps.filter(r=>r.guest&&r.guest.toLocaleUpperCase('tr')===x.n.toLocaleUpperCase('tr')).length;const nt=note(i);
     const kid=/CHD|INF/.test(x.sex)||a!==''&&a<12;const r0=f.rows[0].x;
-    return `<details class="gx" data-gxo="${esc(t.id)}|${i}"${GXOPEN.has(t.id+'|'+i)||q&&f.rows.length>1&&(x.n.toLocaleUpperCase('tr').replace(/[\s-]+/g,'').includes(q))?' open':''}><summary><span class="gx-n"><span class="hint">${x.no}.</span> <b>${esc(x.n)}</b>${fresh(x)?` <span class="chip gx-new" title="Добавлен ${gxDm(x.add)}">🆕</span>`:''}${x.room?` <span class="hint">${esc(x.room)}</span>`:''}</span><span class="gx-m">${a!==''?(a===0?(LANG==='tr'?'<1 yaş':'<1 г.'):a+' '+(LANG==='tr'?'yaş':'л.')):''}${kid?' 👶':''}${bday?` <b class="bday">🎂 ${gxDm(x.dob)}</b>`:''}${nr?` <span class="chip rep-t">📝 ${nr}</span>`:''}${gxRef(t.id,i)?` <span class="chip gx-refc" title="Этого гостя привёл / передал гид">🤝 ${esc(gxRef(t.id,i))}</span>`:''}${slBadge(t.id,i)}</span><span class="gx-x">▾</span>
+    return `<details class="gx" data-gxo="${esc(t.id)}|${i}"${GXOPEN.has(t.id+'|'+i)||q&&f.rows.length>1&&(x.n.toLocaleUpperCase('tr').replace(/[\s-]+/g,'').includes(q))?' open':''}><summary><span class="gx-n"><span class="hint">${x.no}.</span> <b>${esc(x.n)}</b>${fresh(x)?` <span class="chip gx-new" title="Добавлен ${gxDm(x.add)}">🆕</span>`:''}${x.room?` <span class="hint">${esc(x.room)}</span>`:''}</span><span class="gx-m">${a!==''?(a===0?(LANG==='tr'?'<1 yaş':'<1 г.'):a+' '+(LANG==='tr'?'yaş':'л.')):''}${kid?' 👶':''}${bday?` <b class="bday">🎂 ${gxDm(x.dob)}</b>`:''}${nr?` <span class="chip rep-t">📝 ${nr}</span>`:''}${gxRef(t.id,i)?` <span class="chip gx-refc" title="Этого гостя привёл / передал гид">🤝 ${esc(gxRef(t.id,i))}${gxPkg(t.id,i)?' · '+esc(gxPkg(t.id,i)):''}</span>`:''}${slBadge(t.id,i)}</span><span class="gx-x">▾</span>
       ${nt?`<span class="gnote">✎ ${esc(nt)}</span>`:''}</summary>
       <div class="gx-body"><div class="gx-d">${x.af?`<span>🛬 ${esc(x.af)} ${gxDm(x.ad)} ${esc(x.at)}</span>`:''}${x.rf||x.rd?`<span>🛫 ${esc(x.rf||'—')} ${gxDm(x.rd)} ${esc(x.rt)}</span>`:''}<span class="hint">${esc(x.sex)}${x.dob?' · '+gxDm(x.dob)+'.'+x.dob.slice(0,4):''}</span></div>
         <div class="gx-d hint">${r0.v?`<span>ваучер ${esc(r0.v)}</span>`:''}${x.trf&&isOps()?`<span>трансфер ${esc(x.trf)}</span>`:''}${x.pass&&isOps()?`<span>паспорт ${esc(x.pass)}</span>`:''}</div>
-        <label class="gx-ref">🤝 Привёл гид <input list="gxRefL" data-gxref="${esc(t.id)}|${i}" value="${esc(gxRef(t.id,i))}" placeholder="кто передал этого гостя"></label>
+        <button type="button" class="btn sm gx-refb${gxRef(t.id,i)?' on':''}" data-gxref="${esc(t.id)}|${i}">🤝 ${gxRef(t.id,i)?`Привёл <b>${esc(gxRef(t.id,i))}</b>${gxPkg(t.id,i)?' · 📦 '+esc(gxPkg(t.id,i)):''}`:'Кто привёл гостя?'}</button>
         ${guestSaleHtml(t,i)}
         <div class="gx-b"><button type="button" class="btn sm" data-gxnote="${esc(t.id)}|${i}">✎ ${nt?'Изменить заметку':'Заметка'}</button><button type="button" class="btn sm" data-trep="${esc(t.id)}|${i}">📝 Рапорт</button></div></div></details>`};
   return `<div class="tguests">
     <div class="gx-top">${t.gcode?`<b>${esc(t.gcode)}</b>`:''}<span class="chip">👥 ${X.length}</span>${nNew?`<span class="chip gx-new">🆕 +${nNew}</span>`:''}${kids.length?`<span class="chip">👶 ${kids.length}</span>`:''}${bd.length?`<span class="chip bday">🎂 ${bd.map(x=>esc(x.n.split(' ')[0])+' '+gxDm(x.dob)).join(', ')}</span>`:''}${pay.length&&isOps()?`<span class="chip rep-t">💵 ${pay.length} семей</span>`:''}</div>
     ${(t.ghotels||[]).length?`<div class="gx-hot">🏨 ${t.ghotels.map(esc).join(' · ')}</div>`:''}
-    <datalist id="gxRefL">${refGuides().map(g=>`<option value="${esc(g)}">`).join('')}</datalist>
     <input class="gx-q" data-gxq="${esc(t.id)}" value="${esc(TGQ[t.id]||'')}" placeholder="Поиск: фамилия, телефон, рейс" aria-label="Поиск гостя">
     <div class="gx-list">${fams.filter(show).map(f=>{const r0=f.rows[0].x;const cm=[...new Set(f.rows.map(r=>r.x.c).filter(Boolean))].join(' · ');const ph=r0.phone;
       return `<div class="gx-fam"><div class="gx-fh">${ph?`<a class="tel" href="tel:${esc(ph.replace(/[^\d+]/g,''))}">📞 ${esc(ph)}</a><a class="wa" target="_blank" rel="noopener" href="https://wa.me/${esc(ph.replace(/\D/g,''))}">WhatsApp</a>`:'<span class="hint">без телефона</span>'}${cm?`<span class="gx-c ${/ОПЛАТ|ДОПЛАТ|USD|ДОЛГ|НА МЕСТЕ/i.test(cm)?'pay':''}" title="${esc(cm)}">💬 ${esc(cm)}</span>`:''}</div>
@@ -137,19 +136,54 @@ async function importGroupList(tid,file){
     toast(`Список группы: ${mergeMsg(M,P.guests.length)}`)}
   catch(e){toast('Не удалось прочитать список: '+e.message)}}
 const gxRef=(tid,i)=>(TM[tid+'|ref|'+i]||{}).g||'';
-function refGuides(){const S=new Set();try{(typeof guides==='function'&&DAY?guides():[]).forEach(g=>S.add(g))}catch(e){}try{Object.keys(GP||{}).forEach(g=>S.add(g))}catch(e){}try{Object.keys(PINS||{}).forEach(g=>S.add(g))}catch(e){}
-  try{tours().forEach(t=>[t.guide,t.kok].flatMap(gSplit).forEach(g=>S.add(g)))}catch(e){}return [...S].filter(Boolean).sort((a,b)=>a.localeCompare(b,'tr'))}
+const gxPkg=(tid,i)=>(TM[tid+'|ref|'+i]||{}).pkg||'';// the package the other guide sold to this guest
+function refGuides(){const S=new Set();try{(typeof guides==='function'&&DAY?guides():[]).forEach(g=>S.add(g))}catch(e){}try{Object.keys(GP||{}).forEach(g=>S.add(g))}catch(e){}try{Object.keys(PINS||{}).forEach(g=>S.add(g))}catch(e){}try{(GNAMES||[]).forEach(g=>S.add(g))}catch(e){}
+  try{tours().forEach(t=>[t.guide,t.kok].flatMap(gSplit).forEach(g=>S.add(g)))}catch(e){}return [...S].filter(g=>g&&g[0]!=='~').sort((a,b)=>a.localeCompare(b,'tr'))}
 var GXOPEN=GXOPEN||new Set();// guest lines left open stay open when the list is redrawn (after a sale, a note)
 function bindGroupGuests(el){bindSales(el);
   // one family usually comes from the same guide: the name goes to all members who have none yet
-  el.querySelectorAll('[data-gxref]').forEach(inp=>inp.onchange=()=>{const [tid,i]=inp.dataset.gxref.split('|');const t=TOURS[tid];const x=(t.gx||[])[+i];if(!x)return;const g=inp.value.trim();
-    const who=ROLE==='guide'?(ME||''):(uName()||'Офис');const at=new Date().toISOString();
-    const idx=(t.gx||[]).map((y,j)=>j).filter(j=>j===+i||(x.fam&&t.gx[j].fam===x.fam&&!t.gx[j].gone&&!gxRef(tid,j)));
-    idx.forEach(j=>saveTM(tid+'|ref|'+j,g?{g,at,by:who}:null));
-    toast(g?`Привёл ${g}: ${idx.length>1?idx.length+' гостя (семья)':x.n}`:'Убрано');tourRefresh()});
+  el.querySelectorAll('[data-gxref]').forEach(b=>b.onclick=e=>{e.preventDefault();refOpen(b.dataset.gxref)});
   el.querySelectorAll('[data-gxo]').forEach(d=>d.ontoggle=()=>{d.open?GXOPEN.add(d.dataset.gxo):GXOPEN.delete(d.dataset.gxo)});
   el.querySelectorAll('[data-gso]').forEach(d=>d.ontoggle=()=>{d.open?GXOPEN.add('s:'+d.dataset.gso):GXOPEN.delete('s:'+d.dataset.gso)});
   el.querySelectorAll('[data-tgfile]').forEach(i=>i.onchange=e=>{const f=e.target.files[0];if(f)importGroupList(i.dataset.tgfile,f);e.target.value=''});
   el.querySelectorAll('[data-gxq]').forEach(i=>i.oninput=()=>{TGQ[i.dataset.gxq]=i.value;const pos=i.selectionStart;tourRefresh();const n=[...document.querySelectorAll(`[data-gxq="${CSS.escape(i.dataset.gxq)}"]`)].find(n=>n.offsetParent)||document.querySelector(`[data-gxq="${CSS.escape(i.dataset.gxq)}"]`);if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}});
   el.querySelectorAll('[data-gxnote]').forEach(b=>b.onclick=()=>{const [tid,i]=b.dataset.gxnote.split('|');const t=TOURS[tid];const x=(t.gx||[])[+i];if(!x)return;const k=tid+'|gn|'+i;
     const v=prompt(trText(`Заметка про ${x.n} (видят офис и гиды). Пусто — удалить.`),(TM[k]||{}).note||'');if(v===null)return;saveTM(k,v.trim()?{note:v.trim(),at:nowMinutes()}:null);tourRefresh();toast(v.trim()?'Заметка сохранена':'Заметка удалена')})}
+
+/* ---------- «who brought this guest»: a picker — tap, type two letters, tap the guide, tap the package ---------- */
+let REF=null;
+function refOpen(key){const [tid,i]=key.split('|');const t=TOURS[tid];const x=t&&(t.gx||[])[+i];if(!x)return;
+  const fam=(t.gx||[]).map((y,j)=>({y,j})).filter(o=>o.j!==+i&&x.fam&&o.y.fam===x.fam&&!o.y.gone);
+  REF={tid,i:+i,g:gxRef(tid,+i),pkg:gxPkg(tid,+i),fam,all:true,q:''};
+  let el=$('#refBox');if(!el){el=document.createElement('div');el.id='refBox';el.className='ref-ov';document.body.appendChild(el);
+    el.addEventListener('click',e=>{if(e.target===el)refClose()})}
+  el.hidden=false;document.body.classList.add('sc-open');refDraw(true)}
+function refClose(){const el=$('#refBox');if(el)el.hidden=true;document.body.classList.remove('sc-open');REF=null}
+const refHit=(g,q)=>{const Q=gKey(q).split(' ').filter(Boolean);if(!Q.length)return true;const W=gKey(g).split(' ');return Q.every(w=>W.some(y=>y.startsWith(w)))};
+function refList(){const me=ROLE==='guide'?ME:'';return refGuides().filter(g=>!(me&&sameG(g,me))&&refHit(g,REF.q))}
+function refDraw(first){const el=$('#refBox');const t=TOURS[REF.tid];const x=t.gx[REF.i];
+  const packs=slItems().filter(it=>it.k==='pack');
+  el.innerHTML=`<div class="ref-in" role="dialog" aria-label="Кто привёл гостя">
+    <div class="ref-h"><b>🤝 Кто привёл: ${esc(x.n)}</b><button type="button" class="btn sm ghost" data-refx aria-label="Закрыть">✕</button></div>
+    ${!REF.g?`<input type="search" class="ref-q" placeholder="Первые буквы имени гида…" value="${esc(REF.q)}" autocomplete="off">
+      <div class="ref-l" data-refl></div>`
+    :`<div class="ref-sel">Гид: <b>${esc(REF.g)}</b> <button type="button" class="btn sm ghost" data-refchg>сменить</button></div>
+      <div class="hint">Какой пакет он продал?</div>
+      <div class="ref-p">${packs.map(it=>`<button type="button" class="btn${REF.pkg===it.n?' on':''}" data-refpkg="${esc(it.n)}">📦 ${esc(it.n)}</button>`).join('')}<button type="button" class="btn ghost${REF.pkg===''?' on':''}" data-refpkg="">без пакета</button></div>
+      ${REF.fam.length?`<label class="ref-f"><input type="checkbox" data-reffam${REF.all?' checked':''}> Вся семья (+${REF.fam.length}: ${REF.fam.map(o=>esc(o.y.n.split(' ')[0])).join(', ')})</label>`:''}
+      <div class="ref-go"><button type="button" class="btn primary" data-refsave>✅ Сохранить</button>${gxRef(REF.tid,REF.i)?'<button type="button" class="btn ghost" data-refdel>Убрать</button>':''}</div>`}
+  </div>`;
+  const q=el.querySelector('.ref-q');
+  const drawL=()=>{const L=refList();el.querySelector('[data-refl]').innerHTML=L.length?L.map(g=>`<button type="button" class="ref-g" data-refg="${esc(g)}">${esc(g)}</button>`).join(''):'<p class="hint">Нет такого гида. Нажмите Enter — сохраню как написано.</p>';
+    el.querySelectorAll('[data-refg]').forEach(b=>b.onclick=()=>{REF.g=b.dataset.refg;refDraw()})};
+  if(q){drawL();q.oninput=()=>{REF.q=q.value;drawL()};q.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();const L=refList();const v=L.length===1?L[0]:L.length?null:q.value.trim().toUpperCase();if(v){REF.g=v;refDraw()}}};setTimeout(()=>q.focus(),30)}
+  el.querySelector('[data-refx]').onclick=refClose;
+  const chg=el.querySelector('[data-refchg]');if(chg)chg.onclick=()=>{REF.g='';REF.q='';refDraw()};
+  el.querySelectorAll('[data-refpkg]').forEach(b=>b.onclick=()=>{REF.pkg=b.dataset.refpkg;refDraw()});
+  const fm=el.querySelector('[data-reffam]');if(fm)fm.onchange=()=>{REF.all=fm.checked};
+  const sv=el.querySelector('[data-refsave]');if(sv)sv.onclick=()=>refSave(false);
+  const dl=el.querySelector('[data-refdel]');if(dl)dl.onclick=()=>refSave(true)}
+function refSave(del){const {tid,i,g,pkg,fam,all}=REF;const who=ROLE==='guide'?(ME||''):(uName()||'Офис');const at=new Date().toISOString();
+  const idx=[i,...(all?fam.map(o=>o.j):[])];idx.forEach(j=>saveTM(tid+'|ref|'+j,del?null:Object.assign({g,at,by:who},pkg?{pkg}:{})));
+  toast(del?'Убрано':`🤝 ${g}${pkg?' · '+pkg:''}: ${idx.length>1?idx.length+' гостя':TOURS[tid].gx[i].n}`);refClose();tourRefresh()}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&REF)refClose()});

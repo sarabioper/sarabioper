@@ -158,7 +158,8 @@ export default async (req) => {
     if (me) {
       if (kind === "tours") return json({ data: toursForGuide(data, me) });
       if (kind === "reports") return json({ data: Object.fromEntries(Object.entries(data).filter(([, r]) => r && sameGuide(r.author, me))) });
-      if (kind === "guides") return json({ data: Object.fromEntries(Object.entries(data).filter(([n]) => n !== "~off" && sameGuide(n, me))) });
+      // a guide gets his own phone and only the NAMES of the other guides (to mark who brought a guest)
+      if (kind === "guides") return json({ data: Object.fromEntries(Object.entries(data).filter(([n]) => n !== "~off" && sameGuide(n, me))), names: Object.keys(data).filter((n) => n[0] !== "~") });
       if (kind === "sales") {
         // a guide sees the sales of his own buses only
         const T = (await s.get("state/00.00/tours", { type: "json" })) || {};

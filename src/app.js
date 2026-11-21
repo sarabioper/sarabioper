@@ -117,7 +117,7 @@ async function serverBoot(){
     res.days.forEach(d=>{DAYS[d.key]=d});
     try{const st=await api('GET','/api/state?d=00.00&kind=settings');if(st.data&&st.data.termOk){SETTINGS=Object.assign({termOk:{}},st.data);store.set('settings',SETTINGS)}}catch(e){}
     // the server's book is the truth (an old copy on a phone must not bring deleted guides back)
-    try{const gp=await api('GET','/api/state?d=00.00&kind=guides');if(gp.data&&Object.keys(gp.data).length||!isOps())GP=gp.data||{};store.set('guidePhones',GP);renderGpImport()}catch(e){}
+    try{const gp=await api('GET','/api/state?d=00.00&kind=guides');if(gp.data&&Object.keys(gp.data).length||!isOps())GP=gp.data||{};store.set('guidePhones',GP);if(gp.names){GNAMES=gp.names;store.set('gnames',GNAMES)}renderGpImport()}catch(e){}
     const keys=dayKeys();
     if(keys.includes(todayKey()))dayKey=todayKey();else if(!DAYS[dayKey])dayKey=keys.pop()||null;
     // the login itself has worked here: a drawing error must not send the user back to the password screen
@@ -195,7 +195,7 @@ function dayKeys(){return Object.keys(DAYS).sort((a,b)=>dayIso(a)<dayIso(b)?-1:1
 let dayKey=store.get('day','15.10');if(!DAYS[dayKey])dayKey=dayKeys().pop()||null;
 let NOW=store.get('now_'+dayKey,540);
 let assign={},met={},contacts=null;
-let GP=store.get('guidePhones',{});
+let GP=store.get('guidePhones',{});var GNAMES=store.get('gnames',[]);// names of all guides (a guide does not get their phones)
 // global settings shared by everyone: flights whose terminal a dispatcher confirmed ("VF3033": "DIŞ")
 let SETTINGS=store.get('settings',{termOk:{}});SETTINGS.termOk=SETTINGS.termOk||{};
 const flKeyC=fl=>normFl(fl).replace(/\s/g,'');
