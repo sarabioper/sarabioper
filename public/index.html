@@ -726,6 +726,8 @@ article.flight.open{border-bottom-left-radius:0;border-bottom-right-radius:0;mar
 .slf-cart{border:1px solid var(--line);border-radius:8px;padding:6px 10px;display:grid;gap:4px;background:var(--sunk)}.slf-l{display:grid;grid-template-columns:1fr auto 90px;gap:8px;align-items:center;font-size:14px}.slf-l .n{text-align:right}.slf-l.tot{border-top:1px solid var(--line);padding-top:6px;font-size:17px}
 .slf-q2{display:flex;align-items:center;gap:6px}.slf-q2 .btn{min-width:30px;padding:2px 8px}.slf-go{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}.slf-go .btn{flex:1 1 auto}.slf-pw{margin-left:auto}.slf-pw select{font:inherit;padding:3px}
 #tkPrint{display:none}
+.gps-l{font-size:13px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0}.gps-l select,.gps-r select{font:inherit;font-size:13px;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);max-width:100%}
+.gps-w{font-size:13px;margin:6px 0}.gps-w summary{cursor:pointer;color:var(--warn)}.gps-r{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:4px 0}
 @media print{body.tk-printing>*:not(#tkPrint){display:none!important}body.tk-printing{background:#fff!important;margin:0;padding:0}body.tk-printing #tkPrint{display:block!important}
   #tkPrint .tk{padding:3mm;font:12px/1.35 Arial,Helvetica,sans-serif;color:#000;background:#fff;font-weight:600}#tkPrint .tk-c{text-align:center}#tkPrint .tk-big{font-size:16px;font-weight:800}#tkPrint .tk-no{font-size:14px;font-weight:800}
   #tkPrint .tk-hr{border-top:1px dashed #000;margin:4px 0}#tkPrint .tk-l{display:flex;justify-content:space-between;gap:6px}}
@@ -3466,10 +3468,10 @@ function renderCtl(){const box=$('#ctlGuides');if(!box)return;
       const dn=ss.filter((s,i)=>m(s).d!=null||(i===ss.length-1&&m(s).a!=null)).length;const fin=ss.length&&m(ss[ss.length-1]).a!=null;const now=tourNow(t,day);const key='t|'+t.id;
       return `<details class="cg ${fin?'done':''}" data-cg="${esc(key)}"${CTLOPEN.has(key)?' open':''}><summary><span class="cg-h"><b>${esc(t.bus||'')} · ${esc(t.guide||'')}</b><span class="num">${fin?'✓ ':''}${dn}/${ss.length}</span></span>
         <span class="bar"><i style="width:${ss.length?Math.round(dn/ss.length*100):0}%"></i></span><span class="hint">${esc(now.txt)}</span></summary>
-        <div class="cg-t">${ss.map((s,i)=>{const x=m(s);const ok=x.d!=null||(i===ss.length-1&&x.a!=null);return `<div class="ct ${ok?'ok':''}"><span class="num">${s.t||'—'}</span><span>${esc(s.n)}</span><span class="num">${x.a!=null?'📍'+fmt(x.a):''}${x.d!=null?' → '+fmt(x.d):''}</span></div>`}).join('')}</div></details>`}).join('')}</div>`}catch(e){}
+        <div class="cg-t">${ss.map((s,i)=>{const x=m(s);const ok=x.d!=null||(i===ss.length-1&&x.a!=null);return `<div class="ct ${ok?'ok':''}"><span class="num">${s.t||'—'}</span><span>${esc(s.n)}</span><span class="num">${x.a!=null?(x.gps?'🛰':'📍')+fmt(x.a):''}${x.d!=null?' → '+fmt(x.d):''}</span></div>`}).join('')}</div>${typeof gpsDrvHtml==='function'?gpsDrvHtml(t)+gpsDwellHtml(t,iso):''}</details>`}).join('')}</div>`}catch(e){}
   const html=sec('arr','✈️ Встреча · Arrival')+sec('dep','🛫 Сбор · Depart')+tour;
   box.innerHTML=html||'<p class="hint">Сегодня заданий у гидов нет.</p>';
-  box.querySelectorAll('[data-cg]').forEach(d=>d.ontoggle=()=>{d.open?CTLOPEN.add(d.dataset.cg):CTLOPEN.delete(d.dataset.cg)})}
+  box.querySelectorAll('[data-cg]').forEach(d=>d.ontoggle=()=>{d.open?CTLOPEN.add(d.dataset.cg):CTLOPEN.delete(d.dataset.cg)});if(typeof gpsBind==='function')gpsBind(box)}
 var CTLOPEN=new Set();
 function renderOps(){
   try{renderCtl()}catch(e){}
@@ -3955,7 +3957,7 @@ function bindRg(root){
 /* ---------- excursions: multi-day bus programs, stops, lunches and shops ---------- */
 // TOURS[id] = {id,bus,name,pax,hotel,guide,kok,plate,driver,dphone,days:[{d:'2026-10-22',s:[{id,t,n,k,m}]}]}
 // TOURS['~places'] = {places:{"COLESSAI":{cap:120}}}   (restaurant capacities)
-// TM['tid|sid'] = {a:minutes arrived, d:minutes left, s:'shop sale'}
+// TM['tid|sid'] = {a:minutes arrived, d:minutes left, s:'shop sale', ga/gd: the same by the driver's GPS (gps.js)}
 let TOURS=store.get('tours',{}),TM=store.get('tourmarks',{});
 let tDate=null,tEdit=null,tLastSave=0;
 const TK={start:['🚌','Выезд'],sight:['📍','Объект'],shop:['🛍','Магазин'],lunch:['🍽','Обед'],break:['☕','Остановка'],hamam:['🧖','Хамам'],hotel:['🏨','В отель'],transfer:['✈️','Трансфер']};
@@ -3999,7 +4001,8 @@ async function pullTours(force){if(!SERVER)return;if(!force&&($('#v-tours').hidd
 
 /* ---- day view ---- */
 const dayOfTour=(t,iso)=>{const i=t.days.findIndex(d=>d.d===iso);return i<0?null:{i,day:t.days[i]}};
-function stopState(t,s){const m=TM[t.id+'|'+s.id]||{};return m}
+// the GPS times win over the guide's taps (ma/md keep what the guide pressed)
+function stopState(t,s){const m=TM[t.id+'|'+s.id]||{};if(m.ga==null)return m;return Object.assign({},m,{a:m.ga,d:m.gd!=null?m.gd:m.d,gps:true,ma:m.a,md:m.d})}
 function tourNow(t,day){const st=day.s;let last=-1;st.forEach((s,i)=>{if(stopState(t,s).a!=null)last=i});
   if(last<0)return {txt:'Ещё не выехали',cls:''};
   const s=st[last],m=stopState(t,s),stay=s.k!=='start'&&s.k!=='hotel'&&s.k!=='transfer';
@@ -4104,20 +4107,22 @@ const x=dayOfTour(t,iso);const st=tourNow(t,x.day);let lastA=-1;x.day.s.forEach(
       return `<li class="tst k-${s.k} ${m.a!=null?(m.d!=null?'done':'here'):''} ${late?'late':''}">
         <span class="tt num">${s.t||'—'}${s.m?`<small>маг. ${esc(s.m)}</small>`:''}</span>
         <span class="tn"><span class="ti">${(TK[s.k]||["•"])[0]}</span> ${esc(s.n)}${late?`<small class="lt">опаздывают ${now-plan} мин</small>`:''}
-          ${m.a!=null?`<small class="ok">📍 ${fmt(m.a)}${m.d!=null?' → 🚌 '+fmt(m.d):''}</small>`:''}
+          ${m.a!=null?`<small class="ok">${m.gps?'🛰':'📍'} ${fmt(m.a)}${m.d!=null?' → 🚌 '+fmt(m.d):''}${m.gps&&m.ma!=null&&Math.abs(m.ma-m.a)>10?` <span class="hint">· гид нажал в ${fmt(m.ma)}</span>`:''}</small>`:''}
           ${s.k==='shop'&&m.a!=null?`<label class="sale">Продажа <input value="${esc(m.s||'')}" data-sale="${key}" placeholder="сумма"></label>`:''}</span>
-        <span class="tb">${m.a==null?`<button type="button" class="btn sm" data-ta="${key}">📍 ${s.k==='start'?'Выехали':'Прибыли'}</button>`:m.d==null&&s.k!=='start'&&s.k!=='hotel'&&s.k!=='transfer'?`<button type="button" class="btn sm primary" data-td="${key}">🚌 Уехали</button>`:''}${m.a!=null?`<button type="button" class="btn sm ghost" data-tu="${key}" title="Отменить">↺</button>`:''}</span></li>`}).join('');
+        <span class="tb">${m.a==null?`<button type="button" class="btn sm" data-ta="${key}">📍 ${s.k==='start'?'Выехали':'Прибыли'}</button>`:m.d==null&&s.k!=='start'&&s.k!=='hotel'&&s.k!=='transfer'?`<button type="button" class="btn sm primary" data-td="${key}">🚌 Уехали</button>`:''}${m.a!=null&&!m.gps?`<button type="button" class="btn sm ghost" data-tu="${key}" title="Отменить">↺</button>`:''}</span></li>`}).join('');
     return `<article class="tcard" data-iso="${iso}"><header class="tch"><div><b class="tbus">${esc(t.bus||'BUS ?')}</b> ${t.name?`<span>${esc(t.name)}</span>`:''}${!o.guide&&isOps()&&(()=>{try{return dupOf(t)}catch(e){return null}})()?` <span class="chip" style="background:var(--warn-soft);color:var(--warn)" title="Та же программа загружена ещё раз — эту копию можно удалить: Изменить → Удалить">⚠ копия ${esc(dupOf(t).bus||'')}</span>`:''} <button type="button" class="chip tg-btn" data-tguests="${esc(t.id)}" aria-expanded="${TGOPEN.has(t.id)}">👥 ${esc(t.pax||'?')}${(t.guests||[]).length?` · ${t.guests.length} имён`:''} ▾</button></div>
       <div class="tdays" role="group" aria-label="Дни программы">${t.days.map((d,i)=>`<button type="button" data-tgo="${d.d}" aria-pressed="${i===x.i}" title="${isoDM(d.d)}">${i===0?'« ':''}${i+1}${i===t.days.length-1?' »':''}<small>${isoDM(d.d)}</small></button>`).join('')}</div>
       <div class="tst-now ${st.cls}">${esc(st.txt)}</div></header>
       <div class="tppl">${t.guide?`<span>Гид отеля: ${gTag(t.guide)}</span>`:''}${t.kok?`<span>Кок гид: ${gTag(t.kok)}</span>`:''}${t.plate||t.driver?`<span>🚌 ${esc(t.plate||'')} ${esc(t.driver||'')}${t.dphone?` · <a class="tel" href="tel:${esc(t.dphone.replace(/\s/g,''))}">${esc(t.dphone)}</a>`:''}</span>`:''}${t.hotel?`<span>🏨 ${esc(t.hotel)}</span>`:''}</div>
+      ${o.guide||typeof gpsDrvHtml!=='function'?'':gpsDrvHtml(t)}
       ${TGOPEN.has(t.id)?tourGuestsHtml(t,iso):''}
       ${coordHint(LB,t,x)}
       <ol class="tstops">${rows}</ol>
+      ${o.guide||typeof gpsDwellHtml!=='function'?'':gpsDwellHtml(t,iso)}
       <div class="tact"><button type="button" class="btn sm" data-twa="${esc(t.id)}" data-tiso="${iso}">📋 Программа дня в WhatsApp</button>${o.guide?'':`<button type="button" class="btn sm" data-tedit="${esc(t.id)}">✎ Изменить</button><button type="button" class="btn sm" data-tcopy="${esc(t.id)}">⧉ Копия для другого автобуса</button>`}</div></article>`}finally{tDate=tDateSave}}
 function tourRefresh(){renderTours();try{renderCtl()}catch(e){}if(typeof renderGuide==='function'&&!$('#v-guide').hidden)renderGuide()}
 function bindTourCards(el){
-  bindGroupGuests(el);
+  bindGroupGuests(el);if(typeof gpsBind==='function')gpsBind(el);
   el.querySelectorAll('[data-tguests]').forEach(b=>b.onclick=()=>{const id=b.dataset.tguests;TGOPEN.has(id)?TGOPEN.delete(id):TGOPEN.add(id);tourRefresh()});
   el.querySelectorAll('[data-tgo]').forEach(b=>b.onclick=()=>{tDate=b.dataset.tgo;gTourDate=b.dataset.tgo;tourRefresh()});
   el.querySelectorAll('[data-trep]').forEach(b=>b.onclick=()=>{const [id,i]=b.dataset.trep.split('|');const t=TOURS[id];if(!t)return;
@@ -4859,6 +4864,63 @@ let mapN=0;async function mapTick(force){if(document.hidden||!SERVER||ROLE==='gu
   try{await pullLocs()}catch(e){return}locBadges();if(vis)renderMap(box)}
 setInterval(()=>mapTick(),30000);setTimeout(()=>mapTick(true),4000);
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b&&(b.dataset.t==='veh'||b.dataset.t==='ops'))setTimeout(()=>mapTick(true),50)});
+
+/* ---------- excursion buses: when the bus came to and left every stop, from the driver's GPS ---------- */
+// The driver's phone (Sarabi Sürücü / Telegram) sends points; the office turns the day's track into stops (≥4 min in one place)
+// and matches them to the program: TM['tid|sid'].ga / .gd = minutes by GPS (guides and the office see them, the guide has nothing to press).
+// A place learns its coordinates once — from a guide's «Прибыли» while the bus stood there, or when the office names a stop — and is known for every bus after that.
+const GPSD={};let gpsBusy=false;
+const hav=(a,b)=>{const r=Math.PI/180,dl=(b[0]-a[0])*r,dg=(b[1]-a[1])*r;const x=Math.sin(dl/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dg/2)**2;return 2*6371e3*Math.asin(Math.sqrt(x))};
+const msMin=ms=>{const d=new Date(ms);return d.getHours()*60+d.getMinutes()};
+const dg10=p=>String(p||'').replace(/\D/g,'').slice(-10);
+// stops whose place is the same for every bus (not "the hotel" / "the airport")
+const gpsPlace=s=>!['start','hotel','transfer'].includes(s.k)&&!/OTEL|HOTEL|HAVALIMAN|AIRPORT/i.test(s.n);
+// the driver of this bus: chosen by the office, or found by the driver's phone from the program / vehicles message
+function tourDrv(t){if(!t)return null;if(t.drv)return LOCS.find(x=>x.id===t.drv)||{id:t.drv,name:'',veh:''};const ph=dg10(t.dphone);if(ph.length===10){const x=LOCS.find(x=>dg10(x.phone)===ph);if(x)return x}return null}
+// the day's track → stops: points within 120 m of each other for 4 min or more; left = the first point away (minus a minute: the phone sends when it moves)
+function gpsDwells(tr,now){const out=[];let i=0;
+  while(i<tr.length){let j=i,la=tr[i][0],lo=tr[i][1],n=1;
+    while(j+1<tr.length&&hav([la/n,lo/n],tr[j+1])<120){j++;la+=tr[j][0];lo+=tr[j][1];n++}
+    const nx=tr[j+1];const a=tr[i][2];const d=nx?Math.max(tr[j][2],nx[2]-60000):null;
+    // one lonely point with the next one far away is a gap in the signal while driving, not a stop
+    const real=n>1||!nx||hav(tr[j],nx)<1500;
+    if(real&&(d||now)-a>=4*60000)out.push({ll:[la/n,lo/n],a,d});i=j+1}
+  return out}
+function gpsMatch(t,iso,D){const x=dayOfTour(t,iso);const P=(TOURS['~places']||{}).places||{};const res={},used=new Set();let from=0;if(!x)return {res,used};
+  x.day.s.forEach(s=>{if(!gpsPlace(s))return;const ll=(P[placeKey(s)]||{}).ll;if(!ll)return;
+    const k=D.findIndex((w,wi)=>wi>=from&&!used.has(wi)&&hav(w.ll,ll)<300);if(k<0)return;used.add(k);from=k+1;res[s.id]=D[k]});
+  return {res,used}}
+async function gpsTick(){if(!SERVER||!isOps()||gpsBusy||document.hidden)return;const iso=isoToday();
+  const L=tours().filter(t=>dayOfTour(t,iso));if(!L.length)return;gpsBusy=true;
+  try{if(!LOCS.length)await pullLocs();const D=new Map();L.forEach(t=>{const d=tourDrv(t);if(d)D.set(t.id,d)});if(!D.size)return;
+    const r=await api('GET','/api/track?ids='+encodeURIComponent([...new Set([...D.values()].map(d=>d.id))].join(',')));const now=r.now||Date.now();
+    const day0=new Date();day0.setHours(0,0,0,0);let changed=false;const sig0=JSON.stringify(Object.values(GPSD).map(g=>[g.drv.id,g.W.length,g.used.size]));
+    L.forEach(t=>{const drv=D.get(t.id);if(!drv)return;const tr=(r.tracks[drv.id]||[]).filter(p=>p[2]>=+day0);const W=gpsDwells(tr,now);const x=dayOfTour(t,iso);
+      // learn a place: the guide pressed «Прибыли» while the bus stood there
+      const P=(TOURS['~places']||{}).places||{};
+      x.day.s.forEach(s=>{if(!gpsPlace(s))return;const key=placeKey(s);if((P[key]||{}).ll)return;const m=TM[t.id+'|'+s.id]||{};if(m.a==null)return;
+        const gap=w=>{const a=msMin(w.a),d=msMin(w.d||now);return m.a<a?a-m.a:m.a>d?m.a-d:0};const w=W.filter(w=>gap(w)<=10).sort((x,y)=>gap(x)-gap(y))[0];if(w){setPlaceCfg(key,{ll:w.ll.map(v=>Math.round(v*1e5)/1e5)});changed=true}});
+      const {res,used}=gpsMatch(t,iso,W);
+      x.day.s.forEach(s=>{const k=t.id+'|'+s.id;const m=TM[k]||{};const w=res[s.id];const ga=w?msMin(w.a):null,gd=w&&w.d?msMin(w.d):null;
+        if((m.ga==null?null:m.ga)===ga&&(m.gd==null?null:m.gd)===gd)return;const v=Object.assign({},m);delete v.ga;delete v.gd;if(ga!=null)v.ga=ga;if(gd!=null)v.gd=gd;
+        saveTM(k,Object.keys(v).length?v:null);changed=true});
+      GPSD[t.id]={drv,W,used,at:now,last:tr.length?tr[tr.length-1][2]:0}});
+    // redraw only when something changed (a select being used is not reset every minute)
+    const busy=document.activeElement&&document.activeElement.matches&&document.activeElement.matches('select,input');
+    if((changed||JSON.stringify(Object.values(GPSD).map(g=>[g.drv.id,g.W.length,g.used.size]))!==sig0)&&!busy)tourRefresh()}catch(e){}finally{gpsBusy=false}}
+setInterval(gpsTick,60000);setTimeout(gpsTick,6000);
+// the office's line in the tour card: whose GPS this bus uses (or a choice), and stops the GPS saw that have no name yet
+function gpsDrvHtml(t){if(!isOps())return '';const d=tourDrv(t);const G=GPSD[t.id];
+  const opts=LOCS.slice().sort((a,b)=>String(a.veh).localeCompare(String(b.veh),'tr',{numeric:true})).map(x=>`<option value="${esc(x.id)}"${d&&d.id===x.id?' selected':''}>${esc(x.veh||'—')} · ${esc(x.name||'')}</option>`).join('');
+  return `<div class="gps-l">🛰 <select data-tdrv="${esc(t.id)}"><option value="">${d?'— авто по телефону —':'GPS: выберите водителя автобуса'}</option>${opts}</select>${d?` <span class="hint">${G&&G.last?'сигнал '+ago(Date.now()-G.last):'сигнала сегодня не было'}</span>`:''}</div>`}
+function gpsDwellHtml(t,iso){if(!isOps()||iso!==isoToday())return '';const G=GPSD[t.id];if(!G)return '';const x=dayOfTour(t,iso);const P=(TOURS['~places']||{}).places||{};
+  const free=G.W.map((w,i)=>({w,i})).filter(o=>!G.used.has(o.i)&&((o.w.d||G.at)-o.w.a>=8*60000));if(!free.length)return '';
+  const opts=x.day.s.filter(s=>gpsPlace(s)).map(s=>`<option value="${esc(placeKey(s))}">${esc(s.n)}${(P[placeKey(s)]||{}).ll?' (переставить)':''}</option>`).join('');
+  return `<details class="gps-w"><summary>🅿 Стоянки по GPS без названия: ${free.length}</summary>${free.map(({w,i})=>`<div class="gps-r"><span class="num">${fmt(msMin(w.a))}–${w.d?fmt(msMin(w.d)):'сейчас'}</span> <a href="https://www.google.com/maps?q=${w.ll[0].toFixed(5)},${w.ll[1].toFixed(5)}" target="_blank" rel="noopener">на карте</a> <select data-gpsp="${esc(t.id)}|${i}"><option value="">это…</option>${opts}</select></div>`).join('')}</details>`}
+function gpsBind(el){
+  el.querySelectorAll('[data-tdrv]').forEach(s=>s.onchange=()=>{const t=JSON.parse(JSON.stringify(TOURS[s.dataset.tdrv]));if(s.value)t.drv=s.value;else delete t.drv;saveTour(t.id,t);toast('Водитель автобуса сохранён');setTimeout(gpsTick,500)});
+  el.querySelectorAll('[data-gpsp]').forEach(s=>s.onchange=()=>{if(!s.value)return;const [tid,i]=s.dataset.gpsp.split('|');const w=(GPSD[tid]||{}).W[+i];if(!w)return;
+    setPlaceCfg(s.value,{ll:w.ll.map(v=>Math.round(v*1e5)/1e5)});toast('Точка запомнена — дальше время будет ставиться само для всех автобусов');setTimeout(gpsTick,500)})}
 
 /* ---------- season plan (director): the departure board "20.09.2026 - 31.12.2026" — dates, buses, guides, PAX, status ---------- */
 // The sheet: blocks that start with a "TARIH" row; each date is a pair of columns:

@@ -48,7 +48,8 @@ export async function saveLoc(s, id, b, src) {
   if (b.off) { await s.setJSON(key, { ...prev, on: false, offAt: now }); return true; }
   const lat = num(b.lat, -90, 90), lng = num(b.lng, -180, 180);
   if (lat == null || lng == null) return false;
-  const trail = [...(prev.trail || []), [Math.round(lat * 1e5) / 1e5, Math.round(lng * 1e5) / 1e5, now]].slice(-40);
+  // the day's track (last 16 h, at most 1500 points): the office turns it into arrival/departure times at the excursion stops
+  const trail = [...(prev.trail || []).filter((p) => now - p[2] < 16 * 3600e3), [Math.round(lat * 1e5) / 1e5, Math.round(lng * 1e5) / 1e5, now]].slice(-1500);
   await s.setJSON(key, { id, lat, lng, acc: num(b.acc, 0, 1e5), spd: num(b.spd, 0, 100), hdg: num(b.hdg, 0, 360), at: now, on: true, onAt: prev.on ? prev.onAt || now : now, src: src || "app", until: b.until || null, trail });
   return true;
 }

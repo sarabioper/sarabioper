@@ -1,7 +1,7 @@
 /* ---------- excursions: multi-day bus programs, stops, lunches and shops ---------- */
 // TOURS[id] = {id,bus,name,pax,hotel,guide,kok,plate,driver,dphone,days:[{d:'2026-10-22',s:[{id,t,n,k,m}]}]}
 // TOURS['~places'] = {places:{"COLESSAI":{cap:120}}}   (restaurant capacities)
-// TM['tid|sid'] = {a:minutes arrived, d:minutes left, s:'shop sale'}
+// TM['tid|sid'] = {a:minutes arrived, d:minutes left, s:'shop sale', ga/gd: the same by the driver's GPS (gps.js)}
 let TOURS=store.get('tours',{}),TM=store.get('tourmarks',{});
 let tDate=null,tEdit=null,tLastSave=0;
 const TK={start:['🚌','Выезд'],sight:['📍','Объект'],shop:['🛍','Магазин'],lunch:['🍽','Обед'],break:['☕','Остановка'],hamam:['🧖','Хамам'],hotel:['🏨','В отель'],transfer:['✈️','Трансфер']};
@@ -45,7 +45,8 @@ async function pullTours(force){if(!SERVER)return;if(!force&&($('#v-tours').hidd
 
 /* ---- day view ---- */
 const dayOfTour=(t,iso)=>{const i=t.days.findIndex(d=>d.d===iso);return i<0?null:{i,day:t.days[i]}};
-function stopState(t,s){const m=TM[t.id+'|'+s.id]||{};return m}
+// the GPS times win over the guide's taps (ma/md keep what the guide pressed)
+function stopState(t,s){const m=TM[t.id+'|'+s.id]||{};if(m.ga==null)return m;return Object.assign({},m,{a:m.ga,d:m.gd!=null?m.gd:m.d,gps:true,ma:m.a,md:m.d})}
 function tourNow(t,day){const st=day.s;let last=-1;st.forEach((s,i)=>{if(stopState(t,s).a!=null)last=i});
   if(last<0)return {txt:'Ещё не выехали',cls:''};
   const s=st[last],m=stopState(t,s),stay=s.k!=='start'&&s.k!=='hotel'&&s.k!=='transfer';
@@ -150,20 +151,22 @@ const x=dayOfTour(t,iso);const st=tourNow(t,x.day);let lastA=-1;x.day.s.forEach(
       return `<li class="tst k-${s.k} ${m.a!=null?(m.d!=null?'done':'here'):''} ${late?'late':''}">
         <span class="tt num">${s.t||'—'}${s.m?`<small>маг. ${esc(s.m)}</small>`:''}</span>
         <span class="tn"><span class="ti">${(TK[s.k]||["•"])[0]}</span> ${esc(s.n)}${late?`<small class="lt">опаздывают ${now-plan} мин</small>`:''}
-          ${m.a!=null?`<small class="ok">📍 ${fmt(m.a)}${m.d!=null?' → 🚌 '+fmt(m.d):''}</small>`:''}
+          ${m.a!=null?`<small class="ok">${m.gps?'🛰':'📍'} ${fmt(m.a)}${m.d!=null?' → 🚌 '+fmt(m.d):''}${m.gps&&m.ma!=null&&Math.abs(m.ma-m.a)>10?` <span class="hint">· гид нажал в ${fmt(m.ma)}</span>`:''}</small>`:''}
           ${s.k==='shop'&&m.a!=null?`<label class="sale">Продажа <input value="${esc(m.s||'')}" data-sale="${key}" placeholder="сумма"></label>`:''}</span>
-        <span class="tb">${m.a==null?`<button type="button" class="btn sm" data-ta="${key}">📍 ${s.k==='start'?'Выехали':'Прибыли'}</button>`:m.d==null&&s.k!=='start'&&s.k!=='hotel'&&s.k!=='transfer'?`<button type="button" class="btn sm primary" data-td="${key}">🚌 Уехали</button>`:''}${m.a!=null?`<button type="button" class="btn sm ghost" data-tu="${key}" title="Отменить">↺</button>`:''}</span></li>`}).join('');
+        <span class="tb">${m.a==null?`<button type="button" class="btn sm" data-ta="${key}">📍 ${s.k==='start'?'Выехали':'Прибыли'}</button>`:m.d==null&&s.k!=='start'&&s.k!=='hotel'&&s.k!=='transfer'?`<button type="button" class="btn sm primary" data-td="${key}">🚌 Уехали</button>`:''}${m.a!=null&&!m.gps?`<button type="button" class="btn sm ghost" data-tu="${key}" title="Отменить">↺</button>`:''}</span></li>`}).join('');
     return `<article class="tcard" data-iso="${iso}"><header class="tch"><div><b class="tbus">${esc(t.bus||'BUS ?')}</b> ${t.name?`<span>${esc(t.name)}</span>`:''}${!o.guide&&isOps()&&(()=>{try{return dupOf(t)}catch(e){return null}})()?` <span class="chip" style="background:var(--warn-soft);color:var(--warn)" title="Та же программа загружена ещё раз — эту копию можно удалить: Изменить → Удалить">⚠ копия ${esc(dupOf(t).bus||'')}</span>`:''} <button type="button" class="chip tg-btn" data-tguests="${esc(t.id)}" aria-expanded="${TGOPEN.has(t.id)}">👥 ${esc(t.pax||'?')}${(t.guests||[]).length?` · ${t.guests.length} имён`:''} ▾</button></div>
       <div class="tdays" role="group" aria-label="Дни программы">${t.days.map((d,i)=>`<button type="button" data-tgo="${d.d}" aria-pressed="${i===x.i}" title="${isoDM(d.d)}">${i===0?'« ':''}${i+1}${i===t.days.length-1?' »':''}<small>${isoDM(d.d)}</small></button>`).join('')}</div>
       <div class="tst-now ${st.cls}">${esc(st.txt)}</div></header>
       <div class="tppl">${t.guide?`<span>Гид отеля: ${gTag(t.guide)}</span>`:''}${t.kok?`<span>Кок гид: ${gTag(t.kok)}</span>`:''}${t.plate||t.driver?`<span>🚌 ${esc(t.plate||'')} ${esc(t.driver||'')}${t.dphone?` · <a class="tel" href="tel:${esc(t.dphone.replace(/\s/g,''))}">${esc(t.dphone)}</a>`:''}</span>`:''}${t.hotel?`<span>🏨 ${esc(t.hotel)}</span>`:''}</div>
+      ${o.guide||typeof gpsDrvHtml!=='function'?'':gpsDrvHtml(t)}
       ${TGOPEN.has(t.id)?tourGuestsHtml(t,iso):''}
       ${coordHint(LB,t,x)}
       <ol class="tstops">${rows}</ol>
+      ${o.guide||typeof gpsDwellHtml!=='function'?'':gpsDwellHtml(t,iso)}
       <div class="tact"><button type="button" class="btn sm" data-twa="${esc(t.id)}" data-tiso="${iso}">📋 Программа дня в WhatsApp</button>${o.guide?'':`<button type="button" class="btn sm" data-tedit="${esc(t.id)}">✎ Изменить</button><button type="button" class="btn sm" data-tcopy="${esc(t.id)}">⧉ Копия для другого автобуса</button>`}</div></article>`}finally{tDate=tDateSave}}
 function tourRefresh(){renderTours();try{renderCtl()}catch(e){}if(typeof renderGuide==='function'&&!$('#v-guide').hidden)renderGuide()}
 function bindTourCards(el){
-  bindGroupGuests(el);
+  bindGroupGuests(el);if(typeof gpsBind==='function')gpsBind(el);
   el.querySelectorAll('[data-tguests]').forEach(b=>b.onclick=()=>{const id=b.dataset.tguests;TGOPEN.has(id)?TGOPEN.delete(id):TGOPEN.add(id);tourRefresh()});
   el.querySelectorAll('[data-tgo]').forEach(b=>b.onclick=()=>{tDate=b.dataset.tgo;gTourDate=b.dataset.tgo;tourRefresh()});
   el.querySelectorAll('[data-trep]').forEach(b=>b.onclick=()=>{const [id,i]=b.dataset.trep.split('|');const t=TOURS[id];if(!t)return;

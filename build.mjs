@@ -37,6 +37,7 @@ ${r("src/sales.js")}
 ${r("src/reports.js")}
 ${r("src/admin.js")}
 ${r("src/map.js")}
+${r("src/gps.js")}
 ${r("src/season.js")}
 ${r("src/flightsrc.js")}
 ${r("src/find.js")}

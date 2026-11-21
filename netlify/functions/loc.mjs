@@ -5,6 +5,7 @@ import { getDrivers, driverByPin, vehsOf, jobsOf, saveLoc, todayKey } from "../l
 // POST /api/loc        (x-driver-pin)  -> {lat,lng,acc,spd,hdg,t} or {off:true}: the driver's phone reports where it is
 // POST /api/loc/hello  (x-driver-pin)  -> who the driver is and today's jobs of his vehicles
 // GET  /api/locs       (office)        -> every driver: last position (if any), vehicles and today's jobs
+// GET  /api/track?ids= (office)        -> the day's track of the given drivers
 const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "content-type, x-driver-pin", "access-control-allow-methods": "GET, POST, OPTIONS" };
 const out = (data, status = 200) => { const r = json(data, status); for (const [k, v] of Object.entries(CORS)) r.headers.set(k, v); return r; };
 
@@ -25,9 +26,21 @@ export default async (req) => {
       const vehs = await vehsOf(s, d, A);
       // a Telegram live location that has run out counts as switched off
       const on = !!x.on && !(x.until && Date.now() > x.until);
-      return { ...x, on, name: d.name, veh: vehs.join(", ") || d.veh, phone: d.phone, tg: !!(tg.links && Object.values(tg.links).includes(id)) };
+      const { trail, ...rest } = x;
+      return { ...rest, on, name: d.name, veh: vehs.join(", ") || d.veh, phone: d.phone, tg: !!(tg.links && Object.values(tg.links).includes(id)) };
     }));
     return json({ now: Date.now(), locs: L, bot: tg.bot || null });
+  }
+
+  // GET /api/track?ids=a,b (office) -> the day's GPS points of these drivers: [[lat,lng,ms],…]
+  if (path === "/api/track") {
+    const auth = await authorized(req);
+    if (!auth.ok) return auth.res;
+    if (!isOffice(auth)) return json({ error: "Только для офиса" }, 403);
+    const ids = (new URL(req.url).searchParams.get("ids") || "").split(",").map((x) => x.trim()).filter((x) => /^[\w-]{1,40}$/.test(x)).slice(0, 40);
+    const tracks = {};
+    await Promise.all(ids.map(async (id) => { const x = (await s.get("loc/" + id, { type: "json" })) || {}; tracks[id] = x.trail || []; }));
+    return json({ now: Date.now(), tracks });
   }
 
   if (req.method !== "POST") return out({ error: "Не найдено" }, 404);
@@ -42,4 +55,4 @@ export default async (req) => {
   return out({ ok: true });
 };
 
-export const config = { path: ["/api/loc", "/api/loc/hello", "/api/locs"] };
+export const config = { path: ["/api/loc", "/api/loc/hello", "/api/locs", "/api/track"] };

@@ -1004,10 +1004,10 @@ function renderCtl(){const box=$('#ctlGuides');if(!box)return;
       const dn=ss.filter((s,i)=>m(s).d!=null||(i===ss.length-1&&m(s).a!=null)).length;const fin=ss.length&&m(ss[ss.length-1]).a!=null;const now=tourNow(t,day);const key='t|'+t.id;
       return `<details class="cg ${fin?'done':''}" data-cg="${esc(key)}"${CTLOPEN.has(key)?' open':''}><summary><span class="cg-h"><b>${esc(t.bus||'')} · ${esc(t.guide||'')}</b><span class="num">${fin?'✓ ':''}${dn}/${ss.length}</span></span>
         <span class="bar"><i style="width:${ss.length?Math.round(dn/ss.length*100):0}%"></i></span><span class="hint">${esc(now.txt)}</span></summary>
-        <div class="cg-t">${ss.map((s,i)=>{const x=m(s);const ok=x.d!=null||(i===ss.length-1&&x.a!=null);return `<div class="ct ${ok?'ok':''}"><span class="num">${s.t||'—'}</span><span>${esc(s.n)}</span><span class="num">${x.a!=null?'📍'+fmt(x.a):''}${x.d!=null?' → '+fmt(x.d):''}</span></div>`}).join('')}</div></details>`}).join('')}</div>`}catch(e){}
+        <div class="cg-t">${ss.map((s,i)=>{const x=m(s);const ok=x.d!=null||(i===ss.length-1&&x.a!=null);return `<div class="ct ${ok?'ok':''}"><span class="num">${s.t||'—'}</span><span>${esc(s.n)}</span><span class="num">${x.a!=null?(x.gps?'🛰':'📍')+fmt(x.a):''}${x.d!=null?' → '+fmt(x.d):''}</span></div>`}).join('')}</div>${typeof gpsDrvHtml==='function'?gpsDrvHtml(t)+gpsDwellHtml(t,iso):''}</details>`}).join('')}</div>`}catch(e){}
   const html=sec('arr','✈️ Встреча · Arrival')+sec('dep','🛫 Сбор · Depart')+tour;
   box.innerHTML=html||'<p class="hint">Сегодня заданий у гидов нет.</p>';
-  box.querySelectorAll('[data-cg]').forEach(d=>d.ontoggle=()=>{d.open?CTLOPEN.add(d.dataset.cg):CTLOPEN.delete(d.dataset.cg)})}
+  box.querySelectorAll('[data-cg]').forEach(d=>d.ontoggle=()=>{d.open?CTLOPEN.add(d.dataset.cg):CTLOPEN.delete(d.dataset.cg)});if(typeof gpsBind==='function')gpsBind(box)}
 var CTLOPEN=new Set();
 function renderOps(){
   try{renderCtl()}catch(e){}
