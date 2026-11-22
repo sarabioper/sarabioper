@@ -121,7 +121,7 @@ export default async (req) => {
     const dk = url.searchParams.get("d") || "";
     const tags = async (p) => { const o = {}; const { blobs } = await s.list({ prefix: p }); for (const b of blobs) o[b.key.slice(p.length)] = b.etag || ""; return o; };
     const [g, v] = await Promise.all([tags("state/00.00/"), /^\d\d\.\d\d$/.test(dk) ? tags("state/" + dk + "/") : {}]);
-    delete g.pins; if (auth.role !== "admin") delete g.season; if (auth.role === "ops") { delete g.sales; delete g.prices; } delete g["tours-archive"]; delete g["tourmarks-archive"]; delete g["reports-archive"];
+    delete g.pins; if (auth.role !== "admin") { delete g.season; delete g.acct; } if (auth.role === "ops") { delete g.sales; delete g.prices; } delete g["tours-archive"]; delete g["tourmarks-archive"]; delete g["reports-archive"];
     return json({ g, v });
   }
 
@@ -148,12 +148,14 @@ export default async (req) => {
 
   if (req.method === "GET" && path === "/api/state") {
     const kind = url.searchParams.get("kind");
-    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra", "reports", "pins", "prices", "sales", "season"].includes(kind)) return json({ error: "Неверный тип" }, 400);
+    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra", "reports", "pins", "prices", "sales", "season", "acct"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     if (kind === "pins" && !isOffice(auth)) return forbidden();
     // sales and the price list: the administrator and the guides (their own buses); operations see nothing
     if ((kind === "sales" || kind === "prices") && auth.role === "ops") return forbidden();
     // the season plan is the director's: administrator only
     if (kind === "season" && auth.role !== "admin") return forbidden();
+    // the accounts (income, expenses, taxes, debts): administrator only
+    if (kind === "acct" && auth.role !== "admin") return forbidden();
     const data = (await s.get("state/" + d + "/" + kind, { type: "json" })) || {};
     if (me) {
       if (kind === "tours") return json({ data: toursForGuide(data, me) });
@@ -205,7 +207,7 @@ export default async (req) => {
       await s.setJSON("auth/log", log.slice(-500));
       return json({ ok: true, pins });
     }
-    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra", "reports", "pins", "prices", "sales", "season"].includes(kind)) return json({ error: "Неверный тип" }, 400);
+    if (!["assign", "met", "guides", "eta", "settings", "tours", "tourmarks", "extra", "reports", "pins", "prices", "sales", "season", "acct"].includes(kind)) return json({ error: "Неверный тип" }, 400);
     const body = await req.json();
     if (kind === "extra") {
       // guests added by hand on the arrivals board (late booking, moved to another flight); one key per group
@@ -227,6 +229,13 @@ export default async (req) => {
     }
     if ((kind === "sales" || kind === "prices") && auth.role === "ops") return forbidden();
     if (kind === "prices" && auth.role !== "admin") return forbidden();
+    if (kind === "acct") {
+      if (auth.role !== "admin") return forbidden();
+      if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "Нет данных" }, 400);
+      if (JSON.stringify(body).length > 4.5e6) return json({ error: "Слишком много строк: загрузите выгрузку за меньший период" }, 413);
+      await s.setJSON("state/00.00/acct", body);
+      return json({ ok: true });
+    }
     if (kind === "season") {
       if (auth.role !== "admin") return forbidden();
       if (!body || !Array.isArray(body.deps)) return json({ error: "Нет выездов" }, 400);

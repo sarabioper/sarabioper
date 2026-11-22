@@ -523,6 +523,15 @@ article.flight.open{border-bottom-left-radius:0;border-bottom-right-radius:0;mar
 .slf-cart{border:1px solid var(--line);border-radius:8px;padding:6px 10px;display:grid;gap:4px;background:var(--sunk)}.slf-l{display:grid;grid-template-columns:1fr auto 90px;gap:8px;align-items:center;font-size:14px}.slf-l .n{text-align:right}.slf-l.tot{border-top:1px solid var(--line);padding-top:6px;font-size:17px}
 .slf-q2{display:flex;align-items:center;gap:6px}.slf-q2 .btn{min-width:30px;padding:2px 8px}.slf-go{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}.slf-go .btn{flex:1 1 auto}.slf-pw{margin-left:auto}.slf-pw select{font:inherit;padding:3px}
 #tkPrint{display:none}
+#acctBox{display:grid;gap:12px}.ac-th{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.ac-th h2{margin:0;flex:1}.ac-yrs{display:flex;gap:4px}.ac-yrs .on{background:var(--accent,#b8860b);color:#111}
+.ac-in{color:var(--ok,#2E9E5B)}.ac-out{color:var(--crit,#C2392E)}.ac-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}.ac-kpi .kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;display:grid;gap:2px}.ac-kpi .kpi b{font-size:22px}.ac-kpi.sm .kpi b{font-size:17px}
+.ac-t{width:100%;border-collapse:collapse;font-size:14px}.ac-t td,.ac-t th{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left}.ac-t .n{text-align:right;white-space:nowrap}.ac-tot td{font-weight:700;border-top:2px solid var(--line)}
+.ac-bar{width:28%;min-width:80px}.ac-bar i{display:block;height:6px;border-radius:3px;margin:1px 0}.ac-bar .i{background:var(--ok,#2E9E5B)}.ac-bar .o{background:var(--crit,#C2392E)}.ac-bar .p{height:2px;background:var(--ink);opacity:.35}
+.ac-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}.ac-r{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.ac-tax{display:flex;gap:8px;align-items:baseline;padding:5px 0;border-bottom:1px dashed var(--line);font-size:14px}.ac-tax.paid{opacity:.5;text-decoration:line-through}.ac-tax.soon .num{color:var(--warn);font-weight:700}.ac-tax.late .num{color:var(--crit);font-weight:700}
+.ac-perk{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:6px 0}.ac-perk summary{cursor:pointer}.ac-perk.yes{border-left:4px solid var(--ok,#2E9E5B)}.ac-perk.check{border-left:4px solid var(--warn,#E8A317)}.ac-perk.no{opacity:.7}.ac-use{font-size:13px;margin-left:8px;white-space:nowrap}
+.ac-p{border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0}.ac-ph{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.ac-map{display:flex;flex-wrap:wrap;gap:6px 12px;margin:8px 0;font-size:13px}.ac-map label{display:grid;gap:2px}
+.ac-p select,.ac-dir select{font:inherit;font-size:13px;padding:3px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);max-width:220px}.ac-go{display:flex;gap:8px}
 .gx-refb{margin:6px 0}.gx-refb.on{border-color:var(--ok,#2E9E5B)}
 .ref-ov{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;padding:6vh 12px 12px}.ref-ov[hidden]{display:none}
 .ref-in{width:min(520px,100%);max-height:86vh;overflow:auto;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:10px}
@@ -608,6 +617,7 @@ mark{background:var(--signal-soft);color:inherit}
       <button class="tab" role="tab" data-t="contacts">Уведомления</button>
       <button class="tab" role="tab" data-t="data">Загрузить день</button>
       <button class="tab" role="tab" data-t="season" hidden>📅 Сезон</button>
+      <button class="tab" role="tab" data-t="acct" hidden>💼 Бухгалтерия</button>
       <button class="tab" role="tab" data-t="admin" hidden>🔐 Админ</button>
     </nav>
   </div>
@@ -790,6 +800,7 @@ mark{background:var(--signal-soft);color:inherit}
   </section>
 
   <section id="v-season" hidden><div id="seasonBox"></div></section>
+  <section id="v-acct" hidden><div id="acctBox"></div></section>
   <section id="v-admin" hidden>
     <div class="adm">
       <div class="panel adm-box"><h3>🔑 Пароли входа</h3><p class="hint">Меняет только администратор. После смены все, кто вошёл со старым паролем, увидят окно входа.</p><div id="admPw"></div></div>
