@@ -317,10 +317,14 @@ function busesOn(iso){const seen=new Map();tours().filter(t=>dayOfTour(t,iso)).f
   return [...seen.values()].sort((a,b)=>String(a.bus).localeCompare(String(b.bus),'tr',{numeric:true}))}
 function busPickHtml(){const iso=isoToday();const L=busesOn(iso);if(!L.length)return '<p class="hint">Сегодня автобусов на экскурсиях нет.</p>';
   if(!TOURPICK||!L.some(t=>t.id===TOURPICK))TOURPICK=L[0].id;
-  return L.map(t=>{const d=dayOfTour(t,iso);const n=t.days.indexOf(d.day)+1;const gs=gSplit(t.guide);let now='';try{now=tourNow(t,d.day).txt}catch(e){}const fin=/закончен/i.test(now);
-    return `<button type="button" class="bp${fin?' fin':''}" aria-pressed="${t.id===TOURPICK}" data-bp="${esc(t.id)}"><b>🚌 ${esc(t.bus||'—')}</b>
-      <span class="bp-g">${gs.map(esc).join(' + ')||'—'}${gs.length>1?' <span class="chip">вместе</span>':''}</span>${t.kok?`<span class="hint">кок: ${esc(t.kok)}</span>`:''}
-      <span class="hint">день ${n} из ${t.days.length} · ${isoDM(t.days[0].d)}–${isoDM(t.days[t.days.length-1].d)}${gxLive(t).length||+t.pax?' · '+(gxLive(t).length||t.pax)+' pax':''}</span>${now?`<span class="bp-now">${esc(now)}</span>`:''}</button>`}).join('')}
+  return L.map(t=>{const d=dayOfTour(t,iso);const n=t.days.indexOf(d.day)+1;const N=t.days.length;const gs=gSplit(t.guide);let now='';try{now=tourNow(t,d.day).txt}catch(e){}
+    const st=/закончен/i.test(now)?'fin':/не выехал/i.test(now)||!now?'wait':'go';const pax=gxLive(t).length||+t.pax||0;
+    return `<button type="button" class="bp ${st}" aria-pressed="${t.id===TOURPICK}" data-bp="${esc(t.id)}">
+      <span class="bp-h"><b>🚌 ${esc(t.bus||'—')}</b>${pax?`<span class="bp-pax">👥 ${pax}</span>`:''}</span>
+      <span class="bp-st">${st==='fin'?'✅ ':st==='go'?'🟢 ':'⏳ '}${esc(now||'Ещё не выехали')}</span>
+      <span class="bp-r"><small>Гид${gs.length>1?'ы':''}</small> <b>${gs.map(esc).join(' + ')||'—'}</b></span>
+      ${t.kok?`<span class="bp-r"><small>Кок</small> ${esc(t.kok)}</span>`:''}
+      <span class="bp-day"><span class="bp-bar">${t.days.map((_,i)=>`<i class="${i<n-1?'past':i===n-1?'cur':''}"></i>`).join('')}</span><small>день <b>${n}</b> из ${N} · ${isoDM(t.days[0].d)}–${isoDM(t.days[N-1].d)}</small></span></button>`}).join('')}
 function guideTourHtml(g){let iso=gTourDate||isoToday();let list=toursFor(g,iso);if(!list.length&&iso!==isoToday()){iso=isoToday();gTourDate=null;list=toursFor(g,iso)}
   if(!list.length)return `<p class="hint">Сегодня (${isoDM(iso)}) экскурсий у ${esc(g)} нет.</p>`;
   const LB=liveBoard(iso);return list.map(t=>tourCardHtml(t,iso,LB,{guide:true})).join('')}

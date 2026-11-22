@@ -754,9 +754,14 @@ article.flight.open{border-bottom-left-radius:0;border-bottom-right-radius:0;mar
 .sla-tbl{overflow-x:auto}.sla table,.slp{border-collapse:collapse;font-size:13px;width:100%}.sla th,.sla td{padding:5px 7px;border-bottom:1px solid var(--line);text-align:left}.sla .n{text-align:right}
 .slp input{width:76px;padding:3px 5px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--ink);text-align:right}
 .slpct{font-weight:700}.slpct.ok{color:var(--ok)}.slpct.mid{color:var(--warn)}.slpct.low{color:var(--crit)}
-.bpick{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
-.bp{display:grid;gap:2px;text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:9px 11px;font:inherit;font-size:13px;cursor:pointer}
-.bp b{font-size:15px}.bp-g{font-weight:600}.bp-now{font-size:12px;color:var(--signal-ink,#0b5b8a)}.bp[aria-pressed="true"]{border:2px solid var(--ink);background:var(--sunk)}.bp.fin{opacity:.55}
+.bpick{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(min(100%,210px),1fr));gap:10px}
+.guide-pick .bp{display:grid;gap:6px;align-content:start;text-align:left;border:1px solid var(--line);border-left:5px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);padding:10px 12px;font:inherit;font-size:13px;cursor:pointer;min-width:0;white-space:normal}
+.guide-pick .bp.wait{border-left-color:var(--warn,#E8A317)}.guide-pick .bp.go{border-left-color:var(--ok,#2E9E5B)}.guide-pick .bp.fin{border-left-color:var(--muted);opacity:.6}
+.guide-pick .bp[aria-pressed="true"]{background:var(--sunk);color:var(--ink);border-color:var(--ink);box-shadow:0 0 0 2px var(--ink)}
+.bp-h{display:flex;justify-content:space-between;align-items:center;gap:6px}.bp-h b{font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bp-pax{flex:none;font-weight:700;font-size:13px;background:var(--sunk);border-radius:8px;padding:2px 8px}
+.bp-st{font-size:12px;font-weight:600}.bp.wait .bp-st{color:var(--warn,#b07a00)}.bp.go .bp-st{color:var(--ok,#2E9E5B)}.bp.fin .bp-st{color:var(--muted)}
+.bp-r{display:block;overflow-wrap:anywhere;line-height:1.3}.bp-r small{display:inline-block;min-width:34px;color:var(--muted);text-transform:uppercase;font-size:10px;letter-spacing:.04em}
+.bp-day{display:grid;gap:3px}.bp-day small{color:var(--muted)}.bp-day small b{color:var(--ink)}.bp-bar{display:flex;gap:3px}.bp-bar i{flex:1;height:5px;border-radius:3px;background:var(--line)}.bp-bar i.past{background:var(--muted)}.bp-bar i.cur{background:var(--ink)}
 .gtour{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;margin-bottom:14px;min-width:0}.gtour-h{margin:0;font-size:16px}
 .gtrip-h{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
 .gtrip-h .tt{font-family:var(--f-display);font-size:26px;font-weight:600;line-height:1}
@@ -4320,10 +4325,14 @@ function busesOn(iso){const seen=new Map();tours().filter(t=>dayOfTour(t,iso)).f
   return [...seen.values()].sort((a,b)=>String(a.bus).localeCompare(String(b.bus),'tr',{numeric:true}))}
 function busPickHtml(){const iso=isoToday();const L=busesOn(iso);if(!L.length)return '<p class="hint">Сегодня автобусов на экскурсиях нет.</p>';
   if(!TOURPICK||!L.some(t=>t.id===TOURPICK))TOURPICK=L[0].id;
-  return L.map(t=>{const d=dayOfTour(t,iso);const n=t.days.indexOf(d.day)+1;const gs=gSplit(t.guide);let now='';try{now=tourNow(t,d.day).txt}catch(e){}const fin=/закончен/i.test(now);
-    return `<button type="button" class="bp${fin?' fin':''}" aria-pressed="${t.id===TOURPICK}" data-bp="${esc(t.id)}"><b>🚌 ${esc(t.bus||'—')}</b>
-      <span class="bp-g">${gs.map(esc).join(' + ')||'—'}${gs.length>1?' <span class="chip">вместе</span>':''}</span>${t.kok?`<span class="hint">кок: ${esc(t.kok)}</span>`:''}
-      <span class="hint">день ${n} из ${t.days.length} · ${isoDM(t.days[0].d)}–${isoDM(t.days[t.days.length-1].d)}${gxLive(t).length||+t.pax?' · '+(gxLive(t).length||t.pax)+' pax':''}</span>${now?`<span class="bp-now">${esc(now)}</span>`:''}</button>`}).join('')}
+  return L.map(t=>{const d=dayOfTour(t,iso);const n=t.days.indexOf(d.day)+1;const N=t.days.length;const gs=gSplit(t.guide);let now='';try{now=tourNow(t,d.day).txt}catch(e){}
+    const st=/закончен/i.test(now)?'fin':/не выехал/i.test(now)||!now?'wait':'go';const pax=gxLive(t).length||+t.pax||0;
+    return `<button type="button" class="bp ${st}" aria-pressed="${t.id===TOURPICK}" data-bp="${esc(t.id)}">
+      <span class="bp-h"><b>🚌 ${esc(t.bus||'—')}</b>${pax?`<span class="bp-pax">👥 ${pax}</span>`:''}</span>
+      <span class="bp-st">${st==='fin'?'✅ ':st==='go'?'🟢 ':'⏳ '}${esc(now||'Ещё не выехали')}</span>
+      <span class="bp-r"><small>Гид${gs.length>1?'ы':''}</small> <b>${gs.map(esc).join(' + ')||'—'}</b></span>
+      ${t.kok?`<span class="bp-r"><small>Кок</small> ${esc(t.kok)}</span>`:''}
+      <span class="bp-day"><span class="bp-bar">${t.days.map((_,i)=>`<i class="${i<n-1?'past':i===n-1?'cur':''}"></i>`).join('')}</span><small>день <b>${n}</b> из ${N} · ${isoDM(t.days[0].d)}–${isoDM(t.days[N-1].d)}</small></span></button>`}).join('')}
 function guideTourHtml(g){let iso=gTourDate||isoToday();let list=toursFor(g,iso);if(!list.length&&iso!==isoToday()){iso=isoToday();gTourDate=null;list=toursFor(g,iso)}
   if(!list.length)return `<p class="hint">Сегодня (${isoDM(iso)}) экскурсий у ${esc(g)} нет.</p>`;
   const LB=liveBoard(iso);return list.map(t=>tourCardHtml(t,iso,LB,{guide:true})).join('')}
