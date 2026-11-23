@@ -8,9 +8,21 @@
 // t.stay = {n:{'2026-10-23':'PAM','2026-10-24':'KAP',...}, h:{PAM:'hotel name',KAP:'hotel name'}}
 // TM[tid+'|sthome|'+i] = {home:1}  — this guest stays in his hotel during the tour
 let STD=null,STOPEN=new Set(),STQ='',STHOPEN=new Set(),STA=null;
+// the long archive from the server (days that are no longer in DAYS, programs that moved to the archive): loaded on demand
+let STARCH=null,STARCHQ=null;
+const stTM=k=>TM[k]||(STARCH&&STARCH.tm[k])||null;
+async function stLoadArch(from,to){if(!SERVER||!isOps())return false;if(STARCH&&STARCH.from<=from&&STARCH.to>=to)return false;
+  const f=STARCH&&STARCH.from<from?STARCH.from:from,t=STARCH&&STARCH.to>to?STARCH.to:to;
+  if(STARCHQ&&STARCHQ.f<=f&&STARCHQ.t>=t)return STARCHQ.p;
+  const p=api('GET',`/api/arch?from=${f}&to=${t}`).then(r=>{STARCH={from:f,to:t,days:r.days||[],tours:r.tours||{},tm:r.tm||{}};STARCHQ=null;return true}).catch(()=>{STARCHQ=null;return false});
+  STARCHQ={f,t,p};return p}
+// all KAPAK days: the loaded ones plus the archived ones that are no longer loaded
+function stAllDays(){const out=[],have=new Set();Object.keys(DAYS||{}).forEach(k=>{const iso=dayIso(k);if(!/^\d{4}-/.test(iso))return;have.add(iso);out.push({iso,arr:DAYS[k].arr||[],dep:DAYS[k].dep||[]})});
+  if(STARCH)STARCH.days.forEach(d=>{if(!d||have.has(d.iso))return;const g=x=>({h:x.h,fl:x.fl,pax:x.pax,p:(x.n||[]).map(n=>['',n])});out.push({iso:d.iso,arr:(d.arr||[]).map(g),dep:(d.dep||[]).map(g),h2h:d.h2h||[]})});
+  return out}
 const ST_PL={PAM:'Памуккале',KAP:'Каппадокия'};
 const stKey=n=>fdKey(n);
-function stBuses(){const seen=new Map();tours().forEach(t=>{if(!t.days||!t.days.length)return;const k=tourKey(t);const o=seen.get(k);if(!o||(t.gx||[]).length>(o.gx||[]).length)seen.set(k,t)});
+function stBuses(){const seen=new Map();[...tours(),...(STARCH?Object.values(STARCH.tours).filter(t=>t&&t.days&&!TOURS[t.id]):[])].forEach(t=>{if(!t.days||!t.days.length)return;const k=tourKey(t);const o=seen.get(k);if(!o||(t.gx||[]).length>(o.gx||[]).length)seen.set(k,t)});
   return [...seen.values()].sort((a,b)=>a.days[0].d.localeCompare(b.days[0].d)||String(a.bus).localeCompare(String(b.bus),'tr',{numeric:true}))}
 // tour nights guessed from the program: the first early start after day 1 (or Pamukkale in the stops) leaves the hotel,
 // the day of the drive "ANTALYA'YA" brings the bus back; the first night away is Pamukkale, the rest Cappadocia
@@ -25,11 +37,11 @@ function stGuess(t){const D=t.days,out={};if(D.length<3)return out;
 const stNights=t=>t.stay&&t.stay.n?t.stay.n:stGuess(t);
 // the tour hotel: typed by the office, or the "18.10–19.10 HOTEL" line of the group list
 function stTourHotel(t,pl,iso){const h=t.stay&&t.stay.h&&t.stay.h[pl];if(h)return h;try{const g=fdHotelOn(t,iso);if(g)return g}catch(e){}return ''}
-function stHome(t,i){return !!((TM[t.id+'|sthome|'+i]||{}).home)}
+function stHome(t,i){return !!((stTM(t.id+'|sthome|'+i)||{}).home)}
 // every guest once: {n,k,a,d,base,t,i,flags}
 function stPeople(){
   const A=new Map(),Dp=new Map();let first='';
-  Object.keys(DAYS||{}).forEach(k=>{const d=DAYS[k];const iso=dayIso(k);if(!/^\d{4}-/.test(iso))return;if(!first||iso<first)first=iso;
+  stAllDays().forEach(d=>{const iso=d.iso;if(!first||iso<first)first=iso;
     (d.arr||[]).forEach(g=>(g.p||[]).forEach(p=>{if(!p||!p[1])return;const key=stKey(p[1]);if(!A.has(key))A.set(key,[]);A.get(key).push({iso,h:g.h||'',n:p[1]})}));
     (d.dep||[]).forEach(g=>(g.p||[]).forEach(p=>{if(!p||!p[1])return;const key=stKey(p[1]);if(!Dp.has(key))Dp.set(key,[]);Dp.get(key).push({iso,h:g.h||'',n:p[1]})}))});
   const near=(L,iso,after)=>{if(!L||!L.length)return null;let best=null,bd=1e9;L.forEach(x=>{const dd=(Date.parse(x.iso)-Date.parse(iso||x.iso))/864e5;if(after&&iso&&dd<0)return;const v=Math.abs(dd);if(v<bd){bd=v;best=x}});return bd<=21?best:null};
@@ -61,7 +73,7 @@ const stNames=L=>{const fams=new Map();L.forEach(p=>{const f=p.fam||p.k;if(!fams
 function stBusState(t){const N=stNights(t);const nights=Object.keys(N).sort();if(!nights.length)return null;
   const s0=t.days.find(d=>d.d===nights[0]),back=isoAdd(nights[nights.length-1],1),r=t.days.find(d=>d.d===back);
   const st0=s0&&s0.s[0],stR=r&&[...r.s].reverse().find(s=>s.k==='hotel');
-  const m0=st0?stopState(t,st0):{},mR=stR?stopState(t,stR):{};
+  const ms=x=>{const m=stTM(t.id+'|'+x.id)||{};return {a:m.ga!=null?m.ga:m.a,d:m.gd!=null?m.gd:m.d}};const m0=st0?ms(st0):{},mR=stR?ms(stR):{};
   return {nights,N,out:nights[0],back,st0,stR,left:m0.a!=null||m0.d!=null,leftT:m0.d!=null?m0.d:m0.a,ret:mR.a!=null,retT:mR.a}}
 function stBusHtml(t,P,iso){const S=stBusState(t);const G=P.filter(p=>p.t===t);const home=G.filter(p=>p.home);const N=stNights(t);const today=isoToday();
   const pax=G.length?G.length-home.length:+t.pax||0;const w=N[iso];
@@ -153,7 +165,9 @@ function stAcctXls(P){const A=stAcct(P,STA.from,STA.to);const per=`${isoDM(STA.f
   const s3=[['Дата ночи',...A.H.map(h=>h.h)],...A.days.map(d=>[isoDM(d)+'.'+d.slice(0,4),...A.H.map(h=>h.L.filter(r=>r.inH.includes(d)).length)])];
   const wb=XLSX.utils.book_new();const ws=a=>{const w=XLSX.utils.aoa_to_sheet(a);w['!cols']=a[0].map((_,i)=>({wch:i===0||i===1?28:14}));return w};
   XLSX.utils.book_append_sheet(wb,ws(s1),'Итог');XLSX.utils.book_append_sheet(wb,ws(s2),'Гости');XLSX.utils.book_append_sheet(wb,ws(s3),'По ночам');XLSX.writeFile(wb,`sverka_hotels_${STA.from}_${A.end}.xlsx`)}
-function renderStays(){const el=$('#staysBox');if(!el)return;const iso=STD||isoToday();const P=stPeople();if(!STA){const m=iso.slice(0,8);STA={from:m+'01',to:isoAdd(isoAdd(m+'28',4).slice(0,8)+'01',-1)}}const H=stDay(P,iso);
+// the archive around the reconciliation period (guests who arrived before it or leave after it)
+function stArchFor(){if(!STA)return;Promise.resolve(stLoadArch(isoAdd(STA.from,-35),isoAdd(STA.to,35))).then(ch=>{if(ch&&!$('#v-stays').hidden)renderStays()})}
+function renderStays(){const el=$('#staysBox');if(!el)return;const iso=STD||isoToday();const P=stPeople();if(!STA){const m=iso.slice(0,8);STA={from:m+'01',to:isoAdd(isoAdd(m+'28',4).slice(0,8)+'01',-1)}}stArchFor();const H=stDay(P,iso);
   const sum=k=>H.reduce((s,h)=>s+h[k].length,0);const inBase=H.filter(h=>!h.pl).reduce((s,h)=>s+h.night.length,0);
   const pam=H.filter(h=>h.pl==='PAM').reduce((s,h)=>s+h.night.length,0),kap=H.filter(h=>h.pl==='KAP').reduce((s,h)=>s+h.night.length,0);
   const unk=P.filter(p=>stWhere(p,iso)&&!p.d),noH=(H.find(h=>/не известен/.test(h.h))||{night:[]}).night;
@@ -182,8 +196,8 @@ function renderStays(){const el=$('#staysBox');if(!el)return;const iso=STD||isoT
     <p class="hint">Отель гостя — из KAPAK (прилёт / вылет). Ночи в Памуккале и Каппадокии — из программы автобуса; их можно поправить в карточке автобуса. Межотельные переезды без фамилий не учитываются.</p>`;
   const bindQ=()=>{document.querySelectorAll('[data-sthopen]').forEach(d=>d.addEventListener('toggle',()=>{if(STQ.trim())return;d.open?STHOPEN.add(d.dataset.sthopen):STHOPEN.delete(d.dataset.sthopen)}));const q=$('#stQ');if(q)q.oninput=()=>{STQ=q.value;const pos=q.selectionStart;$('#stWho').innerHTML=stWhoHtml(P,iso);bindQ();const n=$('#stQ');n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}};bindQ();
   $('#stPrev').onclick=()=>{STD=isoAdd(iso,-1);renderStays()};$('#stNext').onclick=()=>{STD=isoAdd(iso,1);renderStays()};$('#stToday').onclick=()=>{STD=null;renderStays()};
-  const bindA=()=>{const f=$('#staFrom'),t=$('#staTo');const go=()=>{if(f.value&&t.value&&f.value<=t.value){STA={from:f.value,to:t.value};$('#stAcct').innerHTML=stAcctHtml(P);bindA()}};f.onchange=go;t.onchange=go;
-    $('#staMonth').onclick=()=>{const m=(f.value||iso).slice(0,8);STA={from:m+'01',to:isoAdd(isoAdd(m+'28',4).slice(0,8)+'01',-1)};$('#stAcct').innerHTML=stAcctHtml(P);bindA()};
+  const bindA=()=>{const f=$('#staFrom'),t=$('#staTo');const go=()=>{if(f.value&&t.value&&f.value<=t.value){STA={from:f.value,to:t.value};$('#stAcct').innerHTML=stAcctHtml(P);bindA();stArchFor()}};f.onchange=go;t.onchange=go;
+    $('#staMonth').onclick=()=>{const m=(f.value||iso).slice(0,8);STA={from:m+'01',to:isoAdd(isoAdd(m+'28',4).slice(0,8)+'01',-1)};$('#stAcct').innerHTML=stAcctHtml(P);bindA();stArchFor()};
     $('#staXls').onclick=()=>{try{stAcctXls(P)}catch(e){toast('Не получилось сохранить Excel')}}};bindA();
   $('#stXls').onclick=()=>{try{const C=stCalHtml(P,iso,31);const aoa=[['Отель',...C.dates.map(isoDM)],...C.R.map(r=>[r.k,...r.c]),['Всего',...C.tot]];
     const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(aoa),'Ночи');XLSX.writeFile(wb,`hotels_${iso}.xlsx`)}catch(e){toast('Не получилось сохранить Excel')}};

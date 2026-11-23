@@ -19,6 +19,29 @@ export default async (req) => {
     me = await guideFromPin(s, req);
     if (!me) return json({ error: "Нужен PIN гида", pin: true }, 401);
   }
+  // the long archive: compact days (names, hotels, flights) and the excursion programs that already moved to the archive
+  if (req.method === "GET" && path === "/api/arch") {
+    if (!isOffice(auth)) return forbidden();
+    const from = url.searchParams.get("from") || "0000-00-00", to = url.searchParams.get("to") || "9999-99-99";
+    const keys = (await s.list({ prefix: "arch/" })).blobs.map((b) => b.key.slice(5)).filter((k) => k >= from && k <= to);
+    const days = (await Promise.all(keys.map((k) => s.get("arch/" + k, { type: "json" })))).filter(Boolean);
+    const [ta, tma] = await Promise.all(["tours-archive", "tourmarks-archive"].map((x) => s.get("state/00.00/" + x, { type: "json" }).then((v) => v || {})));
+    const tours = Object.fromEntries(Object.entries(ta).filter(([, t]) => t && Array.isArray(t.days) && t.days.length && t.days[t.days.length - 1].d >= from && t.days[0].d <= to));
+    const tm = Object.fromEntries(Object.entries(tma).filter(([k]) => tours[k.split("|")[0]]));
+    return json({ days, tours, tm });
+  }
+  if (path === "/api/exportlog") {
+    if (auth.role !== "admin") return forbidden();
+    if (req.method === "GET") return json({ data: (await s.get("state/00.00/exportlog", { type: "json" })) || {} });
+    if (req.method === "PUT") {
+      const b = (await req.json()) || {};
+      const prev = (await s.get("state/00.00/exportlog", { type: "json" })) || {};
+      const list = Array.isArray(prev.list) ? prev.list : [];
+      list.push({ at: new Date().toISOString(), from: String(b.from || "").slice(0, 10), to: String(b.to || "").slice(0, 10) });
+      await s.setJSON("state/00.00/exportlog", { last: list[list.length - 1], list: list.slice(-50) });
+      return json({ ok: true });
+    }
+  }
   if (req.method === "GET" && path === "/api/whoami") return json({ role: auth.role, me });
 
   // admin cabinet: passwords, guide PINs and the log of changes; only the admin
@@ -94,12 +117,14 @@ export default async (req) => {
     const today = istanbulNow().date;
     const cutoff = Date.parse(today + "T00:00:00Z") - keep * 86400000;
     const { blobs } = await s.list({ prefix: "day/" });
+    const archived = new Set((await s.list({ prefix: "arch/" }).catch(() => ({ blobs: [] }))).blobs.map((b) => b.key.slice(5)));
     const days = [];
     for (const b of blobs) {
       const k = b.key.slice(4);
       const d = await s.get("day/" + k, { type: "json" });
       if (!d) continue;
       const iso = isoOf(d, k, today);
+      if (!archived.has(iso)) await s.setJSON("arch/" + iso, archOf({ ...d, iso })).catch(() => {});
       if (Date.parse(iso + "T00:00:00Z") < cutoff) {
         await Promise.all(["day/" + k, "state/" + k + "/assign", "state/" + k + "/met", "state/" + k + "/eta", "state/" + k + "/extra", "watch/" + iso, "watchdep/" + iso, "live/" + iso].map((x) => s.delete(x).catch(() => {})));
         continue;
@@ -135,6 +160,8 @@ export default async (req) => {
     body.key = d;
     body.savedAt = new Date().toISOString();
     await s.setJSON("day/" + d, body);
+    // a small copy (names, hotels, flights) that is kept for a long time, for the hotel reconciliation and the period report
+    if (/^\d{4}-\d\d-\d\d$/.test(body.iso || "")) await s.setJSON("arch/" + body.iso, archOf(body)).catch(() => {});
     // The flights in this KAPAK become the list the server follows for that date.
     const watch = watchFromDay(body);
     let started = null;
@@ -314,6 +341,12 @@ export default async (req) => {
   return json({ error: "Не найдено" }, 404);
 };
 
+// The compact copy of a day: per transfer the hotel, flight, PAX and names
+function archOf(d) {
+  const g = (x) => ({ h: String(x.h || ""), fl: String(x.fl || ""), pax: Number(x.pax) || (x.p || []).length, n: (x.p || []).map((p) => (Array.isArray(p) ? p[1] : "")).filter(Boolean) });
+  return { iso: d.iso, arr: (d.arr || []).map(g), dep: (d.dep || []).map(g), h2h: (d.h2hList || []).map((x) => ({ from: x.from || "", h: x.h || "", pax: Number(x.pax) || 0 })) };
+}
+
 // The day's own ISO date, or a guess from "dd.mm" (this year, or last year if that would be far in the future).
 function isoOf(d, k, today) {
   if (/^\d{4}-\d\d-\d\d$/.test(d.iso || "")) return d.iso;
@@ -324,7 +357,7 @@ function isoOf(d, k, today) {
   return iso;
 }
 
-export const config = { path: ["/api/days", "/api/day", "/api/state", "/api/sync", "/api/whoami", "/api/admin", "/api/drivers"] };
+export const config = { path: ["/api/days", "/api/day", "/api/arch", "/api/exportlog", "/api/state", "/api/sync", "/api/whoami", "/api/admin", "/api/drivers"] };
 
 // drivers with the tracking app: {id: {name, veh, phone, pin}}; PIN — 6 digits, different for everyone.
 // Returns an error response, or nothing when saved.
