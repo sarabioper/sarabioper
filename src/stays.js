@@ -105,6 +105,23 @@ function stWhoHtml(P,iso){const q=fdN(STQ).split(' ').filter(Boolean),dg=STQ.rep
     <div class="st-hotels">${H.map(h=>{const open=qOn||STHOPEN.has(h.k);return `<details class="st-hot${h.pl?' tour':''}" data-sthopen="${esc(h.k)}"${open?' open':''}><summary><b>🏨 ${esc(h.k)}</b><span class="chip">👥 ${h.L.length}</span></summary>
       <div class="tbl-wrap"><table class="st-who"><thead><tr><th>Гость</th><th>До</th><th>Автобус</th><th>Телефон</th></tr></thead><tbody>
       ${fams(h.L).map(F=>F.map(row).join('').replace('<tr>','<tr class="st-f1">')).join('')}</tbody></table></div></details>`}).join('')}</div>`}
+// tour trips: who left his hotel on which day and came back on which day, per hotel
+function stTrips(P){const T=new Map();
+  P.forEach(p=>{if(!p.t||p.home)return;const N=stNights(p.t);const ns=Object.keys(N).filter(d=>stWhere(p,d)).sort();if(!ns.length)return;
+    const out=ns[0],back=isoAdd(ns[ns.length-1],1);const k=out+'|'+back;if(!T.has(k))T.set(k,{out,back,H:new Map(),n:0});const tr=T.get(k);tr.n++;
+    const h=p.base||'— отель не известен —';if(!tr.H.has(h))tr.H.set(h,{h,L:[],B:new Set()});const x=tr.H.get(h);x.L.push(p);x.B.add(p.t)});
+  return [...T.values()].sort((a,b)=>a.out.localeCompare(b.out)||a.back.localeCompare(b.back))}
+function stTripsHtml(P,iso){const today=isoToday();const all=stTrips(P);const L=all.filter(t=>t.back>=isoAdd(iso,-10)&&t.out<=isoAdd(iso,10));
+  if(!L.length)return '<p class="hint">В эти дни (±10 дней) выездов в тур нет.</p>';
+  const st=t=>{const S=stBusState(t);return S||{}};
+  return `<div class="st-hotels">${L.map(tr=>{const buses=[...new Set([...tr.H.values()].flatMap(x=>[...x.B]))];
+    const left=buses.every(b=>st(b).left),ret=buses.every(b=>st(b).ret);const nowIn=tr.out<=iso&&iso<tr.back;
+    const status=ret?'<span class="chip st-ok">✓ вернулись</span>':tr.back<=today&&left?'<span class="chip st-w">возврат не отмечен</span>':left?'<span class="chip">в туре</span>':tr.out<=today?'<span class="chip st-w">выезд не отмечен</span>':'<span class="chip">ожидается</span>';
+    const H=[...tr.H.values()].sort((a,b)=>b.L.length-a.L.length||a.h.localeCompare(b.h,'tr'));
+    return `<details class="st-hot tour" data-sthopen="trip|${tr.out}|${tr.back}"${nowIn||STHOPEN.has('trip|'+tr.out+'|'+tr.back)?' open':''}><summary><b>Уехали ${isoDM(tr.out)} → вернулись ${isoDM(tr.back)}</b><span class="chip">👥 ${tr.n}</span>${status}<span class="hint">🚌 ${buses.map(b=>esc(b.bus||'')).join(', ')}</span></summary>
+      <div class="tbl-wrap"><table class="st-who"><thead><tr><th>Из отеля</th><th class="n">Уехали ${isoDM(tr.out)}</th><th class="n">Вернулись ${isoDM(tr.back)}</th><th>Автобус</th></tr></thead><tbody>
+      ${H.map(x=>{const bs=[...x.B];const r=bs.every(b=>st(b).ret);return `<tr><td><details class="st-nm"><summary>${esc(x.h)}</summary>${stNames(x.L)}</details></td><td class="n"><b>${x.L.length}</b></td><td class="n">${r?'✓ '+x.L.length:tr.back>today?'<span class="hint">'+x.L.length+' ожид.</span>':'<span class="st-w">'+x.L.length+' · не отмечено</span>'}</td><td>${bs.map(b=>esc(b.bus||'')).join(', ')}</td></tr>`}).join('')}
+      <tr class="st-tot"><td>Всего</td><td class="n">${tr.n}</td><td class="n">${ret?'✓ ':''}${tr.n}</td><td></td></tr></tbody></table></div></details>`}).join('')}</div>`}
 function renderStays(){const el=$('#staysBox');if(!el)return;const iso=STD||isoToday();const P=stPeople();const H=stDay(P,iso);
   const sum=k=>H.reduce((s,h)=>s+h[k].length,0);const inBase=H.filter(h=>!h.pl).reduce((s,h)=>s+h.night.length,0);
   const pam=H.filter(h=>h.pl==='PAM').reduce((s,h)=>s+h.night.length,0),kap=H.filter(h=>h.pl==='KAP').reduce((s,h)=>s+h.night.length,0);
@@ -123,6 +140,7 @@ function renderStays(){const el=$('#staysBox');if(!el)return;const iso=STD||isoT
     <h3 class="st-h">Кто где живёт · ночь на ${isoDM(iso)}</h3><div id="stWho">${stWhoHtml(P,iso)}</div>
     <h3 class="st-h">Автобусы в туре</h3>
     ${buses.length?`<div class="st-buses">${buses.map(t=>stBusHtml(t,P,iso)).join('')}</div>`:'<p class="hint">В этот день автобусов в туре нет.</p>'}
+    <h3 class="st-h">Выезды в тур и возвраты</h3><div class="hint">Сколько гостей уехали из каждого отеля и в какой день вернулись. Показаны туры ±10 дней от выбранной даты.</div>${stTripsHtml(P,iso)}
     <h3 class="st-h">По отелям в ночь на ${isoDM(iso)}</h3>
     ${H.length?`<div class="tbl-wrap"><table class="st-tbl"><thead><tr><th>Отель</th><th class="n">Ночуют</th><th class="n">Заезд</th><th class="n">Вылет</th><th class="n">В тур</th><th class="n">Из тура</th></tr></thead><tbody>
       ${H.map((h,j)=>`<tr class="${h.pl?'st-tour':''}" data-strow="${j}"><td><button type="button" class="st-hb">${h.pl?ST_PL[h.pl]+': ':''}${esc(h.h)} ▾</button></td><td class="n"><b>${h.night.length}</b></td><td class="n">${h.arr.length||''}</td><td class="n">${h.dep.length||''}</td><td class="n">${h.out.length||''}</td><td class="n">${h.back.length||''}</td></tr>
