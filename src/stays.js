@@ -7,7 +7,7 @@
 // The office can correct the tour nights and the tour hotels of every bus, and mark a guest who did not go.
 // t.stay = {n:{'2026-10-23':'PAM','2026-10-24':'KAP',...}, h:{PAM:'hotel name',KAP:'hotel name'}}
 // TM[tid+'|sthome|'+i] = {home:1}  — this guest stays in his hotel during the tour
-let STD=null,STOPEN=new Set(),STQ='',STHOPEN=new Set();
+let STD=null,STOPEN=new Set(),STQ='',STHOPEN=new Set(),STA=null;
 const ST_PL={PAM:'Памуккале',KAP:'Каппадокия'};
 const stKey=n=>fdKey(n);
 function stBuses(){const seen=new Map();tours().forEach(t=>{if(!t.days||!t.days.length)return;const k=tourKey(t);const o=seen.get(k);if(!o||(t.gx||[]).length>(o.gx||[]).length)seen.set(k,t)});
@@ -122,7 +122,37 @@ function stTripsHtml(P,iso){const today=isoToday();const all=stTrips(P);const L=
       <div class="tbl-wrap"><table class="st-who"><thead><tr><th>Из отеля</th><th class="n">Уехали ${isoDM(tr.out)}</th><th class="n">Вернулись ${isoDM(tr.back)}</th><th>Автобус</th></tr></thead><tbody>
       ${H.map(x=>{const bs=[...x.B];const r=bs.every(b=>st(b).ret);return `<tr><td><details class="st-nm"><summary>${esc(x.h)}</summary>${stNames(x.L)}</details></td><td class="n"><b>${x.L.length}</b></td><td class="n">${r?'✓ '+x.L.length:tr.back>today?'<span class="hint">'+x.L.length+' ожид.</span>':'<span class="st-w">'+x.L.length+' · не отмечено</span>'}</td><td>${bs.map(b=>esc(b.bus||'')).join(', ')}</td></tr>`}).join('')}
       <tr class="st-tot"><td>Всего</td><td class="n">${tr.n}</td><td class="n">${ret?'✓ ':''}${tr.n}</td><td></td></tr></tbody></table></div></details>`}).join('')}</div>`}
-function renderStays(){const el=$('#staysBox');if(!el)return;const iso=STD||isoToday();const P=stPeople();const H=stDay(P,iso);
+// accounting with the hotels for a period: per guest the nights booked in his hotel, the nights he really slept there
+// and the nights he was away on the tour; per tour hotel the nights slept there
+function stRanges(D){const R=[];D.forEach(d=>{const l=R[R.length-1];if(l&&isoAdd(l[1],1)===d)l[1]=d;else R.push([d,d])});return R.map(r=>r[0]===r[1]?isoDM(r[0]):isoDM(r[0])+'–'+isoDM(r[1])).join(', ')}
+function stAcct(P,from,to){const B=new Map(),T=new Map();const days=[];for(let d=from;d<=to&&days.length<400;d=isoAdd(d,1))days.push(d);
+  P.forEach(p=>{let r=null;days.forEach(d=>{const w=stWhere(p,d);if(!w)return;
+      if(!r){r={p,hotel:p.base||'— отель не известен —',all:0,inH:[],away:[]};}
+      r.all++;if(w.pl){r.away.push(d);const k=ST_PL[w.pl]+': '+w.h;if(!T.has(k))T.set(k,{h:k,pl:w.pl,G:new Set(),n:0});const x=T.get(k);x.n++;x.G.add(p)}else r.inH.push(d)});
+    if(!r)return;if(!B.has(r.hotel))B.set(r.hotel,{h:r.hotel,L:[]});B.get(r.hotel).L.push(r)});
+  const H=[...B.values()].map(h=>Object.assign(h,{g:h.L.length,all:h.L.reduce((s,r)=>s+r.all,0),inH:h.L.reduce((s,r)=>s+r.inH.length,0),away:h.L.reduce((s,r)=>s+r.away.length,0),left:h.L.filter(r=>r.away.length).length}))
+    .sort((a,b)=>b.all-a.all||a.h.localeCompare(b.h,'tr'));
+  return {H,T:[...T.values()].sort((a,b)=>a.pl.localeCompare(b.pl)||a.h.localeCompare(b.h,'tr')),days}}
+function stAcctHtml(P){const A=stAcct(P,STA.from,STA.to);const sum=k=>A.H.reduce((s,h)=>s+h[k],0);
+  return `<div class="st-acf"><label>С <input type="date" id="staFrom" value="${STA.from}"></label><label>По <input type="date" id="staTo" value="${STA.to}"></label>
+    <button type="button" class="btn sm" id="staMonth">Весь месяц</button><button type="button" class="btn sm primary" id="staXls">⬇ Сверка в Excel</button></div>
+    <div class="hint">Ночь считается по дате заезда в неё: ночь на ${isoDM(STA.from)} — это с ${isoDM(STA.from)} на ${isoDM(isoAdd(STA.from,1))}. «Ночей по брони» = от заезда до выезда из Анталии, «в туре» — ночи, когда гость был в Памуккале или Каппадокии.</div>
+    ${A.H.length?`<div class="tbl-wrap"><table class="st-who st-acct"><thead><tr><th>Отель</th><th class="n">Гостей</th><th class="n">Ночей по брони</th><th class="n">Ночевали в отеле</th><th class="n">Ночей в туре</th><th class="n">Уезжали в тур, чел.</th></tr></thead><tbody>
+    ${A.H.map(h=>`<tr><td><details class="st-nm"><summary><b>${esc(h.h)}</b></summary><table class="st-in"><tr><th>Гость</th><th>Заезд</th><th>Выезд</th><th class="n">Брони</th><th class="n">В отеле</th><th class="n">В туре</th><th>Даты тура</th></tr>
+      ${h.L.sort((a,b)=>a.p.n.localeCompare(b.p.n,'tr')).map(r=>`<tr><td>${esc(r.p.n)}${r.p.t?` <span class="hint">🚌 ${esc(r.p.t.bus||'')}</span>`:''}${r.p.home?' <span class="chip">не поехал</span>':''}</td><td>${isoDM(r.p.a)}${r.p.noA?' ?':''}</td><td>${r.p.d?isoDM(r.p.d):'?'}</td><td class="n">${r.all}</td><td class="n">${r.inH.length}</td><td class="n">${r.away.length||''}</td><td>${r.away.length?stRanges(r.away):''}</td></tr>`).join('')}</table></details></td>
+      <td class="n">${h.g}</td><td class="n">${h.all}</td><td class="n"><b>${h.inH}</b></td><td class="n">${h.away||''}</td><td class="n">${h.left||''}</td></tr>`).join('')}
+    <tr class="st-tot"><td>Всего по отелям Анталии</td><td class="n">${sum('g')}</td><td class="n">${sum('all')}</td><td class="n">${sum('inH')}</td><td class="n">${sum('away')}</td><td class="n">${sum('left')}</td></tr></tbody></table></div>`:'<p class="hint">За этот период гостей нет.</p>'}
+    ${A.T.length?`<h4 class="st-h4">Отели тура</h4><div class="tbl-wrap"><table class="st-who"><thead><tr><th>Отель</th><th class="n">Гостей</th><th class="n">Ночей</th></tr></thead><tbody>
+      ${A.T.map(t=>`<tr><td>${esc(t.h)}</td><td class="n">${t.G.size}</td><td class="n">${t.n}</td></tr>`).join('')}</tbody></table></div>`:''}`}
+function stAcctXls(P){const A=stAcct(P,STA.from,STA.to);const per=`${isoDM(STA.from)}.${STA.from.slice(0,4)}–${isoDM(STA.to)}.${STA.to.slice(0,4)}`;
+  const s1=[['Сверка с отелями, ночи '+per],[],['Отель','Гостей','Ночей по брони','Ночевали в отеле','Ночей в туре','Уезжали в тур, чел.'],...A.H.map(h=>[h.h,h.g,h.all,h.inH,h.away,h.left]),
+    ['Всего',...['g','all','inH','away','left'].map(k=>A.H.reduce((s,h)=>s+h[k],0))],[],['Отель тура','Гостей','Ночей'],...A.T.map(t=>[t.h,t.G.size,t.n])];
+  const s2=[['Отель','Гость','Заезд','Выезд','Ночей по брони','Ночевали в отеле','Ночей в туре','Даты тура','Автобус','Примечание']];
+  A.H.forEach(h=>h.L.forEach(r=>s2.push([h.h,r.p.n,isoDM(r.p.a)+'.'+r.p.a.slice(0,4),r.p.d?isoDM(r.p.d)+'.'+r.p.d.slice(0,4):'',r.all,r.inH.length,r.away.length,r.away.length?stRanges(r.away):'',r.p.t?r.p.t.bus||'':'',[r.p.home?'не поехал в тур':'',r.p.noA?'заезд до начала данных':'',r.p.d?'':'дата выезда неизвестна'].filter(Boolean).join('; ')])));
+  const s3=[['Дата ночи',...A.H.map(h=>h.h)],...A.days.map(d=>[isoDM(d)+'.'+d.slice(0,4),...A.H.map(h=>h.L.filter(r=>r.inH.includes(d)).length)])];
+  const wb=XLSX.utils.book_new();const ws=a=>{const w=XLSX.utils.aoa_to_sheet(a);w['!cols']=a[0].map((_,i)=>({wch:i===0||i===1?28:14}));return w};
+  XLSX.utils.book_append_sheet(wb,ws(s1),'Итог');XLSX.utils.book_append_sheet(wb,ws(s2),'Гости');XLSX.utils.book_append_sheet(wb,ws(s3),'По ночам');XLSX.writeFile(wb,`sverka_hotels_${STA.from}_${STA.to}.xlsx`)}
+function renderStays(){const el=$('#staysBox');if(!el)return;const iso=STD||isoToday();const P=stPeople();if(!STA){const m=iso.slice(0,8);STA={from:m+'01',to:isoAdd(isoAdd(m+'28',4).slice(0,8)+'01',-1)}}const H=stDay(P,iso);
   const sum=k=>H.reduce((s,h)=>s+h[k].length,0);const inBase=H.filter(h=>!h.pl).reduce((s,h)=>s+h.night.length,0);
   const pam=H.filter(h=>h.pl==='PAM').reduce((s,h)=>s+h.night.length,0),kap=H.filter(h=>h.pl==='KAP').reduce((s,h)=>s+h.night.length,0);
   const unk=P.filter(p=>stWhere(p,iso)&&!p.d),noH=(H.find(h=>/не известен/.test(h.h))||{night:[]}).night;
@@ -146,10 +176,14 @@ function renderStays(){const el=$('#staysBox');if(!el)return;const iso=STD||isoT
       ${H.map((h,j)=>`<tr class="${h.pl?'st-tour':''}" data-strow="${j}"><td><button type="button" class="st-hb">${h.pl?ST_PL[h.pl]+': ':''}${esc(h.h)} ▾</button></td><td class="n"><b>${h.night.length}</b></td><td class="n">${h.arr.length||''}</td><td class="n">${h.dep.length||''}</td><td class="n">${h.out.length||''}</td><td class="n">${h.back.length||''}</td></tr>
         <tr class="st-det" data-stdet="${j}" hidden><td colspan="6">${[['Ночуют',h.night],['Заезд',h.arr],['Вылет (выезд из отеля)',h.dep],['Уезжают в тур',h.out],['Вернулись из тура',h.back]].filter(x=>x[1].length).map(x=>`<div class="st-dl"><b>${x[0]}: ${x[1].length}</b>${stNames(x[1])}</div>`).join('')}</td></tr>`).join('')}
     </tbody></table></div>`:'<p class="hint">На эту дату гостей нет. Гости берутся из загруженных KAPAK и списков групп экскурсий.</p>'}
+    <h3 class="st-h">Сверка с отелями (бухгалтерия)</h3><div id="stAcct">${stAcctHtml(P)}</div>
     <h3 class="st-h">Календарь на 14 ночей</h3>${cal.html}
     <p class="hint">Отель гостя — из KAPAK (прилёт / вылет). Ночи в Памуккале и Каппадокии — из программы автобуса; их можно поправить в карточке автобуса. Межотельные переезды без фамилий не учитываются.</p>`;
   const bindQ=()=>{document.querySelectorAll('[data-sthopen]').forEach(d=>d.addEventListener('toggle',()=>{if(STQ.trim())return;d.open?STHOPEN.add(d.dataset.sthopen):STHOPEN.delete(d.dataset.sthopen)}));const q=$('#stQ');if(q)q.oninput=()=>{STQ=q.value;const pos=q.selectionStart;$('#stWho').innerHTML=stWhoHtml(P,iso);bindQ();const n=$('#stQ');n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}};bindQ();
   $('#stPrev').onclick=()=>{STD=isoAdd(iso,-1);renderStays()};$('#stNext').onclick=()=>{STD=isoAdd(iso,1);renderStays()};$('#stToday').onclick=()=>{STD=null;renderStays()};
+  const bindA=()=>{const f=$('#staFrom'),t=$('#staTo');const go=()=>{if(f.value&&t.value&&f.value<=t.value){STA={from:f.value,to:t.value};$('#stAcct').innerHTML=stAcctHtml(P);bindA()}};f.onchange=go;t.onchange=go;
+    $('#staMonth').onclick=()=>{const m=(f.value||iso).slice(0,8);STA={from:m+'01',to:isoAdd(isoAdd(m+'28',4).slice(0,8)+'01',-1)};$('#stAcct').innerHTML=stAcctHtml(P);bindA()};
+    $('#staXls').onclick=()=>{try{stAcctXls(P)}catch(e){toast('Не получилось сохранить Excel')}}};bindA();
   $('#stXls').onclick=()=>{try{const C=stCalHtml(P,iso,31);const aoa=[['Отель',...C.dates.map(isoDM)],...C.R.map(r=>[r.k,...r.c]),['Всего',...C.tot]];
     const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(aoa),'Ночи');XLSX.writeFile(wb,`hotels_${iso}.xlsx`)}catch(e){toast('Не получилось сохранить Excel')}};
   el.querySelectorAll('[data-strow]').forEach(r=>r.querySelector('.st-hb').onclick=()=>{const d=el.querySelector(`[data-stdet="${r.dataset.strow}"]`);d.hidden=!d.hidden});
