@@ -5124,7 +5124,7 @@ $('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b&&b
 /* ---------- state support and tax reliefs for a travel agency in Türkiye (public information, no company data) ---------- */
 // Updated by the weekly check (a scheduled task searches the news, edits this list and pushes).
 // fit: 'yes' — applies to a travel agency; 'check' — may apply, ask the accountant / bank; 'no' — not for an agency (kept so nobody spends time on it)
-var PERKS_AT='2026-11-22';
+var PERKS_AT='2026-11-23';
 var PERKS=[
   {id:'kdv-incoming',fit:'yes',t:'KDV 0% на услуги иностранному туроператору (incoming)',
    d:'По KDV 11/1-a освобождается от НДС часть, которую агентство оставляет себе (наценка/комиссия), когда: счёт выставлен на иностранную фирму, оплата пришла из-за границы в валюте, услуга «используется за рубежом». Отель, трансферы, экскурсии, которые турист получает в Турции, — с обычным KDV.',
@@ -5132,6 +5132,12 @@ var PERKS=[
   {id:'sgk-2puan',fit:'yes',t:'Скидка SGK работодателю (бывшие «5 пунктов»)',
    d:'С 01.01.2026 для всех, кроме производства, скидка 2 пункта (было 4–5), закон 7566. Только если декларации подаются вовремя и нет просроченного долга SGK.',
    do:'Не допускать просрочек MUHSGK и долгов SGK — иначе скидка пропадает за весь месяц.',src:'https://www.alomaliye.com/2026/07/18/5510-sayili-kanun-2-puan-5-puan-indirim-tesviki-2026/'},
+  {id:'asgari-ucret-destegi',fit:'yes',t:'Поддержка минимальной зарплаты SGK: 42,33 TL в день на работника',
+   d:'Январь–декабрь 2026, все частные работодатели (4/1-a). Не деньгами — засчитывается в счёт будущих взносов SGK. Условия: декларации и взносы вовремя, нет долгов SGK, нет неоформленных работников, число сотрудников не ниже минимума 2025 года.',
+   do:'Проверить с бухгалтером, что поддержка применяется каждый месяц; не допускать просрочек и сокращения штата ниже уровня 2025.',src:'https://www.alomaliye.com/2026/08/28/asgari-ucret-destegi-2026/'},
+  {id:'yd-orani-2027',fit:'yes',t:'С 2027 года пошлины и штрафы растут на 27,83%',
+   d:'Коэффициент переоценки (yeniden değerleme oranı) на 2027 год — 27,83%. По нему индексируются налоговые штрафы, пошлины (harç) и фиксированные суммы с 01.01.2027.',
+   do:'Учесть рост штрафов: декларации и платежи — строго в срок.',src:'https://www.borsagundem.com.tr/2027-yili-yeniden-degerleme-orani-yuzde-2783-oldu'},
   {id:'ticaret-tanitim',fit:'check',t:'Минторг: 50% расходов на рекламу и зарубежные выставки',
    d:'Программа для сферы услуг: реклама/продвижение — 50%, до 25 млн TL в год (5 лет); зарубежные выставки — до 1,5 млн TL за мероприятие (престижные до 3 млн), +20 пунктов для целевых стран. Условие: ≥51% выручки за 2 года — из этой сферы. Входит ли туристическое агентство — уточнить по списку программы.',
    do:'Спросить консультанта по экспорту услуг (hizmet ihracatı) / Минторг, подходит ли агентство.',src:'https://nexteradanismanlik.com/blog/hizmet-ihracati-tesvikleri-2026-rehberi'},
@@ -5149,7 +5155,10 @@ var PERKS=[
    do:'Агентству, скорее всего, не положено.',src:'https://www.cnnturk.com/ekonomi/tcmbden-doviz-icin-yeni-karar-sure-2027ye-kadar-uzatildi-3448992'},
   {id:'kosgeb-kapasite',fit:'no',t:'KOSGEB: кредит до 20 млн TL на рост',
    d:'Набор до 15.09.2026 закрыт. Сферы: производство, ИТ, консалтинг, R&D — турагентств в списке нет.',
-   do:'Следить за новыми программами KOSGEB.',src:'https://www.alomaliye.com/2026/08/24/kobi-kapasite-destegi-basvurulari-basladi/'}
+   do:'Следить за новыми программами KOSGEB.',src:'https://www.alomaliye.com/2026/08/24/kobi-kapasite-destegi-basvurulari-basladi/'},
+  {id:'istihdam-koruma',fit:'no',t:'Кредит «İstihdamı Koruma» с субсидией ставки',
+   d:'Кредит на 36 мес. с субсидией 12 пунктов для сохранения персонала. Только производство (NACE C); приём заявок 01.09–31.10.2026 закрыт.',
+   do:'Агентству не положено.',src:'https://www.atonet.org.tr/Yuklemeler/kurumsal_iletisim_ve_basin-yayin_mudurlugu/2026-09-03_%C4%B0stihdam%C4%B1Koruma_Destek_Program%C4%B1_Bilgi%20Notu.pdf'}
 ];
 
 /* ---------- accounts (administrator only): the accountant's Excel exports → income, expenses and profit by month, taxes, debts, state support ---------- */
