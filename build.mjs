@@ -43,6 +43,7 @@ ${r("src/perks.js")}
 ${r("src/acct.js")}
 ${r("src/flightsrc.js")}
 ${r("src/find.js")}
+${r("src/stays.js")}
 ${r("src/scan.js")}
 ${r("src/tourocr.js")}
 </script>
