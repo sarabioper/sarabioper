@@ -28,6 +28,7 @@ function fdCard(c){const today=isoToday();const tr=c.items.filter(e=>e.src==='to
   return `<article class="fd-c"><div class="fd-h"><b>${esc(c.n)}</b><span class="hint">${age!==''?age+' л.':''}${x&&x.sex?' · '+esc(x.sex):''}${p&&p[0]?' · '+esc(p[0]):''}</span></div>
     ${ph?`<div class="fd-ph"><a class="btn sm" href="tel:${esc(String(ph).replace(/[^\d+]/g,''))}">📞 ${esc(ph)}</a>${wa?`<a class="btn sm wa-go" target="_blank" rel="noopener" href="https://wa.me/${wa}">WhatsApp</a>`:''}<button type="button" class="btn sm ghost" data-fdcopy="${esc(ph)}">📋</button></div>`:`<div class="hint">Телефона нет: он бывает только в списках групп экскурсий.</div>`}
     ${fam.length?`<div class="fd-r">👨‍👩‍👧 вместе: ${fam.map(esc).join(', ')}</div>`:''}
+    ${typeof stNowHtml==='function'?stNowHtml(c.k):''}
     ${note?`<div class="fd-r gnote">✎ ${esc(note)}</div>`:''}
     ${x&&x.c&&isOps()?`<div class="fd-r hint">💬 ${esc(x.c)}</div>`:''}
     ${tr.map(e=>{const t=e.t;const on=dayOfTour(t,today);const h=on?fdHotelOn(t,today):'';return `<div class="fd-r">🚌 <b>${esc(t.bus||'')}</b> ${isoDM(t.days[0].d)}–${isoDM(t.days[t.days.length-1].d)} · гид ${gl(gSplit(t.guide)[0]||t.guide)}${gSplit(t.guide).length>1?' + '+gSplit(t.guide).slice(1).map(gl).join(' + '):''}${on?` · <b>сейчас в туре</b>${h?', отель '+esc(h):''}`:''} <button type="button" class="btn sm ghost" data-fdtour="${esc(t.id)}" data-fdname="${esc(e.x.n)}">открыть</button></div>`}).join('')}
