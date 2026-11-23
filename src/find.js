@@ -18,7 +18,7 @@ function fdSearch(q){q=String(q||'').trim();if(q.length<2)return [];const digits
     c.score=(tr.some(e=>dayOfTour(e.t,today))?4:0)+(dd.some(e=>e.d.iso>=isoAdd(today,-1)&&e.d.iso<=isoAdd(today,1))?3:0)+(tr.length?1:0);return c})
     .sort((a,b)=>b.score-a.score||a.n.localeCompare(b.n,'tr')).slice(0,30)}
 function fdHotelOn(t,iso){const dm=iso.slice(8,10)+'.'+iso.slice(5,7);const H=(t.ghotels||[]).map(h=>{const m=h.match(/^(\d\d)\.(\d\d)\s*[–-]\s*(\d\d)\.(\d\d)\s+(.+)$/);return m?{a:iso.slice(0,4)+'-'+m[2]+'-'+m[1],b:iso.slice(0,4)+'-'+m[4]+'-'+m[3],h:m[5]}:null}).filter(Boolean);
-  const x=H.find(h=>iso>=h.a&&iso<h.b)||H.find(h=>iso===h.b);return x?x.h:''}
+  const x=H.find(h=>iso>=h.a&&iso<h.b)||H.find(h=>iso===h.b);return x?(typeof stClean==='function'?stClean(x.h):x.h):''}
 function fdCard(c){const today=isoToday();const tr=c.items.filter(e=>e.src==='tour');const arr=c.items.filter(e=>e.src==='arr').sort((a,b)=>a.d.iso.localeCompare(b.d.iso));const dep=c.items.filter(e=>e.src==='dep').sort((a,b)=>a.d.iso.localeCompare(b.d.iso));
   const x=tr[0]&&tr[0].x;const p=(arr[0]||dep[0]||{}).p;const ph=x&&x.phone;const wa=waNum(ph);
   const age=x&&x.dob?ageOn(x.dob,today):p&&p[2]!=null&&p[2]!==''?p[2]:'';

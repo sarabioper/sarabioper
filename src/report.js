@@ -57,7 +57,7 @@ async function rpExport(from,to){if(!isAdmin())return;if(typeof XLSX==='undefine
   const S5=[['Автобус','Программа','Начало','Конец','Гид','Кок гид','Гостей','Отель Памуккале','Отель Каппадокия','Продажи, $'],...BU];
   const S6=[['Отель','Прожили, чел.','Ночей прожили','Уезжали в тур, чел.','Ночей в туре'],...A.H.map(h=>[h.h,h.g,h.inH,h.left,h.away]),['Всего',sum('g'),sum('inH'),sum('left'),sum('away')],[],['Отель тура','Прожили, чел.','Ночей'],...A.T.map(t=>[t.h,t.G.size,t.n])];
   const S7=[['Отель','Гость','Заезд','Выезд','Ночей в отеле','Ночей в туре','Даты тура','Автобус','Примечание']];
-  A.H.forEach(h=>h.L.forEach(r=>S7.push([h.h,r.p.n,rpD(r.p.a),r.p.d?rpD(r.p.d):'',r.inH.length,r.away.length,r.away.length?stRanges(r.away):'',r.p.t?r.p.t.bus||'':'',[r.p.home?'не поехал в тур':'',r.p.noA?'заезд до начала данных':'',r.p.d?'':'дата выезда неизвестна'].filter(Boolean).join('; ')])));
+  A.H.forEach(h=>h.L.forEach(r=>S7.push([h.h,r.p.n,rpD(r.p.a),r.p.d?rpD(r.p.d):'',r.inH.length,r.away.length,r.away.length?stRanges(r.away):'',r.p.t?r.p.t.bus||'':'',[r.p.home?'не поехал в тур':'',r.p.fix?'дата в списке группы исправлена по группе':'',r.p.noA?'заезд до начала данных':'',r.p.d?'':'дата выезда неизвестна'].filter(Boolean).join('; ')])));
   const wb=XLSX.utils.book_new();const ws=(a,w)=>{const x=XLSX.utils.aoa_to_sheet(a);x['!cols']=w.map(n=>({wch:n}));return x};
   XLSX.utils.book_append_sheet(wb,ws(S1,[44,16,16]),'Сводка');
   XLSX.utils.book_append_sheet(wb,ws(S2,[12,14,14,14,30,40]),'Доходы и расходы');

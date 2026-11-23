@@ -25,7 +25,7 @@ function parseGroupListTR(rows){const h=grpHdrTR(rows),H=(rows[h]||[]).map(c=>up
   rows.slice(0,h).forEach(r=>{const L=(r||[]).map(c=>String(c||'').trim()).filter(Boolean).join(' ');if(L&&!out.code&&!/^\d+\.?$/.test(L))out.code=L});
   let fam=null;
   rows.slice(h+1).forEach(r=>{r=r||[];const L=r.map(c=>String(c==null?'':c).trim()).filter(Boolean).join(' ');if(!L)return;
-    const hs=L.match(/^(\d{1,2}\.\d{1,2})\s*-\s*(\d{1,2}\.\d{1,2})\s*(?:-\s*|\s+)([A-ZÇĞİÖŞÜa-z].*)$/);if(hs){out.hotels.push(`${hs[1]}–${hs[2]} ${hs[3].trim()}`);return}
+    const hs=L.match(/^(\d{1,2}\.\d{1,2})\s*-\s*(\d{1,2}\.\d{1,2})\s*(?:-\s*|\s+)([A-ZÇĞİÖŞÜa-z].*)$/);if(hs){out.hotels.push(`${hs[1]}–${hs[2]} ${hs[3].split(/\s{2,}|[А-Яа-яЁё]/)[0].replace(/[\s\-–]+$/,'').replace(/\s+\d{1,2}$/,'').trim()}`);return}
     let sur,nm;if(one){const w=cell(r,ni).replace(/\s+\d+$/,'').split(' ');sur=w[0]||'';nm=w.slice(1).join(' ')}else{sur=cell(r,ni);nm=cell(r,ni+1).replace(/\s+\d+$/,'')}if(!sur&&!nm)return;
     // column 1: a voucher (has digits or a dash) — or a room type (DBL, TRIPLE), which is not a voucher
     const no=+cell(r,0)||out.guests.length+1,c1=cell(r,1),v=/\d|-/.test(c1)?c1:'',room=v?'':c1,ph=pc>=0?cell(r,pc):'';
@@ -69,7 +69,7 @@ function parseGroupList1(rows){if(isGroupListTR(rows))return parseGroupListTR(ro
       out.guests.push({no:+g[1],n:name,sex:g[4].replace('Ж','F').replace('М','M'),dob:dob?dob.iso:'',phone:ph?ph[0].replace(/\s+/g,' ').trim():'',trf:pr?pr[1]+' '+pr[2].toUpperCase():'',pass:pp?pp[1]:'',
         af:F[0]?F[0].f:'',ad:F[0]&&F[0].d?F[0].d.iso:'',at:F[0]&&F[0].d?F[0].d.t:'',rf:F[1]?F[1].f:'',rd:F[1]&&F[1].d?F[1].d.iso:(rd?(usDate(rd)?usDate(rd).iso:rd):''),rt:F[1]&&F[1].d?F[1].d.t:'',
         v:g[2]||'',c:r.slice(end).replace(/^[\s\-]+/,'').trim(),cp:[],li});return}
-    const hs=L.match(/^(\d{1,2}\.\d{1,2})\s*-\s*(\d{1,2}\.\d{1,2})\s*(?:-\s*|\s+)([A-ZÇĞİÖŞÜa-z].*)$/);if(hs){out.hotels.push(`${hs[1]}–${hs[2]} ${hs[3].trim()}`);return}
+    const hs=L.match(/^(\d{1,2}\.\d{1,2})\s*-\s*(\d{1,2}\.\d{1,2})\s*(?:-\s*|\s+)([A-ZÇĞİÖŞÜa-z].*)$/);if(hs){out.hotels.push(`${hs[1]}–${hs[2]} ${hs[3].split(/\s{2,}|[А-Яа-яЁё]/)[0].replace(/[\s\-–]+$/,'').replace(/\s+\d{1,2}$/,'').trim()}`);return}
     if(!out.guests.length&&!/Фамилия|Ваучер|Комментарий/i.test(L)){if(!out.code)out.code=L;return}
     if(/Фамилия|Ваучер|Комментарий/i.test(L))return;
     loose.push({L,li})});

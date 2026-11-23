@@ -34,9 +34,19 @@ function stGuess(t){const D=t.days,out={};if(D.length<3)return out;
   if(s<0)return out;
   if(r<0){if(!/KAPADOK|KAPPADOK|CAPPADOC/.test(upTR(t.name)+' '+D.map(txt).join(' ')))return out;r=Math.min(D.length-1,s+3)}
   for(let i=s;i<r;i++)out[D[i].d]=i===s?'PAM':'KAP';return out}
-const stNights=t=>t.stay&&t.stay.n?t.stay.n:stGuess(t);
+// the hotel plan printed under the group list: "22.11-24.11-PORT", "24.11-25.11-COLOSSAE", "25.11-27.11-FLORIA", "27.11-29.11-PORT"
+// the first hotel is the guest's own hotel; the other ones are the tour nights (the first one Pamukkale, the next ones Cappadocia)
+const stClean=h=>String(h||'').split(/\s{2,}|[А-Яа-яЁё]|\s\d+\s*\$/)[0].replace(/[\s\-–]+$/,'').replace(/\s+\d{1,2}$/,'').trim();
+const STPLAN=new WeakMap();
+function stPlan(t){const key=(t.ghotels||[]).join('|')+'#'+((t.days[0]||{}).d||'');const c=STPLAN.get(t);if(c&&c.key===key)return c.v;
+  const y=((t.days[0]||{}).d||isoToday()).slice(0,4);const iso=(d,m)=>`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  const L=(t.ghotels||[]).map(x=>{const m=String(x).match(/^(\d{1,2})\.(\d{1,2})\s*[–-]\s*(\d{1,2})\.(\d{1,2})\s*[-–]?\s*(.+)$/);if(!m)return null;return {a:iso(m[1],m[2]),b:iso(m[3],m[4]),h:stClean(m[5])}}).filter(x=>x&&x.h&&x.a<x.b).sort((x,y)=>x.a.localeCompare(y.a));
+  let v=null;if(L.length>=2){const base=L[0].h,same=h=>fdN(h)===fdN(base);const n={},hn={},at={};let k=0;
+    L.forEach(e=>{if(same(e.h))return;const pl=k===0?'PAM':'KAP';k++;for(let d=e.a;d<e.b;d=isoAdd(d,1)){n[d]=pl;at[d]=e.h}if(!hn[pl])hn[pl]=e.h});v={base,n,h:hn,at,L}}
+  STPLAN.set(t,{key,v});return v}
+const stNights=t=>t.stay&&t.stay.n?t.stay.n:(stPlan(t)?stPlan(t).n:stGuess(t));
 // the tour hotel: typed by the office, or the "18.10–19.10 HOTEL" line of the group list
-function stTourHotel(t,pl,iso){const h=t.stay&&t.stay.h&&t.stay.h[pl];if(h)return h;try{const g=fdHotelOn(t,iso);if(g)return g}catch(e){}return ''}
+function stTourHotel(t,pl,iso){const h=t.stay&&t.stay.h&&t.stay.h[pl];if(h)return h;const P=stPlan(t);if(P)return P.at[iso]||P.h[pl]||'';try{const g=stClean(fdHotelOn(t,iso));if(g)return g}catch(e){}return ''}
 function stHome(t,i){return !!((stTM(t.id+'|sthome|'+i)||{}).home)}
 // every guest once: {n,k,a,d,base,t,i,flags}
 function stPeople(){
@@ -46,10 +56,15 @@ function stPeople(){
     (d.dep||[]).forEach(g=>(g.p||[]).forEach(p=>{if(!p||!p[1])return;const key=stKey(p[1]);if(!Dp.has(key))Dp.set(key,[]);Dp.get(key).push({iso,h:g.h||'',n:p[1]})}))});
   const near=(L,iso,after)=>{if(!L||!L.length)return null;let best=null,bd=1e9;L.forEach(x=>{const dd=(Date.parse(x.iso)-Date.parse(iso||x.iso))/864e5;if(after&&iso&&dd<0)return;const v=Math.abs(dd);if(v<bd){bd=v;best=x}});return bd<=21?best:null};
   const out=[],usedA=new Set(),usedD=new Set();
-  stBuses().forEach(t=>{(t.gx||[]).forEach((x,i)=>{if(x.gone)return;const key=stKey(x.n);
-    const a=near(A.get(key),x.ad||t.days[0].d),dp=near(Dp.get(key),x.rd||t.days[t.days.length-1].d);if(a)usedA.add(a);if(dp)usedD.add(dp);
-    const ad=x.ad||(a&&a.iso)||'',rd=x.rd||(dp&&dp.iso)||'';
-    out.push({n:x.n,k:key,fam:x.fam,ph:x.phone||'',a:ad||t.days[0].d,d:rd,noA:!ad,base:(a&&a.h)||(dp&&dp.h)||'',t,i,home:stHome(t,i)})})});
+  // a date that is far from the rest of the group (a typo in the list: 1999, or a departure on the arrival day) takes the group's date
+  const mode=L=>{const c={};L.filter(Boolean).forEach(v=>c[v]=(c[v]||0)+1);return Object.keys(c).sort((a,b)=>c[b]-c[a])[0]||''};
+  const far=(a,b)=>!a||!b||Math.abs(Date.parse(a)-Date.parse(b))>10*864e5;
+  stBuses().forEach(t=>{const X=(t.gx||[]).filter(x=>!x.gone);const mA=mode(X.map(x=>x.ad)),mD=mode(X.map(x=>x.rd));const plan=stPlan(t);
+    (t.gx||[]).forEach((x,i)=>{if(x.gone)return;const key=stKey(x.n);
+    let xa=x.ad,xd=x.rd,fix=false;if(mA&&xa&&far(xa,mA)){xa=mA;fix=true}if(mD&&xd&&(far(xd,mD)||xd<=(xa||mA))){xd=mD;fix=true}
+    const a=near(A.get(key),xa||t.days[0].d),dp=near(Dp.get(key),xd||t.days[t.days.length-1].d);if(a)usedA.add(a);if(dp)usedD.add(dp);
+    const ad=xa||(a&&a.iso)||'',rd=xd||(dp&&dp.iso)||'';
+    out.push({n:x.n,k:key,fam:x.fam,ph:x.phone||'',a:ad||t.days[0].d,d:rd,noA:!ad,fix,base:(a&&a.h)||(dp&&dp.h)||(plan&&plan.base)||'',t,i,home:stHome(t,i)})})});
   A.forEach((L,key)=>L.forEach(a=>{if(usedA.has(a))return;usedA.add(a);
     const dp=(Dp.get(key)||[]).filter(x=>!usedD.has(x)&&x.iso>=a.iso).sort((x,y)=>x.iso.localeCompare(y.iso))[0];if(dp)usedD.add(dp);
     out.push({n:a.n,k:key,a:a.iso,d:dp?dp.iso:'',base:a.h||(dp&&dp.h)||'',t:null})}));
@@ -82,8 +97,8 @@ function stBusHtml(t,P,iso){const S=stBusState(t);const G=P.filter(p=>p.t===t);c
   const open=STOPEN.has(t.id);
   return `<article class="st-bus${w?' away':''}"><div class="st-bh"><b>🚌 ${esc(t.bus||'Автобус')}</b><span class="hint">${esc(t.name||'')} ${isoDM(t.days[0].d)}–${isoDM(t.days[t.days.length-1].d)}</span><span class="chip">👥 ${pax}</span>${home.length?`<span class="chip">остались в отеле: ${home.length}</span>`:''}</div>
     <div class="st-where">${where}</div>
-    ${S?`<div class="st-marks">${mk(S.left,S.leftT,'Выехали из отелей',S.out,'out')}${mk(S.ret,S.retT,'Вернулись в отели',S.back,'back')}</div>`:'<div class="hint">В программе нет ночёвок вне Анталии. Если они есть — отметьте ночи ниже.</div>'}
-    <details class="st-ed"${open?' open':''} data-stopen="${esc(t.id)}"><summary>Ночи и отели тура${t.stay&&t.stay.n?'':' <span class="hint">(определены по программе)</span>'}</summary>
+    ${S&&!S.st0&&!S.stR?'<div class="hint">Отметки «выехали / вернулись» появятся, когда у автобуса будет программа с остановками.</div>':S?`<div class="st-marks">${mk(S.left,S.leftT,'Выехали из отелей',S.out,'out')}${mk(S.ret,S.retT,'Вернулись в отели',S.back,'back')}</div>`:'<div class="hint">В программе нет ночёвок вне Анталии. Если они есть — отметьте ночи ниже.</div>'}
+    <details class="st-ed"${open?' open':''} data-stopen="${esc(t.id)}"><summary>Ночи и отели тура${t.stay&&t.stay.n?'':stPlan(t)?' <span class="hint">(по отелям из списка группы)</span>':' <span class="hint">(определены по программе)</span>'}</summary>
       <div class="st-nights">${t.days.slice(0,-1).map(d=>`<label><span>${isoDM(d.d)}</span><select data-stn="${esc(t.id)}|${d.d}"><option value="">свой отель</option><option value="PAM"${N[d.d]==='PAM'?' selected':''}>Памуккале</option><option value="KAP"${N[d.d]==='KAP'?' selected':''}>Каппадокия</option></select></label>`).join('')}</div>
       <div class="st-hn"><label>Отель в Памуккале <input data-sth="${esc(t.id)}|PAM" value="${esc((t.stay&&t.stay.h&&t.stay.h.PAM)||'')}" placeholder="${esc(stTourHotel(t,'PAM',Object.keys(N).find(k=>N[k]==='PAM')||'')||'название')}"></label><label>Отель в Каппадокии <input data-sth="${esc(t.id)}|KAP" value="${esc((t.stay&&t.stay.h&&t.stay.h.KAP)||'')}" placeholder="${esc(stTourHotel(t,'KAP',Object.keys(N).find(k=>N[k]==='KAP')||'')||'название')}"></label></div>
       ${G.length?`<div class="st-gl"><div class="hint">Снимите галочку, если гость не поехал в тур и остаётся в своём отеле:</div>${G.map(p=>`<label class="st-g"><input type="checkbox" data-sthome="${esc(t.id)}|${p.i}"${p.home?'':' checked'}> ${esc(p.n)} <span class="hint">${esc(p.base||'отель ?')}</span></label>`).join('')}</div>`:'<div class="hint">Списка гостей у автобуса нет — загрузите список группы во вкладке «Экскурсии».</div>'}
@@ -161,7 +176,7 @@ function stAcctXls(P){const A=stAcct(P,STA.from,STA.to);const per=`${isoDM(STA.f
   const s1=[['Отель','Прожили, чел.','Ночей прожили','Уезжали в тур, чел.','Ночей в туре'],...A.H.map(h=>[h.h,h.g,h.inH,h.left,h.away]),
     ['Всего',...['g','inH','left','away'].map(k=>A.H.reduce((s,h)=>s+h[k],0))],[],['Прожитые ночи '+per],[],['Отель тура','Прожили, чел.','Ночей'],...A.T.map(t=>[t.h,t.G.size,t.n])];
   const s2=[['Отель','Гость','Заезд','Выезд','Ночей в отеле','Ночей в туре','Даты тура','Автобус','Примечание']];
-  A.H.forEach(h=>h.L.forEach(r=>s2.push([h.h,r.p.n,isoDM(r.p.a)+'.'+r.p.a.slice(0,4),r.p.d?isoDM(r.p.d)+'.'+r.p.d.slice(0,4):'',r.inH.length,r.away.length,r.away.length?stRanges(r.away):'',r.p.t?r.p.t.bus||'':'',[r.p.home?'не поехал в тур':'',r.p.noA?'заезд до начала данных':'',r.p.d?'':'дата выезда неизвестна'].filter(Boolean).join('; ')])));
+  A.H.forEach(h=>h.L.forEach(r=>s2.push([h.h,r.p.n,isoDM(r.p.a)+'.'+r.p.a.slice(0,4),r.p.d?isoDM(r.p.d)+'.'+r.p.d.slice(0,4):'',r.inH.length,r.away.length,r.away.length?stRanges(r.away):'',r.p.t?r.p.t.bus||'':'',[r.p.home?'не поехал в тур':'',r.p.fix?'дата в списке группы исправлена по группе':'',r.p.noA?'заезд до начала данных':'',r.p.d?'':'дата выезда неизвестна'].filter(Boolean).join('; ')])));
   const s3=[['Дата ночи',...A.H.map(h=>h.h)],...A.days.map(d=>[isoDM(d)+'.'+d.slice(0,4),...A.H.map(h=>h.L.filter(r=>r.inH.includes(d)).length)])];
   const wb=XLSX.utils.book_new();const ws=a=>{const w=XLSX.utils.aoa_to_sheet(a);w['!cols']=a[0].map((_,i)=>({wch:i===0||i===1?28:14}));return w};
   XLSX.utils.book_append_sheet(wb,ws(s1),'Итог');XLSX.utils.book_append_sheet(wb,ws(s2),'Гости');XLSX.utils.book_append_sheet(wb,ws(s3),'По ночам');XLSX.writeFile(wb,`sverka_hotels_${STA.from}_${A.end}.xlsx`)}
@@ -193,7 +208,7 @@ function renderStays(){const el=$('#staysBox');if(!el)return;const iso=STD||isoT
     </tbody></table></div>`:'<p class="hint">На эту дату гостей нет. Гости берутся из загруженных KAPAK и списков групп экскурсий.</p>'}
     <h3 class="st-h">Сверка с отелями (бухгалтерия)</h3><div id="stAcct">${stAcctHtml(P)}</div>
     <h3 class="st-h">Календарь на 14 ночей</h3>${cal.html}
-    <p class="hint">Отель гостя — из KAPAK (прилёт / вылет). Ночи в Памуккале и Каппадокии — из программы автобуса; их можно поправить в карточке автобуса. Межотельные переезды без фамилий не учитываются.</p>`;
+    <p class="hint">Отель гостя — из KAPAK (прилёт / вылет) или из строк «22.11-24.11-PORT» под списком группы. Ночи в Памуккале и Каппадокии — из этих строк, а если их нет — из программы автобуса; их можно поправить в карточке автобуса. Межотельные переезды без фамилий не учитываются.</p>`;
   const bindQ=()=>{document.querySelectorAll('[data-sthopen]').forEach(d=>d.addEventListener('toggle',()=>{if(STQ.trim())return;d.open?STHOPEN.add(d.dataset.sthopen):STHOPEN.delete(d.dataset.sthopen)}));const q=$('#stQ');if(q)q.oninput=()=>{STQ=q.value;const pos=q.selectionStart;$('#stWho').innerHTML=stWhoHtml(P,iso);bindQ();const n=$('#stQ');n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}};bindQ();
   $('#stPrev').onclick=()=>{STD=isoAdd(iso,-1);renderStays()};$('#stNext').onclick=()=>{STD=isoAdd(iso,1);renderStays()};$('#stToday').onclick=()=>{STD=null;renderStays()};
   const bindA=()=>{const f=$('#staFrom'),t=$('#staTo');const go=()=>{if(f.value&&t.value&&f.value<=t.value){STA={from:f.value,to:t.value};$('#stAcct').innerHTML=stAcctHtml(P);bindA();stArchFor()}};f.onchange=go;t.onchange=go;
