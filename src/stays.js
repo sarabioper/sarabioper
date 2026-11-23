@@ -7,7 +7,7 @@
 // The office can correct the tour nights and the tour hotels of every bus, and mark a guest who did not go.
 // t.stay = {n:{'2026-10-23':'PAM','2026-10-24':'KAP',...}, h:{PAM:'hotel name',KAP:'hotel name'}}
 // TM[tid+'|sthome|'+i] = {home:1}  — this guest stays in his hotel during the tour
-let STD=null,STOPEN=new Set(),STQ='';
+let STD=null,STOPEN=new Set(),STQ='',STHOPEN=new Set();
 const ST_PL={PAM:'Памуккале',KAP:'Каппадокия'};
 const stKey=n=>fdKey(n);
 function stBuses(){const seen=new Map();tours().forEach(t=>{if(!t.days||!t.days.length)return;const k=tourKey(t);const o=seen.get(k);if(!o||(t.gx||[]).length>(o.gx||[]).length)seen.set(k,t)});
@@ -92,16 +92,19 @@ function stNowHtml(k){try{const iso=isoToday();const L=stPeopleFast().filter(p=>
   return L.map(p=>{const w=stWhere(p,iso),w0=stWhere(p,isoAdd(iso,-1));if(!w&&!w0)return '';const nx=w&&stNext(p,iso);
     const mv=w0&&w&&stLbl(w0)!==stLbl(w)?` <span class="hint">(сегодня переезд из ${esc(stLbl(w0))})</span>`:!w&&w0?' <span class="hint">сегодня выезжает</span>':'';
     return `<div class="fd-r">🏨 <b>${w?'Сейчас: '+esc(stLbl(w)):'Был: '+esc(stLbl(w0))}</b>${mv}${nx?` · до ${isoDM(nx.d)}${nx.to?' → '+esc(stLbl(nx.to)):' (вылет)'}`:''}</div>`}).join('')}catch(e){return ''}}
-function stWhoHtml(P,iso){const q=fdN(STQ).split(' ').filter(Boolean),dg=STQ.replace(/\D/g,'');
-  const L=P.map(p=>({p,w:stWhere(p,iso)})).filter(r=>r.w).filter(r=>{if(!q.length&&dg.length<4)return true;if(dg.length>=4&&String(r.p.ph||'').replace(/\D/g,'').includes(dg))return true;
-    const W=(r.p.k+' '+fdN(stLbl(r.w))+' '+fdN(r.p.t?r.p.t.bus:'')).split(' ');return q.length&&q.every(t=>W.some(w=>w.startsWith(t)))})
-    .sort((a,b)=>stLbl(a.w).localeCompare(stLbl(b.w),'tr')||a.p.n.localeCompare(b.p.n,'tr'));
-  const max=200;
+function stWhoHtml(P,iso){const q=fdN(STQ).split(' ').filter(Boolean),dg=STQ.replace(/\D/g,'');const qOn=q.length||dg.length>=4;
+  const L=P.map(p=>({p,w:stWhere(p,iso)})).filter(r=>r.w).filter(r=>{if(!qOn)return true;if(dg.length>=4&&String(r.p.ph||'').replace(/\D/g,'').includes(dg))return true;
+    const W=(r.p.k+' '+fdN(stLbl(r.w))+' '+fdN(r.p.t?r.p.t.bus:'')).split(' ');return q.length&&q.every(t=>W.some(w=>w.startsWith(t)))});
+  // one block per hotel: Antalya hotels first (biggest first), then the tour hotels
+  const G=new Map();L.forEach(r=>{const k=stLbl(r.w);if(!G.has(k))G.set(k,{k,pl:r.w.pl,L:[]});G.get(k).L.push(r)});
+  const PO={'':0,PAM:1,KAP:2};const H=[...G.values()].sort((a,b)=>PO[a.pl]-PO[b.pl]||b.L.length-a.L.length||a.k.localeCompare(b.k,'tr'));
+  const row=({p})=>{const nx=stNext(p,iso);const ph=p.ph;return `<tr><td><b>${esc(p.n)}</b>${p.home?' <span class="chip">не поехал в тур</span>':''}</td><td>${nx?isoDM(nx.d)+(nx.to?' → '+esc(stLbl(nx.to)):' вылет'):'?'}</td><td>${p.t?'🚌 '+esc(p.t.bus||''):''}</td><td>${ph?`<a class="tel" href="tel:${esc(ph.replace(/[^\d+]/g,''))}">${esc(ph)}</a>`:''}</td></tr>`};
+  const fams=R=>{const F=new Map();R.forEach(r=>{const f=r.p.fam||r.p.k;if(!F.has(f))F.set(f,[]);F.get(f).push(r)});return [...F.values()].sort((a,b)=>a[0].p.n.localeCompare(b[0].p.n,'tr'))};
   return `<input class="gx-q" id="stQ" value="${esc(STQ)}" placeholder="Фамилия, телефон, отель или автобус" aria-label="Поиск гостя по отелям">
-    <div class="hint">${L.length} гостей${L.length>max?`, показаны первые ${max} — уточните поиск`:''}</div>
-    ${L.length?`<div class="tbl-wrap"><table class="st-who"><thead><tr><th>Гость</th><th>Где живёт</th><th>До</th><th>Автобус</th><th>Телефон</th></tr></thead><tbody>
-    ${L.slice(0,max).map(({p,w})=>{const nx=stNext(p,iso);const ph=p.ph;return `<tr${w.pl?' class="st-tour"':''}><td><b>${esc(p.n)}</b>${p.home?' <span class="chip">не поехал в тур</span>':''}</td><td>${esc(stLbl(w))}</td><td>${nx?isoDM(nx.d)+(nx.to?' → '+esc(stLbl(nx.to)):' вылет'):'?'}</td><td>${p.t?esc(p.t.bus||''):''}</td><td>${ph?`<a class="tel" href="tel:${esc(ph.replace(/[^\d+]/g,''))}">${esc(ph)}</a>`:''}</td></tr>`}).join('')}
-    </tbody></table></div>`:''}`}
+    <div class="hint">${L.length} гостей в ${H.length} отелях${qOn?' (по поиску)':''}</div>
+    <div class="st-hotels">${H.map(h=>{const open=qOn||STHOPEN.has(h.k);return `<details class="st-hot${h.pl?' tour':''}" data-sthopen="${esc(h.k)}"${open?' open':''}><summary><b>🏨 ${esc(h.k)}</b><span class="chip">👥 ${h.L.length}</span></summary>
+      <div class="tbl-wrap"><table class="st-who"><thead><tr><th>Гость</th><th>До</th><th>Автобус</th><th>Телефон</th></tr></thead><tbody>
+      ${fams(h.L).map(F=>F.map(row).join('').replace('<tr>','<tr class="st-f1">')).join('')}</tbody></table></div></details>`}).join('')}</div>`}
 function renderStays(){const el=$('#staysBox');if(!el)return;const iso=STD||isoToday();const P=stPeople();const H=stDay(P,iso);
   const sum=k=>H.reduce((s,h)=>s+h[k].length,0);const inBase=H.filter(h=>!h.pl).reduce((s,h)=>s+h.night.length,0);
   const pam=H.filter(h=>h.pl==='PAM').reduce((s,h)=>s+h.night.length,0),kap=H.filter(h=>h.pl==='KAP').reduce((s,h)=>s+h.night.length,0);
@@ -127,7 +130,7 @@ function renderStays(){const el=$('#staysBox');if(!el)return;const iso=STD||isoT
     </tbody></table></div>`:'<p class="hint">На эту дату гостей нет. Гости берутся из загруженных KAPAK и списков групп экскурсий.</p>'}
     <h3 class="st-h">Календарь на 14 ночей</h3>${cal.html}
     <p class="hint">Отель гостя — из KAPAK (прилёт / вылет). Ночи в Памуккале и Каппадокии — из программы автобуса; их можно поправить в карточке автобуса. Межотельные переезды без фамилий не учитываются.</p>`;
-  const bindQ=()=>{const q=$('#stQ');if(q)q.oninput=()=>{STQ=q.value;const pos=q.selectionStart;$('#stWho').innerHTML=stWhoHtml(P,iso);bindQ();const n=$('#stQ');n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}};bindQ();
+  const bindQ=()=>{document.querySelectorAll('[data-sthopen]').forEach(d=>d.addEventListener('toggle',()=>{if(STQ.trim())return;d.open?STHOPEN.add(d.dataset.sthopen):STHOPEN.delete(d.dataset.sthopen)}));const q=$('#stQ');if(q)q.oninput=()=>{STQ=q.value;const pos=q.selectionStart;$('#stWho').innerHTML=stWhoHtml(P,iso);bindQ();const n=$('#stQ');n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}};bindQ();
   $('#stPrev').onclick=()=>{STD=isoAdd(iso,-1);renderStays()};$('#stNext').onclick=()=>{STD=isoAdd(iso,1);renderStays()};$('#stToday').onclick=()=>{STD=null;renderStays()};
   $('#stXls').onclick=()=>{try{const C=stCalHtml(P,iso,31);const aoa=[['Отель',...C.dates.map(isoDM)],...C.R.map(r=>[r.k,...r.c]),['Всего',...C.tot]];
     const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(aoa),'Ночи');XLSX.writeFile(wb,`hotels_${iso}.xlsx`)}catch(e){toast('Не получилось сохранить Excel')}};
