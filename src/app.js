@@ -38,7 +38,7 @@ function breakdownHtml(d){const B=d.breakdown;if(!B)return '';
   return `<div class="bkd">${Object.entries(B).sort((x,y)=>['arr','dep','all'].indexOf(x[0])-['arr','dep','all'].indexOf(y[0])).map(([sd,b])=>`<div class="bk"><b>${SIDE_RU[sd]||'Весь Капак'}</b>
     <span>📦 Итог в документе: <b>${b.expected!=null?b.expected:'—'}</b>${b.expected!=null?(b.expected===b.total?' · программа нашла '+b.total+' ✓':' · программа нашла '+b.total+' ⚠'):' · программа нашла '+b.total}</span>
     <span>✈️ Рейсы из аэропорта${sd==='dep'?' / в аэропорт':''}: <b>${b.flights}</b> (${b.nFl} рейсов)${b.noNum?` + <b>${b.noNum}</b> без номера рейса`:''}</span>
-    <span>🚌 Межотельные (ARA): <b>${b.h2h}</b></span>
+    ${b.h2h?`<span class="hint">в т.ч. переезды гостей по туру (ARA) — не задания: ${b.h2h}</span>`:''}
     <span>🚶 Едут сами (KENDİ GİDER): <b>${b.self}</b></span></div>`).join('')}</div>`}
 function dayFromKapak(K,key,title){
   const clean=s=>s&&!/\?/.test(s)?s:'';
@@ -471,15 +471,14 @@ function renderBoard(){
     ['В воздухе',air+late,late?`${late} с задержкой`:'без задержек'],
     ['Встречено',paxMet,'отметки гидов'],
     ['Машин',new Set(DAY.arr.map(t=>t.v).filter(Boolean)).size,'на прилёты'],
-    ['Межотельные',DAY.h2h,`${(DAY.h2hList||[]).length} переездов · ${DAY.self} едут сами`],
     ...(DAY.check?[['По Капаку',Object.values(DAY.check).map(v=>v.got).join(' / '),Object.entries(DAY.check).map(([k,v])=>`${SIDE_RU[k]||k} ${v.expected===v.got?'✓':'⚠ из '+v.expected}`).join(' · ')]]:[])
   ].map(([k,v,s])=>`<div class="stat"><div class="k">${k}</div><div class="v num">${v}</div><div class="s">${s}</div></div>`).join('');
 }
 
 /* ---------- departures ---------- */
 function renderH2H(){
-  const el=$('#h2hBox');if(!el)return;const L=(DAY&&DAY.h2hList)||[];
-  el.hidden=!L.length;if(!L.length)return;
+  // hotel-to-hotel moves are the same voucher guests on their tour (Antalya → Pamukkale → Cappadocia → back to their Antalya hotel): not shown as separate work
+  const el=$('#h2hBox');if(!el)return;el.hidden=true;return;const L=[];
   const sides=[...new Set(L.map(x=>x.side||''))];
   $('#h2hN').textContent=`${L.length} переездов · ${L.reduce((a,x)=>a+x.pax,0)} чел`;
   $('#h2hTbl').innerHTML=sides.map(sd=>{const rows=L.filter(x=>(x.side||'')===sd);const byFrom=new Map();rows.forEach(x=>{const k=x.from||'откуда не указано';if(!byFrom.has(k))byFrom.set(k,[]);byFrom.get(k).push(x)});
@@ -695,12 +694,12 @@ function renderVeh(){
   renderWpLog();
   const vsAll=vehicleLegs();
   const cnt={arr:vsAll.filter(x=>x.kind.includes('arr')).length,dep:vsAll.filter(x=>x.kind.includes('dep')).length,h2h:(DAY.h2hList||[]).length,tour:(assign['~tours']||[]).length};
-  $('#vSec').innerHTML=[['all','Все'],['arr','✈️ Arrival'],['dep','🛫 Depar'],['h2h','🏨 Между отелями'],['tour','🚌 Туры']].map(([k,l])=>`<button type="button" data-s="${k}" aria-pressed="${vehSec===k}">${l}${k!=='all'?` <span class="cnt">${cnt[k]}</span>`:''}</button>`).join('');
+  $('#vSec').innerHTML=[['all','Все'],['arr','✈️ Arrival'],['dep','🛫 Depar'],['tour','🚌 Туры']].map(([k,l])=>`<button type="button" data-s="${k}" aria-pressed="${vehSec===k}">${l}${k!=='all'?` <span class="cnt">${cnt[k]}</span>`:''}</button>`).join('');
   $('#vSec').querySelectorAll('button').forEach(b=>b.onclick=()=>{vehSec=b.dataset.s;store.set('vehSec',vehSec);renderVeh()});
-  const onlyExtra=vehSec==='h2h'||vehSec==='tour';
+  if(vehSec==='h2h')vehSec='all';const onlyExtra=vehSec==='tour';
   $('#vehMain').hidden=onlyExtra;
   const vs=vehSec==='arr'||vehSec==='dep'?vsAll.filter(x=>x.kind.includes(vehSec)):vsAll;
-  $('#vExtra').innerHTML=vehSec==='h2h'?`<h2 class="vsec-h">${VSEC.h2h}</h2>`+h2hVehHtml():vehSec==='tour'?`<h2 class="vsec-h">${VSEC.tour}</h2>`+toursHtml():'';
+  $('#vExtra').innerHTML=vehSec==='tour'?`<h2 class="vsec-h">${VSEC.tour}</h2>`+toursHtml():'';
   if(onlyExtra)return;
   // summary
   const noPlate=vs.filter(x=>!(assign[x.v]||{}).plate).length;
@@ -730,7 +729,7 @@ function renderVeh(){
     <div class="vfoot"><button class="btn" type="button" data-drv="${esc(x.v)}">Скопировать задание водителю</button></div></article>`};
   const secs=vehSec==='all'?['arr','dep']:[vehSec];
   $('#vgrid').innerHTML=secs.map(sec=>{const L=vs.filter(x=>x.kind.includes(sec));return `<h2 class="vsec-h">${VSEC[sec]} <span class="hint">${L.length} машин · ${L.reduce((s,x)=>s+x.legs.filter(l=>l.kind===sec).reduce((a,l)=>a+l.pax,0),0)} чел</span></h2>`+(L.length?L.map(x=>card(x,sec)).join(''):'<p class="hint">Нет машин.</p>')}).join('')
-    +(vehSec==='all'?`<h2 class="vsec-h">${VSEC.h2h}</h2>${h2hVehHtml()}<h2 class="vsec-h">${VSEC.tour}</h2>${toursHtml()}`:'');
+    +(vehSec==='all'?`<h2 class="vsec-h">${VSEC.tour}</h2>${toursHtml()}`:'');
   if(!isOps())$('#vgrid').querySelectorAll('input').forEach(i=>{i.readOnly=true;i.tabIndex=-1});
   $('#vgrid').querySelectorAll('input').forEach(i=>i.addEventListener('change',e=>{const v=e.target.dataset.v,f=e.target.dataset.f;assign[v]=assign[v]||{};assign[v][f]=e.target.value.trim();saveAssign();renderVeh();renderBoard()}));
   $('#vgrid').querySelectorAll('input').forEach(i=>i.addEventListener('input',e=>{const v=e.target.dataset.v,f=e.target.dataset.f;assign[v]=assign[v]||{};assign[v][f]=e.target.value;renderWa()}));
@@ -810,7 +809,6 @@ function runChecks(){
   const notes=[...A,...D].filter(x=>x.note&&!/^[!?]/.test(x.fl)&&x.to!=='GZP');
   if(notes.length)out.push(['info','Пометки диспетчера в списке',notes.map(x=>`${x.fl} ${x.t}: «${x.note}»`).join(' · ')]);
   if(DAY.self)out.push(['info',`${DAY.self} гостей едут сами`,'Записи с пометкой «Kendi gider». Машина и гид не нужны.']);
-  if(DAY.h2h)out.push(['info',`Межотельные трансферы: ${DAY.h2h} чел`,'Переезды «отель → отель» без рейса. Для них нужно назначить машины и время отдельно.']);
   let sal=0;A.forEach(t=>t.p.forEach(p=>{const s=p[1].split(' ')[0];if(p[0]==='Mrs'&&/(OV|EV|IN)$/.test(s))sal++}));
   if(sal)out.push(['info',`Обращение не совпадает с фамилией: ${sal} гостей`,'Например «Mrs MAMAEV KUBANYCHBEK». На табличке встречи это выглядит неаккуратно.']);
   out.push(...DAY.extra);
@@ -1267,7 +1265,7 @@ async function importKapak(rows,file){
   if(prev&&prev.tourists){d.tourists=prev.tourists;names=applyTourists(d,d.tourists)}
   DAYS[key]=d;
   const srv=await saveDay(key,d);
-  return {key,html:`<b>Капак ${esc(key)} загружен.</b>${checkHtml(d)}${breakdownHtml(d)}<span>${d.arr.length} групп на прилёт, ${d.dep.length} на вылет, ${d.self} гостей едут сами, ${d.h2h} в межотельных переездах.</span>${srv?`<span>Программа следит за ${srv.watched} рейсами из этого Капака${srv.poll&&srv.poll.ok?`, первые данные уже получены (${srv.poll.found})`:''}.</span>`:''}<span>Сверка с итогами файла: ${ok} из ${K.recon.length} рейсов сходятся.${pack.recon.bad.length?' Не сходятся: '+pack.recon.bad.map(b=>esc(b.fl)).join(', ')+'.':''}</span>${names?`<span>Имена туристов из прошлой загрузки сохранены: ${names.people}.</span>`:''}`};
+  return {key,html:`<b>Капак ${esc(key)} загружен.</b>${checkHtml(d)}${breakdownHtml(d)}<span>${d.arr.length} групп на прилёт, ${d.dep.length} на вылет, ${d.self} гостей едут сами.</span>${srv?`<span>Программа следит за ${srv.watched} рейсами из этого Капака${srv.poll&&srv.poll.ok?`, первые данные уже получены (${srv.poll.found})`:''}.</span>`:''}<span>Сверка с итогами файла: ${ok} из ${K.recon.length} рейсов сходятся.${pack.recon.bad.length?' Не сходятся: '+pack.recon.bad.map(b=>esc(b.fl)).join(', ')+'.':''}</span>${names?`<span>Имена туристов из прошлой загрузки сохранены: ${names.people}.</span>`:''}`};
 }
 async function importTourists(T,file){
   const key=T.date?T.date.d+'.'+T.date.m:null;
@@ -1288,7 +1286,7 @@ async function importTourists(T,file){
     return {key,html:`<b>Araç Listesi ${esc(key)} загружен: ${T.vehicles.length} машин.</b><span>${created?'Капака на этот день нет, прилёты построены по листу машин. ':''}Машины, гиды и терминалы обновлены, имена добавлены в ${r.matched+r.added} групп, всего ${r.people} туристов.</span><span>По машинам: ${per.join(' · ')}</span>${r.changed.length?`<span>Машина изменилась по сравнению с Капаком: ${r.changed.map(esc).join('; ')}</span>`:''}${r.added&&!created?`<span>Добавлено трансферов, которых не было в Капаке: ${r.added}.</span>`:''}${(()=>{const un=r.unmatched.filter(t=>t.dir!=='h2h');return un.length?`<span style="color:var(--warn)">⚠ Не нашёл в Капаке, имена не добавлены (${un.length}): ${un.slice(0,10).map(t=>esc((t.fl||'без рейса')+' '+(t.time||'')+' '+t.hotel+' · '+t.people.length+' чел'+(t.veh?' · '+t.veh:''))).join('; ')}${un.length>10?'…':''}</span>`:''})()}`};
   }
   if(T.forcedDep)return {key,html:`<b>Вылеты ${esc(key)}: список загружен.</b><span>Имена добавлены в ${r.matched} групп на вылет, всего ${r.people} туристов.${r.added?` Добавлено новых выездов: ${r.added}.`:''}</span>${un.length?`<span>Не нашлись в Капаке (${un.length}): ${un.slice(0,8).map(t=>esc((t.fl||'без рейса')+' '+t.hotel)).join(', ')}</span>`:''}`};
-  return {key,html:`<b>Имена туристов ${esc(key)} загружены.</b><span>Имена добавлены в ${r.matched} групп, всего ${r.people} туристов. Теперь у гидов есть кнопки «Вышел».</span>${r.h2h?`<span>${r.h2h} туристов в межотельных переездах, в Капаке их нет.</span>`:''}${un.length?`<span>Не нашлись в Капаке (${un.length}): ${un.slice(0,8).map(t=>esc((t.fl||'без рейса')+' '+t.hotel+' · '+t.people.length+' чел')).join('; ')}${un.length>8?'…':''}</span>`:''}`};
+  return {key,html:`<b>Имена туристов ${esc(key)} загружены.</b><span>Имена добавлены в ${r.matched} групп, всего ${r.people} туристов. Теперь у гидов есть кнопки «Вышел».</span>${''}${un.length?`<span>Не нашлись в Капаке (${un.length}): ${un.slice(0,8).map(t=>esc((t.fl||'без рейса')+' '+t.hotel+' · '+t.people.length+' чел')).join('; ')}${un.length>8?'…':''}</span>`:''}`};
 }
 async function importDepNotice(N,file){
   if(!N.groups.length)throw new Error('в листе выезда не нашёл пассажиров');
@@ -1342,7 +1340,7 @@ function renderDayStatus(){
   if(!DAY){el.innerHTML='<span class="chip">День ещё не загружен</span>';return}
   const named=DAY.arr.filter(g=>g.p&&g.p.length),ppl=[...DAY.arr,...DAY.dep].reduce((s,g)=>s+(g.p?g.p.length:0),0);
   const hasK=DAY.source!=='Araç Listesi';
-  el.innerHTML=(hasK?`<span class="chip ok">${esc(DAY.key||dayKey)} · Капак: ${DAY.arr.length} групп на прилёт, ${DAY.dep.length} на вылет, ${DAY.h2h||0} межотельных</span>${checkHtml(DAY)}`:`<span class="chip bad">${esc(DAY.key||dayKey)} · Капак не загружен (вылетов нет)</span>`)
+  el.innerHTML=(hasK?`<span class="chip ok">${esc(DAY.key||dayKey)} · Капак: ${DAY.arr.length} групп на прилёт, ${DAY.dep.length} на вылет</span>${checkHtml(DAY)}`:`<span class="chip bad">${esc(DAY.key||dayKey)} · Капак не загружен (вылетов нет)</span>`)
     +(DAY.aracVehicles?`<span class="chip ok">Машины: ${DAY.aracVehicles.length} из Araç Listesi</span>`:'<span class="chip">Araç Listesi не загружен</span>')
     +(ppl?`<span class="chip ok">Имена: ${ppl} туристов в ${named.length} группах</span>`:'<span class="chip bad">Имена туристов ещё не загружены</span>');
 }

@@ -208,7 +208,7 @@ function renderStays(){const el=$('#staysBox');if(!el)return;const iso=STD||isoT
     </tbody></table></div>`:'<p class="hint">На эту дату гостей нет. Гости берутся из загруженных KAPAK и списков групп экскурсий.</p>'}
     <h3 class="st-h">Сверка с отелями (бухгалтерия)</h3><div id="stAcct">${stAcctHtml(P)}</div>
     <h3 class="st-h">Календарь на 14 ночей</h3>${cal.html}
-    <p class="hint">Отель гостя — из KAPAK (прилёт / вылет) или из строк «22.11-24.11-PORT» под списком группы. Ночи в Памуккале и Каппадокии — из этих строк, а если их нет — из программы автобуса; их можно поправить в карточке автобуса. Межотельные переезды без фамилий не учитываются.</p>`;
+    <p class="hint">Отель гостя — из KAPAK (прилёт / вылет) или из строк «22.11-24.11-PORT» под списком группы. Ночи в Памуккале и Каппадокии — из этих строк, а если их нет — из программы автобуса; их можно поправить в карточке автобуса.</p>`;
   const bindQ=()=>{document.querySelectorAll('[data-sthopen]').forEach(d=>d.addEventListener('toggle',()=>{if(STQ.trim())return;d.open?STHOPEN.add(d.dataset.sthopen):STHOPEN.delete(d.dataset.sthopen)}));const q=$('#stQ');if(q)q.oninput=()=>{STQ=q.value;const pos=q.selectionStart;$('#stWho').innerHTML=stWhoHtml(P,iso);bindQ();const n=$('#stQ');n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}};bindQ();
   $('#stPrev').onclick=()=>{STD=isoAdd(iso,-1);renderStays()};$('#stNext').onclick=()=>{STD=isoAdd(iso,1);renderStays()};$('#stToday').onclick=()=>{STD=null;renderStays()};
   const bindA=()=>{const f=$('#staFrom'),t=$('#staTo');const go=()=>{if(f.value&&t.value&&f.value<=t.value){STA={from:f.value,to:t.value};$('#stAcct').innerHTML=stAcctHtml(P);bindA();stArchFor()}};f.onchange=go;t.onchange=go;
