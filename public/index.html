@@ -5517,7 +5517,9 @@ function stPeople(){
   Dp.forEach((L,key)=>L.forEach(dp=>{if(usedD.has(dp))return;out.push({n:dp.n,k:key,a:first,noA:true,d:dp.iso,base:dp.h,t:null})}));
   return out}
 // where the guest sleeps the night that starts on iso: null = not with us
-function stWhere(p,iso){if(iso<p.a)return null;if(p.d?iso>=p.d:iso>isoAdd(p.a,30))return null;
+// a stay is never longer than 10 nights: no departure date, or a date further than that (a typo) — the guest leaves on day 10
+const ST_MAX=10;
+function stWhere(p,iso){if(iso<p.a)return null;const end=p.d&&p.d<=isoAdd(p.a,ST_MAX)?p.d:isoAdd(p.a,ST_MAX);if(iso>=end)return null;
   if(p.t&&!p.home){const pl=stNights(p.t)[iso];if(pl)return {pl,h:stTourHotel(p.t,pl,iso)||'отель не указан · '+(p.t.bus||'автобус')}}
   return {pl:'',h:p.base||'— отель не известен —'}}
 function stDay(P,iso){const prev=isoAdd(iso,-1);const H=new Map();const hot=h=>{if(!H.has(h.h))H.set(h.h,{h:h.h,pl:h.pl,night:[],arr:[],dep:[],out:[],back:[]});return H.get(h.h)};
@@ -5641,7 +5643,7 @@ function renderStays(){const el=$('#staysBox');if(!el)return;const iso=STD||isoT
       <div class="st-k"><span>Заезд / вылет сегодня</span><b>${sum('arr')} / ${sum('dep')}</b></div>
       <div class="st-k"><span>Уезжают в тур / возвращаются</span><b>${sum('out')} / ${sum('back')}</b></div>
     </div>
-    ${unk.length||noH.length?`<p class="hint st-w">⚠ ${noH.length?`${noH.length} гостей без отеля (нет в KAPAK). `:''}${unk.length?`${unk.length} гостей без даты выезда — считаются в отеле до 30 дней от заезда.`:''}</p>`:''}
+    ${unk.length||noH.length?`<p class="hint st-w">⚠ ${noH.length?`${noH.length} гостей без отеля (нет в KAPAK). `:''}${unk.length?`${unk.length} гостей без даты выезда — считаются в отеле максимум 10 дней от заезда.`:''}</p>`:''}
     <h3 class="st-h">Кто где живёт · ночь на ${isoDM(iso)}</h3><div id="stWho">${stWhoHtml(P,iso)}</div>
     <h3 class="st-h">Автобусы в туре</h3>
     ${buses.length?`<div class="st-buses">${buses.map(t=>stBusHtml(t,P,iso)).join('')}</div>`:'<p class="hint">В этот день автобусов в туре нет.</p>'}
