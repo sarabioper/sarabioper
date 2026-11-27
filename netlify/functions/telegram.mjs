@@ -1,20 +1,15 @@
 import { createHash } from "node:crypto";
 import { store, json, authorized, isOffice } from "../lib/common.mjs";
 import { driverByPin, getDrivers, vehsOf, jobsOf, saveLoc } from "../lib/drivers.mjs";
+import { TOKEN, tgApi, tgSay as say, tgEsc as esc } from "../lib/tg.mjs";
 
 // Telegram bot for drivers (iPhone or anyone without the Android app):
 // the driver sends his PIN once, then shares a LIVE location — Telegram keeps sending it in the background.
 // POST /api/tg        <- Telegram webhook (checked with the secret token)
 // GET  /api/tg/setup  -> (office) connects the webhook; the bot token is TELEGRAM_BOT_TOKEN in Netlify
-// state/00.00/tg = {bot: "username", links: {chatId: driverId}}
-const TOKEN = () => (process.env.TELEGRAM_BOT_TOKEN || "").trim();
+// GET/POST/DELETE /api/tg/sales (administrator) -> sales notifications: the chats that get them, a one-time link to subscribe
+// state/00.00/tg = {bot: "username", links: {chatId: driverId}, subs: {chatId: {name, at}}, code: {v, exp}}
 const SECRET = () => createHash("sha256").update("sarabi:" + TOKEN()).digest("hex").slice(0, 48);
-const tgApi = async (method, body) => {
-  const r = await fetch(`https://api.telegram.org/bot${TOKEN()}/${method}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  return r.json().catch(() => ({ ok: false }));
-};
-const say = (chat, text) => tgApi("sendMessage", { chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true });
-const esc = (x) => String(x == null ? "" : x).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
 
 const HOWTO = "📍 <b>Canlı konum nasıl paylaşılır</b>\n" +
   "1) Bu sohbette 📎 (ataş) → <b>Konum</b>\n" +
@@ -51,6 +46,25 @@ export default async (req) => {
     return json({ ok: true, bot: tg.bot });
   }
 
+  if (path === "/api/tg/sales") {
+    const auth = await authorized(req);
+    if (!auth.ok) return auth.res;
+    if (auth.role !== "admin") return json({ error: "Только администратор" }, 403);
+    const tg = (await s.get("state/00.00/tg", { type: "json" })) || {};
+    tg.subs = tg.subs || {};
+    if (req.method === "POST") {
+      if (!TOKEN()) return json({ error: "В Netlify не задан TELEGRAM_BOT_TOKEN" }, 400);
+      if (!tg.bot) { const me = await tgApi("getMe", {}); if (me.ok) tg.bot = me.result.username; }
+      tg.code = { v: "S" + Math.random().toString(36).slice(2, 10).toUpperCase(), exp: Date.now() + 30 * 60000 };
+      await s.setJSON("state/00.00/tg", tg);
+    } else if (req.method === "DELETE") {
+      const chat = new URL(req.url).searchParams.get("chat");
+      if (chat && tg.subs[chat]) { delete tg.subs[chat]; await s.setJSON("state/00.00/tg", tg); await say(chat, "🔕 Уведомления о продажах отключены."); }
+    }
+    const code = tg.code && tg.code.exp > Date.now() ? tg.code.v : null;
+    return json({ bot: tg.bot || null, hasToken: !!TOKEN(), subs: Object.entries(tg.subs).map(([chat, x]) => ({ chat, name: x.name, at: x.at })), link: code && tg.bot ? `https://t.me/${tg.bot}?start=${code}` : null, code });
+  }
+
   if (path !== "/api/tg" || req.method !== "POST") return json({ error: "Не найдено" }, 404);
   if (!TOKEN() || req.headers.get("x-telegram-bot-api-secret-token") !== SECRET()) return json({ error: "forbidden" }, 403);
   const up = await req.json().catch(() => ({}));
@@ -78,6 +92,22 @@ export default async (req) => {
 
   const text = String(msg.text || "").trim();
   const pin = text.replace(/\D/g, "");
+  // sales notifications: the administrator's one-time link (t.me/bot?start=CODE) or the code typed in
+  const code = text.replace(/^\/start\s*/i, "").trim().toUpperCase();
+  if (tg.code && tg.code.exp > Date.now() && code && code === tg.code.v) {
+    tg.subs = tg.subs || {};
+    tg.subs[chat] = { name: [msg.from && msg.from.first_name, msg.from && msg.from.last_name].filter(Boolean).join(" ") || "—", at: new Date().toISOString() };
+    tg.code = null;
+    await s.setJSON("state/00.00/tg", tg);
+    await say(chat, "✅ <b>SARABI · продажи</b>\nТеперь сюда приходит каждая продажа гидов: пакет, цена (440/380 — если была скидка), гости, автобус.\n/satis_off — отключить.");
+    return json({ ok: true });
+  }
+  if (/^\/satis_off/i.test(text)) {
+    if (tg.subs && tg.subs[chat]) { delete tg.subs[chat]; await s.setJSON("state/00.00/tg", tg); }
+    await say(chat, "🔕 Уведомления о продажах отключены.");
+    return json({ ok: true });
+  }
+  if (tg.subs && tg.subs[chat] && !id) { await say(chat, "💰 Сюда приходят продажи гидов.\n/satis_off — отключить."); return json({ ok: true }); }
   if (/^\/(bitir|stop)/i.test(text)) {
     if (id) await saveLoc(s, id, { off: true }, "telegram");
     await say(chat, id ? "⏹ Vardiya kapandı, konum artık takip edilmiyor. Sohbetteki canlı konumu da durdurun (haritada “Paylaşımı durdur”)." : "Önce PIN kodunuzu yazın.");
@@ -97,4 +127,4 @@ export default async (req) => {
   return json({ ok: true });
 };
 
-export const config = { path: ["/api/tg", "/api/tg/setup"] };
+export const config = { path: ["/api/tg", "/api/tg/setup", "/api/tg/sales"] };

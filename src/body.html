@@ -523,6 +523,7 @@ article.flight.open{border-bottom-left-radius:0;border-bottom-right-radius:0;mar
 .slf-cart{border:1px solid var(--line);border-radius:8px;padding:6px 10px;display:grid;gap:4px;background:var(--sunk)}.slf-l{display:grid;grid-template-columns:1fr auto 90px;gap:8px;align-items:center;font-size:14px}.slf-l .n{text-align:right}.slf-l.tot{border-top:1px solid var(--line);padding-top:6px;font-size:17px}
 .slf-q2{display:flex;align-items:center;gap:6px}.slf-q2 .btn{min-width:30px;padding:2px 8px}.slf-go{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}.slf-go .btn{flex:1 1 auto}.slf-pw{margin-left:auto}.slf-pw select{font:inherit;padding:3px}
 #tkPrint{display:none}
+.slf-pr{display:inline-flex;align-items:center;gap:4px;margin-left:8px;font-size:13px;color:var(--muted)}.slf-pr input{width:70px;font:inherit;font-size:15px;font-weight:700;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}.slf-pr.chg input{border-color:var(--warn,#E8A317)}.slf-pr i{font-style:normal;font-weight:700;color:var(--warn,#b07a00)}.sl-disc{font-weight:700;color:var(--warn,#b07a00)}
 #acctBox{display:grid;gap:12px}.ac-th{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.ac-th h2{margin:0;flex:1}.ac-yrs{display:flex;gap:4px}.ac-yrs .on{background:var(--accent,#b8860b);color:#111}
 .ac-in{color:var(--ok,#2E9E5B)}.ac-out{color:var(--crit,#C2392E)}.ac-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}.ac-kpi .kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;display:grid;gap:2px}.ac-kpi .kpi b{font-size:22px}.ac-kpi.sm .kpi b{font-size:17px}
 .ac-t{width:100%;border-collapse:collapse;font-size:14px}.ac-t td,.ac-t th{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left}.ac-t .n{text-align:right;white-space:nowrap}.ac-tot td{font-weight:700;border-top:2px solid var(--line)}
@@ -815,6 +816,7 @@ mark{background:var(--signal-soft);color:inherit}
       <div class="panel adm-box"><h3>👤 PIN-коды гидов</h3><p class="hint">Гид входит общим паролем гидов + своим PIN. Без PIN гид не войдёт. PIN можно сразу отправить гиду в WhatsApp.</p><div id="admPins"></div></div>
       <div class="panel adm-box"><h3>🚐 Водители (приложение Sarabi Sürücü)</h3><p class="hint">Водитель ставит приложение на Android, вводит свой PIN из 6 цифр и нажимает «Vardiyayı başlat» — машина появляется на карте у операционного отдела (Машины) и у вас (Контроль). Машина — как в KAPAK, например BUS 3 или MİNİ 7: тогда водитель видит в приложении свои задания на сегодня.</p><div id="admDrv"></div></div>
       <div class="panel adm-box provp" id="admProv"></div>
+      <div class="panel adm-box"><h3>📲 Продажи в Telegram</h3><div id="admTg"></div></div>
       <div class="panel adm-box"><h3>📜 Журнал изменений</h3><div id="admLog"></div></div>
     </div>
   </section>

@@ -27,7 +27,7 @@ function addSale(tid,gi,itemId,o={}){const t=TOURS[tid],it=PRICES[itemId];if(!t|
 
 // inside a guest's open line: what he has bought, and one-tap buttons for the price list
 function guestSaleHtml(t,i){if(!canSales())return '';const mine=slGuest(t.id,i);const items=slItems();
-  return `<div class="gsale">${mine.length?`<div class="gs-have">${mine.map(s=>`<span class="chip ok">💰 ${esc(s.name)}${s.qty>1?' ×'+s.qty:''} · ${money(s.sum)} <button type="button" class="x" data-slpr="${esc(slTkKey(s))}" title="Печать билета">🖨</button><button type="button" class="x" data-sldel="${esc(s.id)}" aria-label="Удалить">✕</button></span>`).join('')}</div>`:''}
+  return `<div class="gsale">${mine.length?`<div class="gs-have">${mine.map(s=>`<span class="chip ok">💰 ${esc(s.name)}${slDisc(s)}${s.qty>1?' ×'+s.qty:''} · ${money(s.sum)} <button type="button" class="x" data-slpr="${esc(slTkKey(s))}" title="Печать билета">🖨</button><button type="button" class="x" data-sldel="${esc(s.id)}" aria-label="Удалить">✕</button></span>`).join('')}</div>`:''}
     ${items.length?`<details class="gs-add" data-gso="${esc(t.id)}|${i}"${typeof GXOPEN!=='undefined'&&GXOPEN.has('s:'+t.id+'|'+i)?' open':''}><summary class="btn sm">💰 Продажа</summary><div class="gs-items">${items.map(it=>`<button type="button" class="btn sm${it.k==='pack'?' pack':''}" data-sladd="${esc(t.id)}|${i}|${esc(it.id)}">${esc(it.n)} <b>${money(slPrice(it,t))}</b></button>`).join('')}</div></details>`:'<span class="hint">Прайс ещё не загружен</span>'}</div>`}
 const slBadge=(tid,i)=>{if(!canSales())return '';const s=slGuest(tid,i).reduce((a,x)=>a+(+x.sum||0),0);return s?` <span class="chip ok gs-b">💰 ${money(s)}</span>`:''};
 function bindSales(el){
@@ -42,10 +42,12 @@ function slCard(t,o={}){const S=slStats(t);const cls=S.pct>=100?'ok':S.pct>=60?'
     <div class="slbar ${cls}" title="${S.pct}% цели"><i style="width:${Math.min(100,S.pct)}%"></i><span>${S.pct}% от цели ${money(S.target)}</span></div>
     ${S.items.length?`<div class="sli">${S.items.map(x=>`<span>${esc(x.n)} <b>×${x.q}</b> = ${money(x.s)}</span>`).join('')}</div>`:'<p class="hint">Продаж пока нет.</p>'}
     ${o.form?slFormHtml(t):''}
-    ${o.list&&S.L.length?`<details class="sll"><summary>Все продажи (${S.L.length})</summary>${S.L.sort((a,b)=>String(b.at).localeCompare(String(a.at))).map(s=>`<div class="sl-r"><span class="num hint">${isoDM(s.date)}</span> ${s.n?esc(s.n):'<i>без имени</i>'} · ${esc(s.name)}${s.qty>1?' ×'+s.qty:''} · <b>${money(s.sum)}</b>${o.by?` <span class="hint">${esc(s.by||'')}</span>`:''} <button type="button" class="btn sm ghost" data-slpr="${esc(slTkKey(s))}" title="Печать билета">🖨</button> <button type="button" class="x" data-sldel="${esc(s.id)}" aria-label="Удалить">✕</button></div>`).join('')}</details>`:''}
+    ${o.list&&S.L.length?`<details class="sll"><summary>Все продажи (${S.L.length})</summary>${S.L.sort((a,b)=>String(b.at).localeCompare(String(a.at))).map(s=>`<div class="sl-r"><span class="num hint">${isoDM(s.date)}</span> ${s.n?esc(s.n):'<i>без имени</i>'} · ${esc(s.name)}${slDisc(s)}${s.qty>1?' ×'+s.qty:''} · <b>${money(s.sum)}</b>${o.by?` <span class="hint">${esc(s.by||'')}</span>`:''} <button type="button" class="btn sm ghost" data-slpr="${esc(slTkKey(s))}" title="Печать билета">🖨</button> <button type="button" class="x" data-sldel="${esc(s.id)}" aria-label="Удалить">✕</button></div>`).join('')}</details>`:''}
     <div class="tact"><button type="button" class="btn sm" data-slwa="${esc(t.id)}">📋 Отчёт в WhatsApp</button>${o.form?slPrinterHtml():''}</div></section>`}
 // quick sale from the Sales block: find the guest(s) by name or number, fill a cart, sell and print a ticket
 // SLC[tid] = {q, sel:[gi…], name, cart:{itemId:qty}}  — kept while the screen redraws on sync
+// «440/380»: list price / price sold, when the guide gave a discount or a surcharge
+const slDisc=s=>s&&s.list&&+s.list!==+s.price?` <span class="sl-disc">${+s.list}/${+s.price}</span>`:'';
 var SLC={};const slc=tid=>SLC[tid]||(SLC[tid]={q:'',sel:[],name:'',cart:{}});
 const slNorm=v=>(typeof gKey==='function'?gKey(v):String(v||'').toUpperCase());
 function slFind(t,q){const X=t.gx||[];q=String(q||'').trim();if(!q)return [];const num=/^\d+$/.test(q)?+q:null;const Q=slNorm(q).split(' ').filter(Boolean);
@@ -62,11 +64,11 @@ function slFormBody(t){const items=slItems();const c=slc(t.id);const X=t.gx||[];
   const who=selN.length||c.name?`<div class="slf-who">${selN.map(x=>`<span class="chip slf-c">👤 ${esc(x.n)} <button type="button" class="x" data-slfun="${X.indexOf(x)}" aria-label="Убрать">✕</button></span>`).join('')}${c.name?`<span class="chip slf-c">✍️ ${esc(c.name)} <button type="button" class="x" data-slfunname aria-label="Убрать">✕</button></span>`:''}
       ${fam.length?`<button type="button" class="btn sm ghost" data-slffam>👨‍👩‍👧 + семья: ${fam.map(f=>esc(f.x.n.split(' ')[0])).join(', ')}</button>`:''}</div>`:'<p class="hint slf-tip">Найдите гостя — или сразу выбирайте экскурсии, тогда продажа будет без имени.</p>';
   const nP=Math.max(1,selN.length+(c.name?1:0));
-  const lines=Object.entries(c.cart).filter(([k,q])=>q>0&&PRICES[k]);const tot=lines.reduce((a,[k,q])=>a+q*slPrice(Object.assign({id:k},PRICES[k]),t),0);
+  const lines=Object.entries(c.cart).filter(([k,q])=>q>0&&PRICES[k]);const tot=lines.reduce((a,[k,q])=>a+q*slcPr(c,k,slPrice(Object.assign({id:k},PRICES[k]),t)),0);
   return `${res}${who}
     <div class="slf-s"><span class="slf-step">2</span><span class="hint">Нажмите экскурсию${nP>1?` — добавится ×${nP}, по одной на каждого`:''}</span></div>
     <div class="gs-items">${items.map(it=>`<button type="button" class="btn sm${it.k==='pack'?' pack':''}${c.cart[it.id]?' in':''}" data-slfadd="${esc(it.id)}">${c.cart[it.id]?`<i class="slf-n">${c.cart[it.id]}</i>`:''}${esc(it.n)} <b>${money(slPrice(it,t))}</b></button>`).join('')}</div>
-    ${lines.length?`<div class="slf-cart">${lines.map(([k,q])=>{const it=PRICES[k];const pr=slPrice(Object.assign({id:k},it),t);return `<div class="slf-l"><span>${esc(it.n)}</span><span class="slf-q2"><button type="button" class="btn sm ghost" data-slfq2="${esc(k)}|-1">−</button><b>${q}</b><button type="button" class="btn sm ghost" data-slfq2="${esc(k)}|1">+</button></span><b class="n">${money(q*pr)}</b></div>`}).join('')}
+    ${lines.length?`<div class="slf-cart">${lines.map(([k,q])=>{const it=PRICES[k];const base=slPrice(Object.assign({id:k},it),t);const pr=slcPr(c,k,base);return `<div class="slf-l"><span>${esc(it.n)}<label class="slf-pr${pr!==base?' chg':''}">${pr!==base?`<s>${base}</s> `:''}<input type="number" inputmode="decimal" min="0" step="5" data-slfpr="${esc(k)}" value="${pr}" aria-label="Цена"> $${pr!==base?` <i>${pr<base?'−'+(base-pr):'+'+(pr-base)}</i>`:''}</label></span><span class="slf-q2"><button type="button" class="btn sm ghost" data-slfq2="${esc(k)}|-1">−</button><b>${q}</b><button type="button" class="btn sm ghost" data-slfq2="${esc(k)}|1">+</button></span><b class="n">${money(q*pr)}</b></div>`}).join('')}
       <div class="slf-l tot"><span>Итого</span><span></span><b class="n">${money(tot)}</b></div>
       <div class="slf-go"><button type="button" class="btn primary" data-slfsell="1">✅ Продать и 🖨 билет</button><button type="button" class="btn" data-slfsell="0">✅ Продать без печати</button><button type="button" class="btn ghost" data-slfclr>Очистить</button></div></div>`:''}`}
 function slFormBind(el,tid){const t=TOURS[tid];if(!t)return;const c=slc(tid);const body=el.querySelector('[data-slfbody]');const X=t.gx||[];
@@ -80,15 +82,18 @@ function slFormBind(el,tid){const t=TOURS[tid];if(!t)return;const c=slc(tid);con
   const un=body.querySelector('[data-slfunname]');if(un)un.onclick=()=>{c.name='';redraw()};
   const fm=body.querySelector('[data-slffam]');if(fm)fm.onclick=()=>{const S=c.sel.map(i=>X[i]).filter(Boolean);X.forEach((x,i)=>{if(!x.gone&&!c.sel.includes(i)&&S.some(y=>y.fam&&y.fam===x.fam))c.sel.push(i)});redraw()};
   body.querySelectorAll('[data-slfadd]').forEach(b=>b.onclick=()=>{const n=Math.max(1,c.sel.length+(c.name?1:0));c.cart[b.dataset.slfadd]=(c.cart[b.dataset.slfadd]||0)+n;redraw()});
+  body.querySelectorAll('[data-slfpr]').forEach(i=>{i.onchange=()=>{c.pr=c.pr||{};c.pr[i.dataset.slfpr]=i.value;redraw()};i.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();i.onchange()}}});
   body.querySelectorAll('[data-slfq2]').forEach(b=>b.onclick=()=>{const [k,d]=b.dataset.slfq2.split('|');c.cart[k]=Math.max(0,(c.cart[k]||0)+ +d);if(!c.cart[k])delete c.cart[k];redraw()});
   const cl=body.querySelector('[data-slfclr]');if(cl)cl.onclick=()=>{SLC[tid]={q:'',sel:[],name:'',cart:{}};q.value='';redraw()};
   body.querySelectorAll('[data-slfsell]').forEach(b=>b.onclick=()=>{const tk=slSell(t,c);if(!tk)return;SLC[tid]={q:'',sel:[],name:'',cart:{}};if(b.dataset.slfsell==='1')slPrint(tk)})}
 // the cart becomes sales: when an excursion is bought once per chosen guest, every guest gets his own sale (for the per-guest stats)
+// the price of a cart line: the list price unless the guide gave a discount or a surcharge (typed in the cart)
+const slcPr=(c,k,base)=>c.pr&&c.pr[k]!=null&&c.pr[k]!==''&&!isNaN(+c.pr[k])?Math.max(0,+c.pr[k]):base;
 function slSell(t,c){const people=[...c.sel.map(i=>({gi:i})),...(c.name?[{gi:-1,n:c.name}]:[])];if(!people.length)people.push({gi:-1,n:''});
   const tk=isoToday().slice(8,10)+isoToday().slice(5,7)+'-'+Math.random().toString(36).slice(2,6).toUpperCase();const at=new Date().toISOString();const by=ROLE==='guide'?(ME||''):(uName()||'Администратор');const patch={};let sum=0;
-  Object.entries(c.cart).forEach(([k,q])=>{const it=PRICES[k];if(!it||!q)return;const price=slPrice(Object.assign({id:k},it),t);
+  Object.entries(c.cart).forEach(([k,q])=>{const it=PRICES[k];if(!it||!q)return;const list=slPrice(Object.assign({id:k},it),t);const price=slcPr(c,k,list);
     const parts=q%people.length===0?people.map(p=>({p,qty:q/people.length})):[{p:people[0],qty:q}];
-    parts.forEach(({p,qty})=>{const x=p.gi>=0?(t.gx||[])[p.gi]:null;const s={id:'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),tk,tid:t.id,gi:x?p.gi:-1,ref:x?gxRef(t.id,p.gi):'',n:x?x.n:(p.n||''),item:k,name:it.n,qty,price,sum:qty*price,date:isoToday(),at,by};
+    parts.forEach(({p,qty})=>{const x=p.gi>=0?(t.gx||[])[p.gi]:null;const s={id:'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),tk,tid:t.id,gi:x?p.gi:-1,ref:x?gxRef(t.id,p.gi):'',n:x?x.n:(p.n||''),item:k,name:it.n,qty,price,...(price!==list?{list}:{}),sum:qty*price,date:isoToday(),at,by};
       SALES[s.id]=s;patch[s.id]=s;sum+=s.sum})});
   if(!Object.keys(patch).length)return null;SLC[t.id]={q:'',sel:[],name:'',cart:{}};store.set('sales',SALES);slPut('sales',patch);toast(`Продано: ${money(sum)} · билет ${tk}`);slRefresh();return tk}
 

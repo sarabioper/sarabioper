@@ -27,7 +27,20 @@ function renderAdmin(){if(!$('#v-admin')||!isAdmin())return;
   el.querySelectorAll('[data-admdel]').forEach(b=>b.onclick=()=>setPin(b.dataset.admdel,''));
   $('#admAdd').onclick=()=>{const n=$('#admNew').value.trim().toLocaleUpperCase('tr');if(!n)return;setPin(n,admNewPin())};
 }
-$('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b&&b.dataset.t==='admin'&&isAdmin())loadAdmin().catch(()=>{})});
+/* sales notifications in Telegram: the owner / administrator taps a one-time link, the bot sends every sale there */
+let TGS=null;
+async function loadTgSales(m){try{TGS=await api(m||'GET','/api/tg/sales')}catch(e){TGS={err:String(e.message).replace(/[{}"]/g,' ')}}renderTgSales()}
+function renderTgSales(){const el=$('#admTg');if(!el)return;const S=TGS;if(!S){el.innerHTML='<p class="hint">Загрузка…</p>';return}
+  if(S.err)return el.innerHTML=`<p class="hint">Не удалось: ${esc(S.err)}</p>`;
+  if(!S.hasToken)return el.innerHTML='<p class="hint">Сначала в Netlify нужен ключ бота TELEGRAM_BOT_TOKEN (тот же бот, что у водителей).</p>';
+  el.innerHTML=`<p class="hint">Каждая продажа гида приходит в Telegram: пакет, цена — если была скидка, то «440/380», гости, автобус, кто продал и кто привёл.</p>
+    ${S.subs.length?`<div class="adm-log">${S.subs.map(x=>`<div>📲 <b>${esc(x.name)}</b> <span class="hint">с ${new Date(x.at).toLocaleDateString('ru-RU')}</span> <button type="button" class="x" data-tgsdel="${esc(x.chat)}" aria-label="Отключить">✕</button></div>`).join('')}</div>`:'<p>Пока никто не подключён.</p>'}
+    ${S.link?`<p>Откройте эту ссылку на телефоне, где нужны уведомления, и нажмите <b>Start</b> (ссылка действует 30 минут):</p><p><a class="btn primary" href="${esc(S.link)}" target="_blank" rel="noopener">📲 Подключить Telegram</a> <button type="button" class="btn ghost" data-tgcopy>📋 Копировать ссылку</button></p>`
+      :`<button type="button" class="btn" data-tgnew>+ Подключить телефон</button>`}`;
+  const n=el.querySelector('[data-tgnew]');if(n)n.onclick=()=>loadTgSales('POST');
+  const c=el.querySelector('[data-tgcopy]');if(c)c.onclick=()=>copy(S.link,true);
+  el.querySelectorAll('[data-tgsdel]').forEach(b=>b.onclick=async()=>{if(!confirm('Отключить уведомления для этого телефона?'))return;try{TGS=await api('DELETE','/api/tg/sales?chat='+encodeURIComponent(b.dataset.tgsdel))}catch(e){}renderTgSales()})}
+$('#tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(b&&b.dataset.t==='admin'&&isAdmin()){loadAdmin().catch(()=>{});loadTgSales()}});
 
 /* ---- drivers with the tracking app: name, vehicle, phone, 6-digit PIN; operations and the administrator give them out ---- */
 var DRV={},DRVBOT=null;

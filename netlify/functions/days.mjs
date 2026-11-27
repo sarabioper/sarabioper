@@ -1,6 +1,7 @@
 import { store, json, authorized, forbidden, istanbulNow, isOffice } from "../lib/common.mjs";
 import { watchFromDay, watchDepFromDay } from "../lib/watch.mjs";
 import { poll } from "../lib/poll.mjs";
+import { notifySales } from "../lib/tg.mjs";
 import { guideFromPin, dayForGuide, toursForGuide, sameGuide, guideOfTour } from "../lib/guide.mjs";
 
 // Shared day storage, so every dispatcher and guide sees the same list.
@@ -272,9 +273,10 @@ export default async (req) => {
     if (kind === "sales" || kind === "prices") {
       // sales: one key per sale; a guide may add or remove sales only for his own buses
       const prev = (await s.get("state/" + d + "/" + kind, { type: "json" })) || {};
-      let own = null;
+      let own = null;const added = [];
       if (me) { const T = (await s.get("state/00.00/tours", { type: "json" })) || {}; own = new Set(Object.values(T).filter((t) => t && guideOfTour(t, me)).map((t) => t.id)); }
       for (const [k, v] of Object.entries(body || {})) {
+        if (kind === "sales" && v && typeof v === "object" && !prev[k] && (!own || own.has(v.tid))) added.push({ ...v, id: k, ...(me ? { by: me } : {}) });
         if (own) {
           if (v == null) { if (prev[k] && own.has(prev[k].tid)) delete prev[k]; continue; }
           if (typeof v !== "object" || !own.has(v.tid)) continue;
@@ -282,6 +284,8 @@ export default async (req) => {
         } else if (v == null) delete prev[k]; else prev[k] = v;
       }
       await s.setJSON("state/" + d + "/" + kind, prev);
+      // new sales go to the Telegram chats that subscribed (owner, administrator)
+      if (added.length) await notifySales(s, added).catch(() => {});
       return json({ ok: true });
     }
     if (kind === "reports") {
